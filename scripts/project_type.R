@@ -1,4 +1,5 @@
-# Purpose: Create a bar plot of the number of participants who have contributed to each project type.
+# Purpose: Create a bar plot of the number of
+# participants who have contributed to each project type.
 # Input: deidentified_no_qual.tsv
 # Output: project_type.tiff
 
@@ -68,12 +69,4 @@ ggplot(proj_counts, aes(x = proj_type, y = count)) +
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
   )
 
-figure_path <- Sys.getenv("FIGURE_PATH")
-ggsave(
-  filename = "project_type.tiff",
-  path = figure_path,
-  width = 10,
-  height = 7,
-  device = "tiff",
-  dpi = 700
-)
+save_plot("project_type.tiff", 10, 7)

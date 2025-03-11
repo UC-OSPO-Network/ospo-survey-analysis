@@ -7,7 +7,9 @@ source("utils.R")
 
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
-importance_and_job <- data %>% select(starts_with("importance_opensrc") | starts_with("job_category"))
+importance_and_job <- data %>% select(
+  starts_with("importance_opensrc") | starts_with("job_category")
+)
 
 # Reshape data to long format
 long_data <- importance_and_job %>%
@@ -46,7 +48,11 @@ long_data$job_category <- gsub("^Other.*", "Other", long_data$job_category)
 
 
 
-ggplot(long_data, aes(x = job_category, y = importance_level, fill = importance_area)) +
+ggplot(long_data, aes(
+  x = job_category,
+  y = importance_level,
+  fill = importance_area
+)) +
   geom_bar(stat = "identity", position = "fill") +
   ggtitle("Perceived Importance of Open Source among Campus Groups") +
   labs(fill = "Areas of Importance") +
@@ -70,14 +76,4 @@ ggplot(long_data, aes(x = job_category, y = importance_level, fill = importance_
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
   )
 
-
-# Path is in my ~/.Renviron file
-figure_path <- Sys.getenv("FIGURE_PATH")
-ggsave(
-  filename = "importance.tiff",
-  path = figure_path,
-  width = 10,
-  height = 5,
-  device = "tiff",
-  dpi = 700
-)
+save_plot("importance.tiff", 10, 5)
