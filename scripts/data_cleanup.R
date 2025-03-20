@@ -1,25 +1,34 @@
 # Assumes data were exported from Qualtrics using the 'More Options' > 'Split multi-value fields into columns' option.
-library(dplyr)
-library(gtools)
+suppressWarnings(suppressMessages(source("utils.R")))
 
-# In ~/.Renviron file: DATA_PATH = "/Path/to/data/folder"
-data_path <- Sys.getenv("DATA_PATH")
+write_subset_of_data <- function(df, filename) {
+  write.table(df,
+    paste0(data_path, filename),
+    quote = FALSE,
+    row.names = FALSE,
+    sep = "\t"
+  )
+}
 
-data <- read.csv(paste0(data_path, "/dummy_data_split_cols.tsv"),
+
+
+data <- read.csv(paste0(data_path, "OSPO_survey_pre_test.tsv"),
   header = TRUE,
   sep = "\t",
-  check.names = F,
+  check.names = FALSE,
   fileEncoding = "utf-16", # N.B. Qualtrics exports in UTF-16
-  stringsAsFactors = F
+  stringsAsFactors = FALSE
 )
+
+# Remove rows where the "Finished" column is not "True".
+# This has the added benefit of removing those first two rows
+# that Qualtrics generated and that we don't care about.
+data <- data %>% filter(Finished == "True")
 
 # Qualtrics adds a bunch of columns at the beginning that we don't care about,
 # e.g. StartDate, EndDate, Duration. Drop these.
 data <- data %>% select(consent_form_2:last_col())
 # ^Not sure why qualtrics names this column "consent_form_2" instead of just "consent_form" but whatever.
-
-# It also adds two rows we don't care about
-data <- data %>% slice(-c(1, 2))
 
 # It also arranges columns in a sort of arbitrary order; let's reorder them.
 # This command sorts alphabetically so questions are no longer in survey order FYI
@@ -39,14 +48,10 @@ pii_cols <- c(
 
 pii <- data %>% select(all_of(pii_cols))
 
-write.table(pii,
-  paste0(data_path, "/repos_and_emails.tsv"),
-  quote = FALSE,
-  row.names = FALSE,
-  sep = "\t"
-)
+write_subset_of_data(pii, "repos_and_emails.tsv")
 
 data <- data %>% select(-all_of(pii_cols))
+
 
 # Put qualitative responses in a separate file
 qual_cols <- c(
@@ -56,20 +61,17 @@ qual_cols <- c(
 )
 
 qual <- data %>% select(ends_with("_TEXT"), all_of(qual_cols))
+write_subset_of_data(qual, "qual_responses.tsv")
 
-write.table(qual,
-  paste0(data_path, "/raw_qual_responses.tsv"),
-  quote = FALSE,
-  row.names = FALSE,
-  sep = "\t"
-)
+qual2 <- data %>% select("field_of_study_1", "subfield")
+# Standardize capitalization
+qual2[] <- lapply(qual2, function(x) if (is.character(x)) toTitleCase(x) else x)
+write_subset_of_data(qual2, "fields_of_study.tsv")
 
+qual3 <- data %>% select("staff_categories_13_TEXT")
+write_subset_of_data(qual3, "staff_categories.tsv")
 data <- data %>% select(-ends_with("_TEXT"), -all_of(qual_cols))
 
+
 # Save deidentified quantitative data
-write.table(data,
-  paste0(data_path, "/deidentified_no_qual.tsv"),
-  quote = FALSE,
-  row.names = FALSE,
-  sep = "\t"
-)
+write_subset_of_data(data, "deidentified_no_qual.tsv")

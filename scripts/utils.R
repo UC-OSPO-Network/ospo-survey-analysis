@@ -1,4 +1,5 @@
-# Load or install packages
+# Utils for loading or installing packages
+
 # If a package is already installed, it is loaded
 # If a package is not installed, it is installed and then loaded
 load_packages <- function(packages) {
@@ -16,17 +17,25 @@ required_packages <- c(
   "readr",
   "tidyr",
   "patchwork",
-  "scales"
+  "scales",
+  "gtools",
+  "tools"
 )
 load_packages(required_packages)
 
-# Load data
+# Utils for reading data
+
+######### EDIT ME #########
+subfolder <- "pre_test"
+###########################
+
 # In my ~/.Renviron file, I have DATA_PATH = "/Path/to/data/folder"
 data_path <- Sys.getenv("DATA_PATH")
+data_path <- paste0(data_path, subfolder, "/")
 
 load_qualtrics_data <- function(filename) {
   read.csv(
-    paste0(data_path, paste0("/", filename)),
+    paste0(data_path, filename),
     header = TRUE,
     sep = "\t",
     check.names = FALSE,
@@ -34,6 +43,7 @@ load_qualtrics_data <- function(filename) {
   )
 }
 
+# Utils for plotting
 
 colors <- c(
   # modified from https://sronpersonalpages.nl/~pault/
@@ -66,7 +76,7 @@ save_plot <- function(fname, w, h) {
 
 
 
-# Functions to clean data
+# Utils to clean data
 
 # For all entries in the data frame, strip text after the colon
 strip_descriptions <- function(df) {
