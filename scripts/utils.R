@@ -26,10 +26,11 @@ load_packages(required_packages)
 # Utils for reading data
 
 ######### EDIT ME #########
-subfolder <- "pre_test"
+subfolder <- "synthetic_data"
 ###########################
 
 # In my ~/.Renviron file, I have DATA_PATH = "/Path/to/data/folder"
+# To reuse this code, edit your .Renviron file or just write the path here
 data_path <- Sys.getenv("DATA_PATH")
 data_path <- paste0(data_path, subfolder, "/")
 
@@ -90,11 +91,20 @@ rename_cols_based_on_entries <- function(df) {
   })
   as.data.frame(df)
 }
-# Take a data frame and returns a vector of column names
-# Only works if all entries in a column are the same (or NA)
+# Propose a column name based on the entries in that column.
+# Only works if all entries in a column are the same.
+# Ignores NA and empty strings.
 get_unique_vals <- function(df, col_num) {
   unique_vals <- unique(df[, col_num])
-  unique_vals <- unique_vals[!is.na(unique_vals)]
+  unique_vals <- unique_vals[!(is.na(unique_vals) | unique_vals == "")]
   stopifnot(length(unique_vals) == 1)
   unique_vals
 }
+
+# Example usage:
+# r$> df <- data.frame(
+#     col1 = c("A", "A", "", NA, "A"),
+#     col2 = c("B", "", "B", NA, NA)
+# )
+# r$> get_unique_vals(df, 2)
+# [1] "B"
