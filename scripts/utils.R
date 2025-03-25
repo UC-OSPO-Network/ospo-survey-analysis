@@ -108,3 +108,17 @@ get_unique_vals <- function(df, col_num) {
 # )
 # r$> get_unique_vals(df, 2)
 # [1] "B"
+
+
+# Replace entries in a data frame with new names based on a list of codes.
+recode_dataframe <- function(df, codes) {
+  return(
+    as.data.frame(lapply(df, recode_column, codes))
+  )
+}
+
+recode_column <- function(column, codes) {
+  return(
+    names(codes)[match(column, codes)]
+  )
+}
