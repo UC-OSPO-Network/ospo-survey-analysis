@@ -4,11 +4,9 @@ suppressWarnings(suppressMessages(source("utils.R")))
 
 
 create_df_for_plotting <- function(data, column) {
-  # Ensure the column exists in the data frame
   if (!column %in% names(data)) {
     stop("Column not found in data frame")
   }
-
   # Extract specified column and remove empty strings
   values <- data[[column]][nzchar(data[[column]])]
   # Count occurrences of each unique value
@@ -64,7 +62,7 @@ job_data <- create_df_for_plotting(data, "job_category")
 
 # Clean up this one long job name
 job_data$values <- gsub(
-  "Other research staff \\(e.g., research scientist, research software engineer\\)",
+  "^Other.*",
   "Other research staff",
   job_data$values
 )

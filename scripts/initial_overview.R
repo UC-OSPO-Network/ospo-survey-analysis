@@ -1,20 +1,9 @@
-# Run this script after data_cleanup.R to get an overview of the data.
+# Run this script after data_cleanup.R to get an overview of participation rates.
 # Doesn't write new data, just prints out some info.
-
-recode_dataframe <- function(df, codes) {
-  return(
-    as.data.frame(lapply(df, recode_column, codes))
-  )
-}
-
-recode_column <- function(column, codes) {
-  recoded <- names(codes)[match(column, codes)]
-  return(recoded)
-}
-
 
 # Load packages and functions
 suppressWarnings(suppressMessages(source("utils.R")))
+
 
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
@@ -39,7 +28,6 @@ fc_cleaned <- fc %>% # Remove uninformative rows
 
 # How many people were "future contributors"?
 nrow(fc_cleaned)
-
 codenames <- list(
   "Conferences" = "Accessible conferences or hackathons",
   "Compute environments" = "Access to free, feature-rich computing environments",
@@ -53,17 +41,16 @@ codenames <- list(
   "Legal support" = "Legal and licensing support",
   "Mentorship" = "A mentor/mentee program"
 )
-
 fc_cleaned <- recode_dataframe(fc_cleaned, codenames)
-
 fc_cleaned <- rename_cols_based_on_entries(fc_cleaned)
+fc_cleaned %>% summarise(across(everything(), ~ sum(!is.na(.) & . != "")))
 
-response_counts <- fc_cleaned %>%
-  summarise(across(everything(), ~ sum(!is.na(.) & . != ""))) %>%
-  # count non-NA and non-empty responses in each column
-  # Remove columns with zero counts
-  select(where(~ . > 0))
 
-# Produce a compact data frame with counts of responses
-# re: future programs
-response_counts
+# How many participants have contributed to each type of project?
+proj_types <- data %>% select(starts_with("project_types"))
+proj_types <- strip_descriptions(proj_types)
+# Shorten "Other (Please specify..." to "Other"
+proj_types <- gsub("^Other.*", "Other", proj_types)
+proj_types_cleaned <- rename_cols_based_on_entries(proj_types)
+# Count non-NA and non-empty responses in each column
+proj_types_cleaned %>% summarise(across(everything(), ~ sum(!is.na(.) & . != "")))
