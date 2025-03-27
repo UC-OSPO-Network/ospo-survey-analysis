@@ -84,6 +84,13 @@ strip_descriptions <- function(df) {
   apply(df, MARGIN = c(1, 2), FUN = function(x) strsplit(x, ":")[[1]][1])
 }
 
+shorten_long_response <- function(df, keyword, replacement) {
+  df <- df %>%
+    mutate(across(where(is.character), ~ gsub(paste0("^", keyword, ".*"), replacement, .)))
+  return(df)
+}
+# ^EXAMPLE:
+# TODO
 # Return a data frame with new column names, based on the entries in each column
 rename_cols_based_on_entries <- function(df) {
   colnames(df) <- sapply(seq_len(ncol(df)), function(x) {
@@ -123,6 +130,13 @@ recode_column <- function(column, codes) {
   )
 }
 
+recode_dataframe_likert <- function(df, codes) {
+  return(
+    df %>%
+      mutate(across(everything(), ~ codes[.x]))
+  )
+}
+
 rename_cols_based_on_codenames <- function(df, codes) {
   return(
     df %>%
@@ -130,9 +144,66 @@ rename_cols_based_on_codenames <- function(df, codes) {
   )
 }
 
+make_df_binary <- function(df) {
+  return(
+    df %>% # Convert "Non-applicable" to NA
+      mutate(across(everything(), ~ ifelse(.x == "Non-applicable", NA, .x)))
+      %>% # Turn empty strings into NAs, and turn non-empty strings into 1s
+      mutate(across(everything(), ~ ifelse(. == "", NA, 1)))
+      %>% # Convert all NAs to 0s
+      mutate(across(everything(), ~ ifelse(is.na(.), 0, .)))
+  )
+}
+# ^EXAMPLE:
+# r$> motivations
+#    Job Improve Tools Customize Network Give back Skills Fun Other
+# 1
+# 2
+# 3      Improve Tools Customize         Give back Skills Fun Other
+# 4
+# 5
+# 6  Job Improve Tools Customize Network Give back Skills Fun Other
+# 7  Job Improve Tools                   Give back Skills
+# 8                                      Give back Skills Fun Other
+# 9
+# 10 Job Improve Tools                   Give back Skills
+
+# Becomes:
+# r$> motivations
+#    Job Improve Tools Customize Network Give back Skills Fun Other
+# 1    0             0         0       0         0      0   0     0
+# 2    0             0         0       0         0      0   0     0
+# 3    0             1         1       0         1      1   1     1
+# 4    0             0         0       0         0      0   0     0
+# 5    0             0         0       0         0      0   0     0
+# 6    1             1         1       1         1      1   1     1
+# 7    1             1         0       0         1      1   0     0
+# 8    0             0         0       0         1      1   1     1
+# 9    0             0         0       0         0      0   0     0
+# 10   1             1         0       0         1      1   0     0
+
+exclude_empty_rows <- function(df) {
+  df[rowSums(df != 0 & df != "" & !is.na(df)) > 0, , drop = FALSE]
+} # Exclude rows that are entirely 0, NA, or empty strings.
+
+
+
+
+
 
 
 # Functions to calculate summary statistics
+
+# Create a summary dataframe (an alternative to summary(importance))
+custom_summary <- function(df) {
+  mean_row <- round(colMeans(df, na.rm = TRUE), 2)
+  median_row <- apply(df, 2, function(x) round(median(x, na.rm = TRUE), 2))
+  mode_row <- sapply(df, function(x) round(calculate_mode(x), 2))
+  total_value <- apply(df, 2, function(x) round(sum(x), 2))
+  summary_df <- rbind(mean_row, median_row, mode_row, total_value)
+  rownames(summary_df) <- c("Mean", "Median", "Mode", "Sum")
+  return(summary_df)
+}
 
 calculate_mode <- function(x) {
   x <- na.omit(x) # Remove NAs
