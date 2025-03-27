@@ -110,7 +110,7 @@ get_unique_vals <- function(df, col_num) {
 # [1] "B"
 
 
-# Replace entries in a data frame with new names based on a list of codes.
+# Replace values in a data frame with new values based on a list of codes.
 recode_dataframe <- function(df, codes) {
   return(
     as.data.frame(lapply(df, recode_column, codes))
@@ -121,4 +121,26 @@ recode_column <- function(column, codes) {
   return(
     names(codes)[match(column, codes)]
   )
+}
+
+rename_cols_based_on_codenames <- function(df, codes) {
+  return(
+    df %>%
+      rename(any_of(codes))
+  )
+}
+
+
+
+# Functions to calculate summary statistics
+
+calculate_mode <- function(x) {
+  x <- na.omit(x) # Remove NAs
+  if (length(x) == 0) {
+    return(NA)
+  } # Return NA if no values
+  uniq_vals <- unique(x)
+  freq <- tabulate(match(x, uniq_vals))
+  mode_val <- uniq_vals[which.max(freq)]
+  return(mode_val)
 }
