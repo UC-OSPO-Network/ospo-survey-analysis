@@ -199,7 +199,7 @@ custom_summary <- function(df) {
   mean_row <- round(colMeans(df, na.rm = TRUE), 2)
   median_row <- apply(df, 2, function(x) round(median(x, na.rm = TRUE), 2))
   mode_row <- sapply(df, function(x) round(calculate_mode(x), 2))
-  total_value <- apply(df, 2, function(x) round(sum(x), 2))
+  total_value <- apply(df, 2, function(x) round(sum(x, na.rm = TRUE), 2))
   summary_df <- rbind(mean_row, median_row, mode_row, total_value)
   rownames(summary_df) <- c("Mean", "Median", "Mode", "Sum")
   return(summary_df)

@@ -51,8 +51,6 @@ recode_values <- c(
 )
 importance <- recode_dataframe_likert(importance, recode_values)
 custom_summary(importance)
-# TODO: Edit this function to handle NAs
-
 
 
 hosting <- data %>% select(
@@ -71,27 +69,44 @@ custom_summary(hosting)
 
 hosting$Campus <- data$campus
 
-long_hosting <- hosting %>%
-  pivot_longer(cols = -Campus, names_to = "Service", values_to = "Usage") %>%
-  filter(Usage != "" & !is.na(Usage)) %>%
-  count(Campus, Service, name = "Count")
 
-# Create a new dataframe with columns Campus, Number of Participants, Service
-# THIS PART IS BROKEN
 campus_totals <- data.frame(table(data$campus))
 names(campus_totals) <- c("Campus", "Participants")
 
+hosting_at_least_one_response <- hosting[rowSums(hosting[, -ncol(hosting)]) > 0, ]
+temp <- data.frame(table(hosting_at_least_one_response$Campus))
+names(temp) <- c("Campus", "Responsive_Participants")
 
-long_hosting <- long_hosting %>%
-  left_join(campus_totals, by = "Campus") %>% # Merge with campus_totals
-  mutate(Percent = round((Count / Participants) * 100)) %>% # Compute percentage
-  select(Campus, Service, Count, Percent) # Keep relevant columns
+merged_campus_totals <- merge(campus_totals, temp, by = "Campus", all = TRUE)
+merged_campus_totals[is.na(merged_campus_totals)] <- 0
 
 
+hosting_long <- hosting %>%
+  pivot_longer(cols = -Campus, names_to = "Service", values_to = "Count") %>%
+  filter(Count > 0)
 
-ggplot(long_hosting, aes(x = Service, y = Percent, shape = Campus, color = Campus)) +
+aggregated_data <- hosting_long %>%
+  group_by(Campus, Service) %>%
+  summarize(Count = sum(Count), .groups = "drop")
+
+final_data <- aggregated_data %>%
+  left_join(merged_campus_totals, by = "Campus") %>%
+  mutate(Percent_of_Responsive_Participants = (Count / Responsive_Participants) * 100) %>%
+  select(Campus, Service, Count, Percent_of_Responsive_Participants)
+
+# Fill in missing Campus + Service combinations with a Count of 0
+all_combinations <- expand_grid(
+  Campus = unique(final_data$Campus),
+  Service = colnames(hosting)[-ncol(hosting)] # Exclude the last column, Campus
+)
+final_data <- all_combinations %>%
+  left_join(final_data, by = c("Campus", "Service")) %>%
+  replace_na(list(Count = 0, Percent_of_Responsive_Participants = 0)) # Replace NAs with 0
+
+
+ggplot(final_data, aes(x = Service, y = Percent_of_Responsive_Participants, shape = Campus, color = Campus)) +
   geom_point(size = 4) + # Adjust dot size
-  labs(x = "Hosting Service", y = "Count", title = "Usage of Hosting Services by Campus") +
+  labs(x = "Hosting Service", y = "Percent of Responsive Participants", title = "Usage of Hosting Services by Campus") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels for readability
 
 
