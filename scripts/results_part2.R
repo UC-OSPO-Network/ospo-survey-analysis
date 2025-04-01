@@ -7,19 +7,23 @@ data <- load_qualtrics_data("deidentified_no_qual.tsv")
 motivations <- data %>% select(
   starts_with("motivations")
 )
-motivations <- shorten_long_response(motivations, "Developing open-source", "Job")
-motivations <- shorten_long_response(motivations, "To improve the tools", "Improve Tools")
-motivations <- shorten_long_response(motivations, "To customize existing", "Customize")
-motivations <- shorten_long_response(motivations, "To build a network", "Network")
-motivations <- shorten_long_response(motivations, "To give back to", "Give back")
-motivations <- shorten_long_response(motivations, "To improve my skills", "Skills")
-motivations <- shorten_long_response(motivations, "Because it's fun", "Fun")
-motivations <- shorten_long_response(motivations, "Other ", "Other")
-
+codenames <- c(
+  "Developing open-source" = "Job",
+  "To improve the tools" = "Improve Tools",
+  "To customize existing" = "Customize",
+  "To build a network" = "Network",
+  "To give back to" = "Give back",
+  "To improve my skills" = "Skills",
+  "Because it's fun" = "Fun",
+  "Other " = "Other"
+)
+motivations <- shorten_long_responses(motivations, codenames)
 motivations <- rename_cols_based_on_entries(motivations)
 motivations <- make_df_binary(motivations)
 custom_summary(motivations)
 custom_summary(exclude_empty_rows(motivations))
+
+
 
 
 
@@ -37,9 +41,7 @@ codenames_columns <- c(
   "Professional Development" = "importance_opensrc_4",
   "Job" = "importance_opensrc_5"
 )
-
 importance <- rename_cols_based_on_codenames(importance, codenames_columns)
-
 
 recode_values <- c(
   "Non-applicable" = NA,
@@ -53,15 +55,22 @@ importance <- recode_dataframe_likert(importance, recode_values)
 custom_summary(importance)
 
 
+
+
+
+
+
 hosting <- data %>% select(
   starts_with("hosting_services")
 )
-# Shorten the longer responses
-hosting <- shorten_long_response(hosting, "Other", "Other")
-hosting <- shorten_long_response(hosting, "OSF", "OSF")
-hosting <- shorten_long_response(hosting, "A custom", "Custom Website")
-hosting <- shorten_long_response(hosting, "In the", "Article supplement")
 
+codenames <- c(
+  "Other" = "Other",
+  "OSF" = "OSF",
+  "A custom" = "Custom Website",
+  "In the" = "Article supplement"
+)
+hosting <- shorten_long_responses(hosting, codenames)
 hosting <- rename_cols_based_on_entries(hosting)
 hosting <- make_df_binary(hosting)
 custom_summary(hosting)
@@ -108,6 +117,12 @@ ggplot(final_data, aes(x = Service, y = Percent_of_Responsive_Participants, shap
   geom_point(size = 4) + # Adjust dot size
   labs(x = "Hosting Service", y = "Percent of Responsive Participants", title = "Usage of Hosting Services by Campus") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Rotate x-axis labels for readability
+
+
+
+
+
+
 
 
 

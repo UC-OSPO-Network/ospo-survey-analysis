@@ -80,17 +80,29 @@ save_plot <- function(fname, w, h) {
 # Utils to clean data
 
 # For all entries in the data frame, strip text after the colon
-strip_descriptions <- function(df) {
-  apply(df, MARGIN = c(1, 2), FUN = function(x) strsplit(x, ":")[[1]][1])
-}
+# DELETE THIS FUNCTION?
+# strip_descriptions <- function(df) {
+#   apply(df, MARGIN = c(1, 2), FUN = function(x) strsplit(x, ":")[[1]][1])
+# }
 
 shorten_long_response <- function(df, keyword, replacement) {
   df <- df %>%
     mutate(across(where(is.character), ~ gsub(paste0("^", keyword, ".*"), replacement, .)))
   return(df)
 }
-# ^EXAMPLE:
-# TODO
+# Run the above function in a for loop.
+# Input: a list where keys are the beginning of
+# the long response and values are the short response.
+shorten_long_responses <- function(df, codes) {
+  new_df <- df
+  for (keyword in names(codes)) {
+    new_df <- shorten_long_response(new_df, keyword, codes[[keyword]])
+  }
+  return(new_df)
+}
+
+## Functions for renaming columns
+
 # Return a data frame with new column names, based on the entries in each column
 rename_cols_based_on_entries <- function(df) {
   colnames(df) <- sapply(seq_len(ncol(df)), function(x) {
@@ -116,19 +128,27 @@ get_unique_vals <- function(df, col_num) {
 # r$> get_unique_vals(df, 2)
 # [1] "B"
 
+rename_cols_based_on_codenames <- function(df, codes) {
+  return(
+    df %>%
+      rename(any_of(codes))
+  )
+}
+
 
 # Replace values in a data frame with new values based on a list of codes.
-recode_dataframe <- function(df, codes) {
-  return(
-    as.data.frame(lapply(df, recode_column, codes))
-  )
-}
+# USE shorten_long_responses INSTEAD?
+# recode_dataframe <- function(df, codes) {
+#   return(
+#     as.data.frame(lapply(df, recode_column, codes))
+#   )
+# }
 
-recode_column <- function(column, codes) {
-  return(
-    names(codes)[match(column, codes)]
-  )
-}
+# recode_column <- function(column, codes) {
+#   return(
+#     names(codes)[match(column, codes)]
+#   )
+# }
 
 recode_dataframe_likert <- function(df, codes) {
   return(
@@ -137,12 +157,11 @@ recode_dataframe_likert <- function(df, codes) {
   )
 }
 
-rename_cols_based_on_codenames <- function(df, codes) {
-  return(
-    df %>%
-      rename(any_of(codes))
-  )
-}
+
+
+
+
+
 
 make_df_binary <- function(df) {
   return(

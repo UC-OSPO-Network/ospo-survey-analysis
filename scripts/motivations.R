@@ -6,19 +6,17 @@ motivations <- data %>% select(
   starts_with("motivations")
 )
 
-
-codenames <- list(
-  "Job" = "Developing open-source products is part of my job",
-  "Improve Tools" = "To improve the tools in my field",
-  "Customize" = "To customize existing tools for my specific needs",
-  "Network" = "To build a network of peers",
-  "Give back" = "To give back to the open source community",
-  "Skills" = "To improve my skills",
-  "Fun" = "Because it's fun",
-  "Other" = "Other (Please specify. Multiple answers should be comma-separated.)"
+codenames <- c(
+  "Developing open-source" = "Job",
+  "To improve the tools" = "Improve Tools",
+  "To customize existing" = "Customize",
+  "To build a network" = "Network",
+  "To give back to" = "Give back",
+  "To improve my skills" = "Skills",
+  "Because it's fun" = "Fun",
+  "Other " = "Other"
 )
-
-motivations <- recode_dataframe(motivations, codenames)
+motivations <- shorten_long_responses(motivations, codenames)
 motivations <- rename_cols_based_on_entries(motivations)
 
 motivations_count <- motivations %>%
