@@ -1,11 +1,11 @@
 # Run this script after data_cleanup.R to get an overview of participation rates.
-# Doesn't write new data, just prints out some info.
+# Doesn't write new data or figures, just prints out some info.
 
 # Load packages and functions
 suppressWarnings(suppressMessages(source("utils.R")))
 
 
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
+data <- load_qualtrics_data("survey", "deidentified_no_qual.tsv")
 
 # How many participants are in the dataset?
 nrow(data)
@@ -13,8 +13,17 @@ nrow(data)
 # How many participants are from each campus?
 data.frame(table(data$campus))
 
+# How many participants gave each possible combination of
+# responses to the contributor status Q?
+status <- data %>% select(
+  starts_with("contributor_status")
+)
+status %>%
+  count(contributor_status_1, contributor_status_2)
+
 # How many participants are from each job category?
 data.frame(table(data$job_category))
+# The blank answers are participants who are neither past nor future contributors.
 
 # How many participants are from each field of study?
 data.frame(table(data$field_of_study))
@@ -26,22 +35,22 @@ fc <- data %>% select(starts_with("future_contributors"))
 fc_cleaned <- fc %>% # Remove uninformative rows
   filter(!(if_all(everything(), ~ is.na(.) | . == "")))
 
-# How many people were "future contributors"?
+# How many people were "future contributors" only?
 nrow(fc_cleaned)
-codenames <- list(
-  "Conferences" = "Accessible conferences or hackathons",
-  "Compute environments" = "Access to free, feature-rich computing environments",
-  "Education" = "Educational materials and workshops on programming languages, popular packages, etc.",
-  "Learning community" = "An open source discussion group and learning community",
-  "Grants" = "Dedicated grants for open-source project sustainability",
-  "Industry connections" = "Networking opportunities with industry",
-  "Academic connections" = "Job/internship opportunities at other academic institutions",
-  "Other" = "Other (Please specify. Multiple answers should be comma-separated.)",
-  "Identifying funding" = "Assistance identifying potential funding sources",
-  "Legal support" = "Legal and licensing support",
-  "Mentorship" = "A mentor/mentee program"
+codenames <- c(
+  "Accessible conferences" = "Conferences",
+  "Access to free, feature-rich" = "Compute environments",
+  "Educational materials" = "Education",
+  "An open source discussion" = "Learning community",
+  "Dedicated grants" = "Grants",
+  "Networking opportunities" = "Industry connections",
+  "Job/internship opportunities" = "Academic connections",
+  "Other " = "Other",
+  "Assistance identifying potential" = "Identifying funding",
+  "Legal and licensing" = "Legal support",
+  "A mentor/mentee" = "Mentorship"
 )
-fc_cleaned <- recode_dataframe(fc_cleaned, codenames)
+fc_cleaned <- shorten_long_responses(fc_cleaned, codenames)
 fc_cleaned <- rename_cols_based_on_entries(fc_cleaned)
 fc_cleaned %>% summarise(across(everything(), ~ sum(!is.na(.) & . != "")))
 

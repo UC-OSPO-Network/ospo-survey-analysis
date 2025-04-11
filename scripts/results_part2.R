@@ -1,7 +1,7 @@
 suppressWarnings(suppressMessages(source("utils.R")))
 
 
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
+data <- load_qualtrics_data("survey", "deidentified_no_qual.tsv")
 
 # Why do people contribute?
 motivations <- data %>% select(
@@ -70,7 +70,8 @@ codenames <- c(
   "A custom" = "Custom Website",
   "In the" = "Article supplement"
 )
-hosting <- shorten_long_responses(hosting, codenames)
+hosting <- shorten_long_responses(hosting, codenames) # Note empty columns will be NAs
+hosting <- hosting %>% select(where(~ !all(is.na(.x)))) # Remove empty columns
 hosting <- rename_cols_based_on_entries(hosting)
 hosting <- make_df_binary(hosting)
 custom_summary(hosting)

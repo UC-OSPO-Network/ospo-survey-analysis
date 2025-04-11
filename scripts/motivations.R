@@ -1,5 +1,6 @@
 suppressWarnings(suppressMessages(source("utils.R")))
 
+
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 motivations <- data %>% select(
@@ -19,30 +20,25 @@ codenames <- c(
 motivations <- shorten_long_responses(motivations, codenames)
 motivations <- rename_cols_based_on_entries(motivations)
 
-motivations_count <- motivations %>%
-  pivot_longer(cols = everything(), names_to = "motivation", values_to = "response") %>%
-  drop_na() %>%
-  count(motivation, name = "count")
+motivations <- make_df_binary(motivations)
+motivations <- exclude_empty_rows(motivations)
 
+sums <- data.frame(
+  Motivation = names(motivations),
+  Count = unname(apply(motivations, 2, function(x) round(sum(x, na.rm = TRUE))))
+)
 
-# Expects a two-column df with columns <some_variable> and "count", in that order.
-reorder_factor_levels_by_count <- function(df, count_column_name = "count") {
-  df <- df %>%
-    arrange(desc(.data[[count_column_name]])) # Sort rows by count
-  factor_column_name <- names(df)[1]
-  df[[factor_column_name]] <- factor(df[[factor_column_name]], levels = df[[factor_column_name]])
-  return(df) # Return the modified dataframe
-}
+# Reorder factor levels based on count
+sums <- sums %>%
+  mutate(Motivation = fct_reorder(Motivation, Count, .desc = TRUE))
 
-motivations_count <- reorder_factor_levels_by_count(motivations_count)
-
-ggplot(motivations_count, aes(
-  x = motivation,
-  y = count,
+ggplot(sums, aes(
+  x = Motivation,
+  y = Count,
 )) +
   geom_bar(stat = "identity", fill = colors[[1]]) +
   ggtitle("Reasons for Contributing to Open Source") +
-  labs(y = "Number of Respondents (Teachers Only)") +
+  labs(y = "Number of Respondents") +
   theme(
     axis.title.x = element_blank(),
     axis.title.y = element_text(size = 14),

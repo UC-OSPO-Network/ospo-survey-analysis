@@ -5,6 +5,36 @@
 
 suppressWarnings(suppressMessages(source("utils.R")))
 
+grouped_bar_chart <- function(df, x_var, fill_var, title, ylabel = NULL) {
+  ylabel <- ifelse(is.null(ylabel), "Number of Respondents", ylabel)
+  ggplot(df, aes(x = .data[[x_var]], fill = .data[[fill_var]])) +
+    geom_bar(position = "dodge") +
+    ggtitle(title) +
+    labs(y = ylabel) +
+    scale_fill_manual(values = colors) + # see utils.R
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 14),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
+      axis.ticks.x = element_blank(),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 12),
+      panel.background = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 14),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+    )
+}
+
+
+
+
+
+
+
+
+
+
+
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 importance_and_job <- data %>% select(
@@ -57,26 +87,10 @@ research_learning_pd <- long_data %>%
   ) %>%
   filter(importance_level != "Non-applicable")
 
-
-ggplot(research_learning_pd, aes(
-  x = importance_level,
-  fill = importance_area
-)) +
-  geom_bar(position = "dodge") +
-  ggtitle("Perceived Importance of Open Source among Researchers") +
-  labs(y = "Number of Respondents") +
-  scale_fill_manual(values = colors) + # from https://sronpersonalpages.nl/~pault/
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 14),
-    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
-    axis.ticks.x = element_blank(),
-    legend.title = element_blank(),
-    legend.text = element_text(size = 12),
-    panel.background = element_blank(),
-    plot.title = element_text(hjust = 0.5, size = 14),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
-  )
+grouped_bar_chart(
+  research_learning_pd, "importance_level", "importance_area",
+  "Perceived Importance of Open Source among Researchers"
+)
 
 
 
@@ -91,26 +105,10 @@ job_learning_pd <- long_data %>%
   ) %>%
   filter(importance_level != "Non-applicable")
 
-
-ggplot(job_learning_pd, aes(
-  x = importance_level,
-  fill = importance_area
-)) +
-  geom_bar(position = "dodge") +
-  ggtitle("Perceived Importance of Open Source among Non-research Staff") +
-  labs(y = "Number of Respondents") +
-  scale_fill_manual(values = colors) + # from https://sronpersonalpages.nl/~pault/
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 14),
-    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
-    axis.ticks.x = element_blank(),
-    legend.title = element_blank(),
-    legend.text = element_text(size = 12),
-    panel.background = element_blank(),
-    plot.title = element_text(hjust = 0.5, size = 14),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
-  )
+grouped_bar_chart(
+  job_learning_pd, "importance_level", "importance_area",
+  "Perceived Importance of Open Source among Non-research Staff"
+)
 
 
 teaching <- long_data %>%
@@ -142,7 +140,17 @@ ggplot(teaching, aes(
   )
 
 
-
+# Let's just choose one job category
 
 
 save_plot("importance.tiff", 10, 5)
+
+faculty <- long_data %>%
+  filter(job_category == "Faculty") %>%
+  filter(importance_level != "Non-applicable")
+
+grouped_bar_chart(
+  faculty, "importance_level", "importance_area",
+  "Perceived Importance of Open Source among Faculty",
+  "Number of Faculty Respondents"
+)

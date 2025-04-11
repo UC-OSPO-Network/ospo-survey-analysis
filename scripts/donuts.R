@@ -56,7 +56,7 @@ donut_chart <- function(df) {
 
 
 
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
+data <- load_qualtrics_data("survey", "deidentified_no_qual.tsv")
 
 job_data <- create_df_for_plotting(data, "job_category")
 

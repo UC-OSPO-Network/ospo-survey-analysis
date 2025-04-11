@@ -6,24 +6,22 @@
 
 suppressWarnings(suppressMessages(source("utils.R")))
 
-write_subset_of_data <- function(df, filename) {
+write_subset_of_data <- function(df, subf, filen) {
   write.table(df,
-    paste0(data_path, filename),
+    file.path(Sys.getenv("DATA_PATH"), subfolder, filen),
     quote = FALSE,
     row.names = FALSE,
     sep = "\t"
   )
 }
 
+######### EDIT ME #########
+subfolder <- "survey"
+filename <- "survey_apr11.tsv"
+###########################
 
-
-data <- read.csv(paste0(data_path, "OSPO_survey_generated_responses.tsv"),
-  header = TRUE,
-  sep = "\t",
-  check.names = FALSE,
-  fileEncoding = "utf-16", # N.B. Qualtrics exports in UTF-16
-  stringsAsFactors = FALSE
-)
+# N.B. Qualtrics exports in UTF-16
+data <- load_qualtrics_data(subfolder, filename, fileEncoding = "utf-16")
 
 # Remove rows where the "Finished" column is not "True".
 # This has the added benefit of removing those first two rows
@@ -53,7 +51,7 @@ pii_cols <- c(
 
 pii <- data %>% select(all_of(pii_cols))
 
-write_subset_of_data(pii, "pii.tsv")
+write_subset_of_data(pii, subfolder, "pii.tsv")
 
 data <- data %>% select(-all_of(pii_cols))
 
@@ -65,7 +63,7 @@ qual_cols <- c(
 )
 
 qual <- data %>% select(ends_with("_TEXT"), all_of(qual_cols))
-write_subset_of_data(qual, "qual_responses.tsv")
+write_subset_of_data(qual, subfolder, "qual_responses.tsv")
 
 # qual2 <- data %>% select("field_of_study_1", "subfield")
 # # Standardize capitalization
@@ -79,4 +77,4 @@ data <- data %>% select(-ends_with("_TEXT"), -all_of(qual_cols))
 
 
 # Save deidentified quantitative data
-write_subset_of_data(data, "deidentified_no_qual.tsv")
+write_subset_of_data(data, subfolder, "deidentified_no_qual.tsv")
