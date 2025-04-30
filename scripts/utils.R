@@ -74,6 +74,77 @@ colors <- c(
   "#353535"
 )
 
+
+# Re-order factor levels in one column by values in another.
+# Returns the original data frame with factor_col re-ordered based on value_col.
+# Leave column names unquoted.
+reorder_factor_by_column <- function(df, factor_col, value_col, descending = FALSE) {
+  df <- df %>%
+    mutate(
+      {{ factor_col }} := fct_reorder( # double-curlys and := assign a col by name using tidy evaluation
+        .f = {{ factor_col }},
+        .x = {{ value_col }},
+        .fun = if (descending) `-` else identity # If descending = TRUE, add a negative sign (-) to reverse the sort
+      )
+    )
+  return(df)
+}
+
+
+
+basic_bar_chart <- function(
+    df,
+    x_var,
+    y_var,
+    title,
+    ylabel = "Number of Respondents",
+    show_axis_title_x = FALSE,
+    show_axis_title_y = TRUE,
+    axis_title_size_x = 14,
+    axis_title_size_y = 14,
+    axis_text_size_x = 12,
+    axis_text_size_y = 12,
+    axis_text_angle_x = 60,
+    title_size = 14,
+    color_index = 1,
+    horizontal = FALSE,
+    show_ticks_x = FALSE,
+    show_ticks_y = TRUE) {
+  # Axis title settings
+  axis_title_x <- if (show_axis_title_x) element_text(size = axis_title_size_x) else element_blank()
+  axis_title_y <- if (show_axis_title_y) element_text(size = axis_title_size_y) else element_blank()
+
+  # Axis tick settings
+  axis_ticks_x <- if (show_ticks_x) element_line() else element_blank()
+  axis_ticks_y <- if (show_ticks_y) element_line() else element_blank()
+
+  # Build the plot
+  p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_bar(stat = "identity", fill = colors[[color_index]]) +
+    ggtitle(title) +
+    labs(y = ifelse(is.null(ylabel), "Number of Respondents", ylabel)) +
+    theme(
+      axis.title.x = axis_title_x,
+      axis.title.y = axis_title_y,
+      axis.text.x = element_text(angle = axis_text_angle_x, vjust = 0.6, size = axis_text_size_x),
+      axis.text.y = element_text(size = axis_text_size_y),
+      axis.ticks.x = axis_ticks_x,
+      axis.ticks.y = axis_ticks_y,
+      legend.position = "none",
+      panel.background = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = title_size),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+    )
+
+  # Flip coordinates if horizontal
+  if (horizontal) {
+    p <- p + coord_flip()
+  }
+
+  return(p)
+}
+
+
 # Save a plot
 # Path is in my ~/.Renviron file
 figure_path <- Sys.getenv("FIGURE_PATH")
@@ -90,7 +161,6 @@ save_plot <- function(fname, w, h) {
 
 
 
-
 # Utils to clean data
 
 # For all entries in the data frame, strip text after the colon
@@ -99,9 +169,10 @@ strip_descriptions <- function(df) {
 }
 
 
-# Run the substition function in a for loop.
+# Replace long responses with shorter strings.
 # Input: a list where keys are the beginning of
 # the long response and values are the short response.
+# The column you're trying to edit must be a character column, not a factor.
 shorten_long_responses <- function(df, codes) {
   new_df <- df
   for (keyword in names(codes)) {

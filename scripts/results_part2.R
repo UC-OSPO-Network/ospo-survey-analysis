@@ -143,11 +143,39 @@ size <- size %>%
   # Remove rows where any column is NA or empty
   filter(if_all(everything(), ~ !is.na(.) & . != ""))
 
-recode_values <- c(
-  "Never" = 0,
-  "Relatively infrequently" = 1,
-  "Occasionally" = 2,
-  "Relatively frequently" = 3
+size_long <- size %>%
+  pivot_longer(cols = everything(), names_to = "Size", values_to = "Frequency") %>%
+  count(Size, Frequency, name = "Count")
+
+size_long$Frequency <- factor(
+  size_long$Frequency,
+  levels = c(
+    "Never",
+    "Relatively infrequently",
+    "Occasionally",
+    "Relatively frequently"
+  )
 )
-size <- size %>%
-  mutate(across(everything(), ~ recode_values[.x]))
+
+ggplot(size_long, aes(x = Frequency, y = Count, shape = Size, color = Size)) +
+  geom_point(size = 4) + # Adjust dot size
+  geom_line(aes(group = Size), size = 1) + # Connect points with lines
+  scale_color_manual(values = colors) +
+  labs(
+    x = "Frequency of contribution",
+    y = "Number of Participants",
+    title = "Contributions to Projects of a Certain Size"
+  ) +
+  theme(
+    axis.text.y = element_text(size = 14),
+    axis.text.x = element_text(size = 14, angle = 45, hjust = 1),
+    axis.title.y = element_text(size = 14),
+    axis.title.x = element_blank(),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 10),
+    panel.background = element_blank(),
+    panel.grid.major = element_line(linetype = "solid", color = "gray90"),
+    panel.grid.minor = element_line(linetype = "solid", color = "gray90"),
+    plot.title = element_text(hjust = 0.5, size = 20),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  )

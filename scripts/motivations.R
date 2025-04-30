@@ -32,20 +32,19 @@ sums <- data.frame(
 sums <- sums %>%
   mutate(Motivation = fct_reorder(Motivation, Count, .desc = TRUE))
 
-ggplot(sums, aes(
-  x = Motivation,
-  y = Count,
-)) +
-  geom_bar(stat = "identity", fill = colors[[1]]) +
-  ggtitle("Reasons for Contributing to Open Source") +
-  labs(y = "Number of Respondents") +
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 14),
-    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
-    axis.ticks.x = element_blank(),
-    legend.position = "none",
-    panel.background = element_blank(),
-    plot.title = element_text(hjust = 0.5, size = 14),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
-  )
+
+basic_bar_chart(sums, "Motivation", "Count", "Reasons for Contributing to Open Source")
+
+basic_bar_chart(sums,
+  x_var = "Motivation",
+  y_var = "Count",
+  title = "Reasons for Contributing to Open Source",
+  show_axis_title_x = TRUE,
+  show_axis_title_y = TRUE,
+  axis_text_size_x = 12,
+  axis_text_size_y = 12,
+  color_index = 3,
+  horizontal = TRUE,
+  show_ticks_y = FALSE,
+  axis_text_angle_x = 0
+)
