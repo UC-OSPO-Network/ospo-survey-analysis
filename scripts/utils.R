@@ -78,17 +78,18 @@ colors <- c(
 # Re-order factor levels in one column by values in another.
 # Returns the original data frame with factor_col re-ordered based on value_col.
 # Leave column names unquoted.
-reorder_factor_by_column <- function(df, factor_col, value_col, descending = FALSE) {
-  df <- df %>%
-    mutate(
-      {{ factor_col }} := fct_reorder( # double-curlys and := assign a col by name using tidy evaluation
-        .f = {{ factor_col }},
-        .x = {{ value_col }},
-        .fun = if (descending) `-` else identity # If descending = TRUE, add a negative sign (-) to reverse the sort
-      )
-    )
-  return(df)
-}
+# MAYBE JUST DELETE THIS? It's a lot of extra code for a simple task.
+# reorder_factor_by_column <- function(df, factor_col, value_col, descending = TRUE) {
+#   df <- df %>%
+#     mutate(
+#       {{ factor_col }} := fct_reorder( # double-curlys and := assign a col by name using tidy evaluation
+#         .f = {{ factor_col }},
+#         .x = {{ value_col }},
+#         .fun = if (descending) `-` else identity # If descending = TRUE, add a negative sign (-) to reverse the sort
+#       )
+#     )
+#   return(df)
+# }
 
 
 
@@ -109,7 +110,8 @@ basic_bar_chart <- function(
     color_index = 1,
     horizontal = FALSE,
     show_ticks_x = FALSE,
-    show_ticks_y = TRUE) {
+    show_ticks_y = TRUE,
+    show_bar_labels = FALSE) {
   # Axis title settings
   axis_title_x <- if (show_axis_title_x) element_text(size = axis_title_size_x) else element_blank()
   axis_title_y <- if (show_axis_title_y) element_text(size = axis_title_size_y) else element_blank()
@@ -135,6 +137,17 @@ basic_bar_chart <- function(
       plot.title = element_text(hjust = 0.5, size = title_size),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
+
+  # Add text labels inside bars (optional)
+  if (show_bar_labels) {
+    p <- p + geom_text(
+      aes(label = .data[[y_var]]),
+      color = "white",
+      size = 5,
+      vjust = if (horizontal) 0.5 else 1.2, # tweak based on orientation
+      hjust = if (horizontal) 1.2 else 0.5
+    )
+  }
 
   # Flip coordinates if horizontal
   if (horizontal) {

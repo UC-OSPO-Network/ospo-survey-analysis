@@ -4,6 +4,7 @@ suppressWarnings(suppressMessages(source("utils.R")))
 data <- load_qualtrics_data("survey", "deidentified_no_qual.tsv")
 
 # Why do people contribute?
+# This is just a summary. See motivations.R for a plot.
 motivations <- data %>% select(
   starts_with("motivations")
 )
