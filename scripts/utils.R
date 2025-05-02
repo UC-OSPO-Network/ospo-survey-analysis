@@ -256,18 +256,27 @@ recode_dataframe_likert <- function(df, codes) {
 
 
 
+make_df_binary <- function(df, cols = NULL) {
+  # Determine columns to modify
+  if (is.null(cols)) {
+    cols_to_modify <- names(df)
+  } else if (is.numeric(cols)) {
+    cols_to_modify <- names(df)[cols]
+  } else if (is.character(cols)) {
+    cols_to_modify <- cols
+  } else {
+    stop("`cols` must be NULL, a character vector of column names, or numeric indices.")
+  }
 
+  df <- df %>%
+    # Convert "Non-applicable" to NA
+    mutate(across(all_of(cols_to_modify), ~ ifelse(.x == "Non-applicable", NA, .x))) %>%
+    # Turn empty strings into NAs, and turn non-empty strings into 1s
+    mutate(across(all_of(cols_to_modify), ~ ifelse(.x == "", NA, 1))) %>%
+    # Convert all NAs to 0s
+    mutate(across(all_of(cols_to_modify), ~ ifelse(is.na(.x), 0, .x)))
 
-
-make_df_binary <- function(df) {
-  return(
-    df %>% # Convert "Non-applicable" to NA
-      mutate(across(everything(), ~ ifelse(.x == "Non-applicable", NA, .x)))
-      %>% # Turn empty strings into NAs, and turn non-empty strings into 1s
-      mutate(across(everything(), ~ ifelse(.x == "", NA, 1)))
-      %>% # Convert all NAs to 0s
-      mutate(across(everything(), ~ ifelse(is.na(.x), 0, .x)))
-  )
+  return(df)
 }
 # ^EXAMPLE:
 # r$> motivations
