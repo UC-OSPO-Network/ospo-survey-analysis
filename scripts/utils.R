@@ -27,15 +27,9 @@ load_packages(required_packages)
 
 # Utils for reading data
 
-load_qualtrics_data <- function(subfolder, filename, fileEncoding = NULL) {
-  # A function to read in Qualtrics data. Call like so:
-  # df <- load_qualtrics_data("survey_data", "responses.csv")
-  # OR
-  # df <- load_qualtrics_data("survey_data", "responses.csv", fileEncoding = "UTF-8")
-
+load_qualtrics_data <- function(filename, fileEncoding = NULL) {
   # In my ~/.Renviron file, I have DATA_PATH = "/Path/to/data/folder"
-  # To reuse this code, edit your .Renviron file or just write the path here
-  data_path <- file.path(Sys.getenv("DATA_PATH"), subfolder, filename)
+  data_path <- file.path(Sys.getenv("DATA_PATH"), filename)
 
   # Base arguments to pass to read.csv
   args <- list(

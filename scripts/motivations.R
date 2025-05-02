@@ -1,98 +1,64 @@
 suppressWarnings(suppressMessages(source("utils.R")))
 
-
-prepare_df_for_plotting <- function(df) {
+get_df_for_job_category <- function(job) {
+  df <- data %>%
+    filter(job_category == job) %>%
+    select(
+      starts_with("motivations")
+    )
   df <- shorten_long_responses(df, codenames)
   # Remove any columns that are all NA or empty strings
   df <- df[, colSums(is.na(df) | df == "") < nrow(df)]
   df <- rename_cols_based_on_entries(df)
-
+  # Remove any rows where they didn't answer the question about motivations
+  df <- df %>%
+    filter(if_any(Job:Other, ~ .x != ""))
   df <- make_df_binary(df)
-  df <- exclude_empty_rows(df)
-
-  sums <- data.frame(
+  df <- data.frame(
     Motivation = names(df),
     Count = unname(apply(df, 2, function(x) round(sum(x, na.rm = TRUE))))
   )
-
-  return(sums)
+  return(df)
 }
 
-
-basic_bar_chart_fixed_axis <- function(
+stacked_bar_chart <- function(
     df,
     x_var,
     y_var,
+    fill,
     title,
-    ylabel = "Number of Respondents",
-    show_axis_title_x = TRUE,
-    show_axis_title_y = TRUE,
-    axis_title_size_x = 10,
-    axis_title_size_y = 10,
-    axis_text_size_x = 8,
-    axis_text_size_y = 8,
-    axis_text_angle_x = 60,
-    title_size = 10,
-    color_index = 3,
-    horizontal = TRUE,
-    show_ticks_x = FALSE,
-    show_ticks_y = FALSE,
-    show_bar_labels = TRUE) {
-  # Axis title settings
-  axis_title_x <- if (show_axis_title_x) element_text(size = axis_title_size_x) else element_blank()
-  axis_title_y <- if (show_axis_title_y) element_text(size = axis_title_size_y) else element_blank()
+    ylabel = NULL,
+    proportional = FALSE) {
+  # Set position for geom_bar
+  position_type <- if (proportional) "fill" else "stack"
 
-  # Axis tick settings
-  axis_ticks_x <- if (show_ticks_x) element_line() else element_blank()
-  axis_ticks_y <- if (show_ticks_y) element_line() else element_blank()
+  # Determine y-axis label if not provided
+  ylabel_final <- if (!is.null(ylabel)) ylabel else if (proportional) "Proportion of Responses" else "Number of Responses"
 
   # Build the plot
-  p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
-    geom_bar(stat = "identity", fill = colors[[color_index]]) +
-    scale_y_continuous(limits = c(0, 75)) + # FIX Y-AXIS MAXIMUM
+  p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]], fill = .data[[fill]])) +
+    geom_bar(stat = "identity", position = position_type) +
     ggtitle(title) +
-    labs(y = ifelse(is.null(ylabel), "Number of Respondents", ylabel)) +
+    labs(y = ylabel_final) +
+    scale_fill_manual(values = colors) +
     theme(
-      axis.title.x = axis_title_x,
-      axis.title.y = axis_title_y,
-      axis.text.x = element_text(angle = axis_text_angle_x, vjust = 0.6, size = axis_text_size_x),
-      axis.text.y = element_text(size = axis_text_size_y),
-      axis.ticks.x = axis_ticks_x,
-      axis.ticks.y = axis_ticks_y,
-      legend.position = "none",
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 14),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 10),
+      axis.text.y = element_text(size = 10),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
       panel.background = element_blank(),
-      plot.title = element_text(hjust = 0.5, size = title_size),
+      legend.title = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 14),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
-
-  # Add text labels inside bars (optional)
-  if (show_bar_labels) {
-    p <- p + geom_text(
-      aes(label = .data[[y_var]]),
-      color = "white",
-      size = 5,
-      vjust = if (horizontal) 0.5 else 1.2, # tweak based on orientation
-      hjust = if (horizontal) 1.2 else 0.5
-    )
-  }
-
-  # Flip coordinates if horizontal
-  if (horizontal) {
-    p <- p + coord_flip()
-  }
-
   return(p)
 }
 
 
 
-
-
 data <- load_qualtrics_data("survey", "deidentified_no_qual.tsv")
-
-motivations <- data %>% select(
-  starts_with("motivations")
-)
 
 codenames <- c(
   "Developing open-source" = "Job",
@@ -107,140 +73,123 @@ codenames <- c(
 
 # All contributors
 
-motivations <- prepare_df_for_plotting(motivations)
+motivations <- data %>% select(
+  starts_with("motivations")
+)
+motivations <- shorten_long_responses(motivations, codenames)
+# Remove any columns that are all NA or empty strings
+motivations <- motivations[, colSums(is.na(motivations) | motivations == "") < nrow(motivations)]
+# Reomve any rows that are all NA or empty strings (this only works because we don't have a "Role" column yet)
+motivations <- exclude_empty_rows(motivations)
+motivations <- rename_cols_based_on_entries(motivations)
+motivations <- make_df_binary(motivations)
+motivations <- data.frame(
+  Motivation = names(motivations),
+  Count = unname(apply(motivations, 2, function(x) round(sum(x, na.rm = TRUE))))
+)
+
 
 # Reorder factor levels based on count
 motivations <- motivations %>%
   mutate(Motivation = fct_reorder(Motivation, Count, .desc = FALSE))
 
-overall_plot <- basic_bar_chart_fixed_axis(motivations,
+overall_plot <- basic_bar_chart(motivations,
   x_var = "Motivation",
   y_var = "Count",
-  title = "Reasons for Contributing to Open Source: All Contributors"
+  title = "Reasons for Contributing to Open Source: All Contributors",
+  horizontal = TRUE,
+  show_bar_labels = TRUE,
+  show_ticks_y = FALSE,
+  color_index = 3,
+  show_axis_title_y = FALSE
 )
 
-save_plot("motivations_overall.tiff", 6, 4)
+save_plot("motivations_overall.tiff", 8, 6)
 
 
-# Faculty
 
-faculty <- data %>%
-  filter(job_category == "Faculty") %>%
-  select(
-    starts_with("motivations")
-  )
 
-faculty <- prepare_df_for_plotting(faculty)
 
-# Reorder factor levels based on order in overall motivations dataframe
-faculty$Motivation <- factor(
-  faculty$Motivation,
-  levels = levels(motivations$Motivation)
+faculty <- get_df_for_job_category("Faculty")
+nrstaff <- get_df_for_job_category("Non-research Staff")
+grads <- get_df_for_job_category("Grad Student")
+undergrads <- get_df_for_job_category("Undergraduate")
+other_researchers <- get_df_for_job_category(
+  "Other research staff (e.g., research scientist, research software engineer)"
 )
 
-faculty_plot <- basic_bar_chart_fixed_axis(faculty,
-  x_var = "Motivation",
+
+
+faculty$Role <- "Faculty"
+nrstaff$Role <- "Non-research Staff"
+grads$Role <- "Grad Students"
+other_researchers$Role <- "Postdocs and Staff Researchers"
+undergrads$Role <- "Undergraduates"
+composite_df <- rbind(faculty, nrstaff, grads, other_researchers, undergrads)
+
+
+stacked_plot_raw <- stacked_bar_chart(composite_df,
+  x_var = "Role",
   y_var = "Count",
-  title = "Faculty"
+  fill = "Motivation",
+  title = "Reasons for Contributing to Open Source",
 )
 
-save_plot("motivations_faculty.tiff", 6, 4)
-
-
-
-
-# Non-research staff
-
-nrstaff <- data %>%
-  filter(job_category == "Non-research Staff") %>%
-  select(
-    starts_with("motivations")
-  )
-
-nrstaff <- prepare_df_for_plotting(nrstaff)
-
-# Reorder factor levels based on order in overall motivations dataframe
-nrstaff$Motivation <- factor(
-  nrstaff$Motivation,
-  levels = levels(motivations$Motivation)
-)
-
-nrstaff_plot <- basic_bar_chart_fixed_axis(nrstaff,
-  x_var = "Motivation",
+stacked_plot_proportional <- stacked_bar_chart(composite_df,
+  x_var = "Role",
   y_var = "Count",
-  title = "Non-research Staff"
+  fill = "Motivation",
+  title = "Reasons for Contributing to Open Source",
+  proportional = TRUE
 )
 
+stacked_plot_raw + stacked_plot_proportional
 
-# Grad students
+save_plot("motivations_stacks.tiff", 12, 8)
 
-grads <- data %>%
-  filter(job_category == "Grad Student") %>%
-  select(
-    starts_with("motivations")
-  )
-grads <- prepare_df_for_plotting(grads)
-# Reorder factor levels based on order in overall motivations dataframe
-grads$Motivation <- factor(
-  grads$Motivation,
-  levels = levels(motivations$Motivation)
+
+
+# Starting to think about statistical analysis....
+# install.packages("simr")
+# library(simr)
+# library(lme4)
+# Need to reshape data to these columns: RespondentID, Role, Motivation, Selected (where 1 = yes, 0 = no)
+
+motivations_raw <- data %>% select(
+  starts_with("motivations")
 )
-grads_plot <- basic_bar_chart_fixed_axis(grads,
-  x_var = "Motivation",
-  y_var = "Count",
-  title = "Grad Students"
-)
+motivations_raw <- shorten_long_responses(motivations_raw, codenames)
+motivations_raw <- rename_cols_based_on_entries(motivations_raw)
+motivations_raw$Role <- data$job_category
+motivations_raw <- shorten_long_responses(motivations_raw, c("Other research staff" = "Other research staff"))
 
-# Other researchers
-# (Postdocs and other research staff)
+# Remove any rows where they didn't answer the question about motivations
+motivations_raw <- motivations_raw %>%
+  filter(if_any(Job:Other, ~ .x != ""))
 
-other_researchers <- data %>%
-  filter(job_category == "Other research staff (e.g., research scientist, research software engineer)" |
-    job_category == "Post-Doc") %>%
-  select(
-    starts_with("motivations")
-  )
-other_researchers <- prepare_df_for_plotting(other_researchers)
-# Reorder factor levels based on order in overall motivations dataframe
-other_researchers$Motivation <- factor(
-  other_researchers$Motivation,
-  levels = levels(motivations$Motivation)
-)
-other_researchers_plot <- basic_bar_chart_fixed_axis(other_researchers,
-  x_var = "Motivation",
-  y_var = "Count",
-  title = "Postdocs and Staff Researchers"
+motivation_block <- motivations_raw %>%
+  select(Job:Other)
+motivation_block <- make_df_binary(motivation_block)
+
+motivations_processed <- data.frame(motivation_block, motivations_raw$Role)
+names(motivations_processed)[ncol(motivations_processed)] <- "Role"
+motivations_processed$RespondentID <- as.factor(1:nrow(motivations_processed))
+motivations_long <- pivot_longer(
+  motivations_processed,
+  cols = Job:Other,
+  names_to = "Motivation",
+  values_to = "Selected"
 )
 
+# Since each person gave multiple answers (one per motivation),
+# these observations are not independent. We tell the model that
+# RespondentID is a random effect.
 
-# Undergrads
-
-undergrads <- data %>%
-  filter(job_category == "Undergraduate") %>%
-  select(
-    starts_with("motivations")
-  )
-
-undergrads <- prepare_df_for_plotting(undergrads)
-# Reorder factor levels based on order in overall motivations dataframe
-undergrads$Motivation <- factor(
-  undergrads$Motivation,
-  levels = levels(motivations$Motivation)
+mymodel <- glmer(
+  Selected ~ Motivation * Role + (1 | RespondentID),
+  data = motivations_long,
+  family = binomial,
+  control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
 )
-undergrads_plot <- basic_bar_chart_fixed_axis(undergrads,
-  x_var = "Motivation",
-  y_var = "Count",
-  title = "Undergraduates"
-)
-
-patchwork::wrap_plots(
-  faculty_plot,
-  nrstaff_plot,
-  grads_plot,
-  other_researchers_plot,
-  undergrads_plot,
-  nrow = 2,
-  ncol = 3
-)
-
-save_plot("motivations_composite.tiff", 8, 6)
+# https://stats.stackexchange.com/questions/164457/r-glmer-warnings-model-fails-to-converge-model-is-nearly-unidentifiable
+# Still isn't converging, need to troubleshoot

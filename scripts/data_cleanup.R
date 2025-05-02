@@ -1,27 +1,36 @@
-# This data-wrangling script reads in the raw data from Qualtrics
-# and splits the data into multiple files. It assumes data
-# were exported from Qualtrics using 'More Options' > 'Split multi-value fields into columns'.
-# Check utils.R and make sure your data path is set correctly
-#
+#!/usr/bin/env Rscript
+
+# Read in the raw data from Qualtrics
+# and splits the data into multiple files.
+# Assumes data were exported from Qualtrics using
+# 'More Options' > 'Split multi-value fields into columns'.
+# Make sure your data path is set in .Renviron like so:
+# DATA_PATH = "/Path/to/data/folder"
+
 
 suppressWarnings(suppressMessages(source("utils.R")))
+args <- commandArgs(trailingOnly = TRUE)
 
-write_subset_of_data <- function(df, subf, filen) {
+# test if there is at least one argument: if not, return an error
+if (length(args) == 0) {
+  stop("Please specify the name of the input file.n", call. = FALSE)
+}
+
+filename <- args[1]
+
+
+write_subset_of_data <- function(df, filen) {
   write.table(df,
-    file.path(Sys.getenv("DATA_PATH"), subfolder, filen),
+    file.path(Sys.getenv("DATA_PATH"), filen),
     quote = FALSE,
     row.names = FALSE,
     sep = "\t"
   )
 }
 
-######### EDIT ME #########
-subfolder <- "survey"
-filename <- "survey_apr30.tsv"
-###########################
 
 # N.B. Qualtrics exports in UTF-16
-data <- load_qualtrics_data(subfolder, filename, fileEncoding = "utf-16")
+data <- load_qualtrics_data(filename, fileEncoding = "utf-16")
 
 # Remove rows where the "Finished" column is not "True".
 # This has the added benefit of removing those first two rows
@@ -51,7 +60,7 @@ pii_cols <- c(
 
 pii <- data %>% select(all_of(pii_cols))
 
-write_subset_of_data(pii, subfolder, "pii.tsv")
+write_subset_of_data(pii, "pii.tsv")
 
 data <- data %>% select(-all_of(pii_cols))
 
@@ -63,7 +72,7 @@ qual_cols <- c(
 )
 
 qual <- data %>% select(ends_with("_TEXT"), all_of(qual_cols))
-write_subset_of_data(qual, subfolder, "qual_responses.tsv")
+write_subset_of_data(qual, "qual_responses.tsv")
 
 # qual2 <- data %>% select("field_of_study_1", "subfield")
 # # Standardize capitalization
@@ -77,4 +86,4 @@ data <- data %>% select(-ends_with("_TEXT"), -all_of(qual_cols))
 
 
 # Save deidentified quantitative data
-write_subset_of_data(data, subfolder, "deidentified_no_qual.tsv")
+write_subset_of_data(data, "deidentified_no_qual.tsv")
