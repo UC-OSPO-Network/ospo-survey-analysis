@@ -58,7 +58,7 @@ stacked_bar_chart <- function(
 
 
 
-data <- load_qualtrics_data("survey", "deidentified_no_qual.tsv")
+data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 codenames <- c(
   "Developing open-source" = "Job",
@@ -149,11 +149,11 @@ save_plot("motivations_stacks.tiff", 12, 8)
 
 
 
+
+
+
+
 # Starting to think about statistical analysis....
-# install.packages("simr")
-# library(simr)
-# library(lme4)
-# Need to reshape data to these columns: RespondentID, Role, Motivation, Selected (where 1 = yes, 0 = no)
 
 motivations_raw <- data %>% select(
   starts_with("motivations")
@@ -167,29 +167,47 @@ motivations_raw <- shorten_long_responses(motivations_raw, c("Other research sta
 motivations_raw <- motivations_raw %>%
   filter(if_any(Job:Other, ~ .x != ""))
 
-motivation_block <- motivations_raw %>%
-  select(Job:Other)
-motivation_block <- make_df_binary(motivation_block)
+motivation_cols <- as.vector(codenames)
+motivations_processed <- make_df_binary(motivations_raw, cols = motivation_cols)
 
-motivations_processed <- data.frame(motivation_block, motivations_raw$Role)
-names(motivations_processed)[ncol(motivations_processed)] <- "Role"
-motivations_processed$RespondentID <- as.factor(1:nrow(motivations_processed))
-motivations_long <- pivot_longer(
-  motivations_processed,
-  cols = Job:Other,
-  names_to = "Motivation",
-  values_to = "Selected"
-)
 
-# Since each person gave multiple answers (one per motivation),
-# these observations are not independent. We tell the model that
-# RespondentID is a random effect.
+# Multivariate logistic regression predicting a vector of binary responses from Role
+# library(corrplot)
+# library(mvabund)
 
-mymodel <- glmer(
-  Selected ~ Motivation * Role + (1 | RespondentID),
-  data = motivations_long,
-  family = binomial,
-  control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
-)
-# https://stats.stackexchange.com/questions/164457/r-glmer-warnings-model-fails-to-converge-model-is-nearly-unidentifiable
-# Still isn't converging, need to troubleshoot
+Y <- as.matrix(motivations_processed[, motivation_cols])
+X <- motivations_processed$Role
+fit <- manyglm(Y ~ X, family = "binomial")
+
+# Assessing goodness of fit
+
+# > fit
+# Degrees of Freedom: 218 Total (i.e. Null); 213 Residual
+# Residual deviance is close to DoF, which is good
+
+# Residuals look more or less normally distributed...
+pit_resids <- residuals(fit, type = "pit.trap")
+hist(pit_resids[, "Skills"], main = "PIT Residuals: Skills")
+
+# Correlations between variables are near zero (ish),
+# suggesting that the model captures the important relationships
+corrplot(cor(pit_resids), method = "circle")
+
+# Hypothesis testing
+
+# anova() summarizes the statistical significance of the fitted model.
+# test="LR" is the default, and specifies a likelihood ratio test.
+# resamp indicates the method for resampling under the null hypothesis.
+# resamp="pit.trap" is the default ("probability integral transform" residuals)
+# The anova output starts with a table of the multivariate test statistics.
+# This tests for the global effect of Role, by resampling the whole response vector.
+# The next part of the table is the univariate test statistics,
+# which are separate logistic regressions for each response variable, ignoring the other variables.
+anova_result <- anova(fit, resamp = "pit.trap", test = "LR", p.uni = "adjusted")
+# Results:
+# Pr(>Dev) = 0.002, which is a statistically significant p-value,
+# indicating that Role significantly predicts motivation profile.
+# Only "Skills" shows a significant univariate effect of Role after
+# multiple testing correction (p.uni = "adjusted").
+# In other words, when considering whether Role can predict
+# a single motivation, it can only predict Skills.
