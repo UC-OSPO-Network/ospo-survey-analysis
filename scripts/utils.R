@@ -21,7 +21,10 @@ required_packages <- c(
   "gtools",
   "tools",
   "stringr",
-  "forcats"
+  "forcats",
+  "corrplot",
+  "mvabund",
+  "pwr"
 )
 load_packages(required_packages)
 

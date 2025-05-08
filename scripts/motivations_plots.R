@@ -1,4 +1,7 @@
+# Plot data for Q6 of the suervey (motivations for contributing to open source)
+
 suppressWarnings(suppressMessages(source("utils.R")))
+
 
 get_df_for_job_category <- function(job) {
   df <- data %>%
@@ -11,8 +14,6 @@ get_df_for_job_category <- function(job) {
   df <- df[, colSums(is.na(df) | df == "") < nrow(df)]
   df <- rename_cols_based_on_entries(df)
   # Remove any rows where they didn't answer the question about motivations
-  df <- df %>%
-    filter(if_any(Job:Other, ~ .x != ""))
   df <- make_df_binary(df)
   df <- data.frame(
     Motivation = names(df),
@@ -71,7 +72,12 @@ codenames <- c(
   "Other " = "Other"
 )
 
-# All contributors
+
+
+
+
+
+############## Basic bar plot of contributor motivations ##############
 
 motivations <- data %>% select(
   starts_with("motivations")
@@ -110,22 +116,36 @@ save_plot("motivations_overall.tiff", 8, 6)
 
 
 
+
+
+
+
+
+############## Stacked bar plots of motivations by role ##############
+
 faculty <- get_df_for_job_category("Faculty")
 nrstaff <- get_df_for_job_category("Non-research Staff")
-grads <- get_df_for_job_category("Grad Student")
-undergrads <- get_df_for_job_category("Undergraduate")
+postdocs <- get_df_for_job_category("Post-Doc")
 other_researchers <- get_df_for_job_category(
   "Other research staff (e.g., research scientist, research software engineer)"
 )
+grads <- get_df_for_job_category("Grad Student")
+undergrads <- get_df_for_job_category("Undergraduate")
+
+
+# Combine post-docs and other research staff into one category
+postdocs_other <- bind_rows(postdocs, other_researchers) %>%
+  group_by(Motivation) %>%
+  summarise(Count = sum(Count, na.rm = TRUE), .groups = "drop")
 
 
 
 faculty$Role <- "Faculty"
 nrstaff$Role <- "Non-research Staff"
 grads$Role <- "Grad Students"
-other_researchers$Role <- "Postdocs and Staff Researchers"
+postdocs_other$Role <- "Postdocs and Staff Researchers"
 undergrads$Role <- "Undergraduates"
-composite_df <- rbind(faculty, nrstaff, grads, other_researchers, undergrads)
+composite_df <- rbind(faculty, nrstaff, grads, postdocs_other, undergrads)
 
 
 stacked_plot_raw <- stacked_bar_chart(composite_df,
@@ -152,8 +172,7 @@ save_plot("motivations_stacks.tiff", 12, 8)
 
 
 
-
-# Starting to think about statistical analysis....
+############## Line plot showing proportion motivated by skills, per role ##############
 
 motivations_raw <- data %>% select(
   starts_with("motivations")
@@ -171,43 +190,51 @@ motivation_cols <- as.vector(codenames)
 motivations_processed <- make_df_binary(motivations_raw, cols = motivation_cols)
 
 
-# Multivariate logistic regression predicting a vector of binary responses from Role
-# library(corrplot)
-# library(mvabund)
+skills_by_role <- motivations_processed %>%
+  group_by(Role) %>%
+  summarise(
+    n_yes = sum(Skills == 1), # number of 1s
+    n_tot = n(), # total rows
+    Proportion = n_yes / n_tot
+  )
 
-Y <- as.matrix(motivations_processed[, motivation_cols])
-X <- motivations_processed$Role
-fit <- manyglm(Y ~ X, family = "binomial")
+skills_by_role_clean <- skills_by_role %>%
+  # drop the staff categories
+  filter(!Role %in% c("Non-research Staff", "Other research staff")) %>%
+  # drop the unnecessary columns
+  select(Role, Proportion) %>%
+  # order the factor levels
+  mutate(Role = factor(Role,
+    levels = c(
+      "Undergraduate",
+      "Grad Student",
+      "Post-Doc",
+      "Faculty"
+    ),
+    ordered = TRUE
+  )) %>%
+  arrange(Role)
 
-# Assessing goodness of fit
 
-# > fit
-# Degrees of Freedom: 218 Total (i.e. Null); 213 Residual
-# Residual deviance is close to DoF, which is good
+ggplot(skills_by_role_clean, aes(x = Role, y = Proportion)) +
+  geom_point(size = 4) + # Adjust dot size
+  labs(
+    x = "Career stage",
+    y = "Proportion of Participants Motivated by\nDesire to Learn New Skills",
+    title = "Skills as a motivator, by career stage"
+  ) +
+  theme(
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.title = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 14),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    panel.background = element_blank()
+  )
 
-# Residuals look more or less normally distributed...
-pit_resids <- residuals(fit, type = "pit.trap")
-hist(pit_resids[, "Skills"], main = "PIT Residuals: Skills")
-
-# Correlations between variables are near zero (ish),
-# suggesting that the model captures the important relationships
-corrplot(cor(pit_resids), method = "circle")
-
-# Hypothesis testing
-
-# anova() summarizes the statistical significance of the fitted model.
-# test="LR" is the default, and specifies a likelihood ratio test.
-# resamp indicates the method for resampling under the null hypothesis.
-# resamp="pit.trap" is the default ("probability integral transform" residuals)
-# The anova output starts with a table of the multivariate test statistics.
-# This tests for the global effect of Role, by resampling the whole response vector.
-# The next part of the table is the univariate test statistics,
-# which are separate logistic regressions for each response variable, ignoring the other variables.
-anova_result <- anova(fit, resamp = "pit.trap", test = "LR", p.uni = "adjusted")
-# Results:
-# Pr(>Dev) = 0.002, which is a statistically significant p-value,
-# indicating that Role significantly predicts motivation profile.
-# Only "Skills" shows a significant univariate effect of Role after
-# multiple testing correction (p.uni = "adjusted").
-# In other words, when considering whether Role can predict
-# a single motivation, it can only predict Skills.
+save_plot("motivations_skill_by_role.tiff", 8, 6)
