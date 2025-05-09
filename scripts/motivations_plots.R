@@ -59,6 +59,34 @@ stacked_bar_chart <- function(
 
 
 
+line_plot <- function(df, x_var, y_var, title) {
+  p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(size = 4) + # Adjust dot size
+    labs(
+      x = "Career stage",
+      y = "Proportion of Participants Motivated by\nDesire to Learn New Skills",
+      title = title
+    ) +
+    theme(
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+      legend.title = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 14),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
+      panel.grid = element_line(linetype = "solid", color = "gray90"),
+      panel.background = element_blank()
+    )
+  return(p)
+}
+
+
+
+
+
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 codenames <- c(
@@ -187,10 +215,10 @@ motivations_raw <- motivations_raw %>%
   filter(if_any(Job:Other, ~ .x != ""))
 
 motivation_cols <- as.vector(codenames)
-motivations_processed <- make_df_binary(motivations_raw, cols = motivation_cols)
+motivations_raw <- make_df_binary(motivations_raw, cols = motivation_cols)
 
 
-skills_by_role <- motivations_processed %>%
+skills_by_role <- motivations_raw %>%
   group_by(Role) %>%
   summarise(
     n_yes = sum(Skills == 1), # number of 1s
@@ -216,25 +244,47 @@ skills_by_role_clean <- skills_by_role %>%
   arrange(Role)
 
 
-ggplot(skills_by_role_clean, aes(x = Role, y = Proportion)) +
-  geom_point(size = 4) + # Adjust dot size
-  labs(
-    x = "Career stage",
-    y = "Proportion of Participants Motivated by\nDesire to Learn New Skills",
-    title = "Skills as a motivator, by career stage"
-  ) +
-  theme(
-    axis.title.x = element_text(size = 14),
-    axis.title.y = element_text(size = 14),
-    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
-    axis.text.y = element_text(size = 12),
-    axis.ticks.x = element_blank(),
-    axis.ticks.y = element_blank(),
-    legend.title = element_blank(),
-    plot.title = element_text(hjust = 0.5, size = 14),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
-    panel.grid = element_line(linetype = "solid", color = "gray90"),
-    panel.background = element_blank()
+line_plot(skills_by_role_clean,
+  x_var = "Role",
+  y_var = "Proportion",
+  title = "Proportion of Participants Motivated by\nDesire to Learn New Skills"
+)
+save_plot("motivations_skill_by_role.tiff", 8, 6)
+
+
+# What about giving back?
+
+
+give_by_role <- motivations_raw %>%
+  group_by(Role) %>%
+  summarise(
+    n_yes = sum(`Give back` == 1), # number of 1s
+    n_tot = n(), # total rows
+    Proportion = n_yes / n_tot
   )
 
-save_plot("motivations_skill_by_role.tiff", 8, 6)
+give_by_role_clean <- give_by_role %>%
+  # drop the staff categories
+  filter(!Role %in% c("Non-research Staff", "Other research staff")) %>%
+  # drop the unnecessary columns
+  select(Role, Proportion) %>%
+  # order the factor levels
+  mutate(Role = factor(Role,
+    levels = c(
+      "Undergraduate",
+      "Grad Student",
+      "Post-Doc",
+      "Faculty"
+    ),
+    ordered = TRUE
+  )) %>%
+  arrange(Role)
+
+
+line_plot(give_by_role_clean,
+  x_var = "Role",
+  y_var = "Proportion",
+  title = "Proportion of Participants Motivated by\nDesire to Give Back"
+)
+
+save_plot("motivations_giveback_by_role.tiff", 8, 6)

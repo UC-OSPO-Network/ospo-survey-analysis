@@ -7,6 +7,26 @@
 suppressWarnings(suppressMessages(source("utils.R")))
 
 
+pairwise_z_test_lessthan <- function(df, outcome_col = "Skills",
+                                     group1, group2, alternative = "less") {
+  # Count total and 'yes' outcomes for each group
+  n1 <- sum(df[["Role"]] == group1)
+  y1 <- sum(df[["Role"]] == group1 & df[[outcome_col]] == 1)
+
+  n2 <- sum(df[["Role"]] == group2)
+  y2 <- sum(df[["Role"]] == group2 & df[[outcome_col]] == 1)
+
+  # Perform the one-sided prop test (testing if group1 < group2)
+  result <- prop.test(
+    x = c(y1, y2),
+    n = c(n1, n2),
+    alternative = alternative,
+  )
+
+  return(result)
+}
+
+
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 codenames <- c(
@@ -36,17 +56,17 @@ motivations_raw <- motivations_raw %>%
   filter(if_any(Job:Other, ~ .x != ""))
 
 motivation_cols <- as.vector(codenames)
-motivations_processed <- make_df_binary(motivations_raw, cols = motivation_cols)
+motivations_raw <- make_df_binary(motivations_raw, cols = motivation_cols)
 
 
 # Combine post-docs and other research staff into one category
 # The model is a good fit either way
-motivations_processed <- motivations_processed %>%
+motivations_processed <- motivations_raw %>%
   mutate(
     Role = recode(
       Role,
-      `Post-Doc` = "Postdocs and Staff Researchers",
-      `Other research staff` = "Postdocs and Staff Researchers"
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
     )
   )
 
@@ -54,7 +74,7 @@ motivations_processed <- motivations_processed %>%
 
 
 
-############## Regression analysis ##############
+############## Create the regression model ##############
 
 # Multivariate logistic regression predicting a vector of binary responses from Role
 
@@ -71,11 +91,29 @@ fit
 pit_resids <- residuals(fit, type = "pit.trap")
 hist(pit_resids[, "Skills"], main = "PIT Residuals: Skills")
 
+# Residuals vs fitted plot shows residuals are distributed around zero
+plot(fit)
+
 # Correlations between variables are near zero (ish),
 # suggesting that the model captures the important relationships
 corrplot(cor(pit_resids), method = "circle")
 
-# Hypothesis testing: regression model
+# Looking at the coefficients
+coefficients(fit)
+t <- coefficients(fit)
+t["XUndergraduate", "Give back"] <- 0
+t["XUndergraduate", "Skills"] <- 0
+
+# What happens if we remove undergrads?
+Y2 <- motivations_processed %>%
+  filter(Role != "Undergraduate") %>%
+  select(-Role) %>%
+  as.matrix()
+X2 <- motivations_processed$Role[motivations_processed$Role != "Undergraduate"]
+fit_no_undergrads <- manyglm(Y2 ~ X2, family = "binomial")
+
+
+############## Hypothesis testing ##############
 
 # anova() summarizes the statistical significance of the fitted model.
 # test="LR" is the default, and specifies a likelihood ratio test.
@@ -96,7 +134,10 @@ anova_result
 # In other words, when considering whether Role can predict
 # a single motivation, it can only predict Skills.
 
-
+# Can we use the pairwise.comp argument to do pairwise comparisons?
+anova_pw <- anova(fit, resamp = "pit.trap", test = "LR", p.uni = "adjusted", pairwise.comp = X)
+# Ah, but I think this only considers the holistic multivariate response;
+# it's not looking at each response variable separately.
 
 
 
@@ -162,14 +203,35 @@ pwr::pwr.2p2n.test(
 )
 
 # In this case, we have enough undergraduates.
-# So we can proceed with this less-compelling test.
+# So we can proceed with this test.
 
-prop.test(
+
+
+
+
+
+
+
+
+############## Z-tests for significance of role vs. pskills ##############
+
+# Finishing what we started above
+res <- prop.test(
   x = c(n_nonundergrad_yes, n_undergrad_yes),
   n = c(n_nonundergrad, n_undergrad),
-  alternative = "less",
-  correct = FALSE
+  alternative = "less"
 )
-
+res
 # So undergraduates were significantly more likely to
 # select “skills” as a motivation than non-undergraduates.
+
+# Let's proceed with some more pairwise comparisons between groups for skills
+pairwise_z_test_lessthan(motivations_raw, # Note we are just looking at post docs
+  group1 = "Post-Doc",
+  group2 = "Grad Student"
+)
+
+pairwise_z_test_lessthan(motivations_raw, # Note we are just looking at post docs
+  group1 = "Faculty",
+  group2 = "Post-Doc"
+)
