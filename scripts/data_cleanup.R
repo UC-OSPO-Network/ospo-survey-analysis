@@ -4,20 +4,13 @@
 # and splits the data into multiple files.
 # Assumes data were exported from Qualtrics using
 # 'More Options' > 'Split multi-value fields into columns'.
+# Assumes data file is called 'raw_survey_data.tsv'.
 # Make sure your data path is set in .Renviron like so:
 # DATA_PATH = "/Path/to/data/folder"
+# Otherwise, change the script below.
 
 
 suppressWarnings(suppressMessages(source("utils.R")))
-args <- commandArgs(trailingOnly = TRUE)
-
-# test if there is at least one argument: if not, return an error
-if (length(args) == 0) {
-  stop("Please specify the name of the input file.n", call. = FALSE)
-}
-
-filename <- args[1]
-
 
 write_subset_of_data <- function(df, filen) {
   write.table(df,
@@ -30,7 +23,7 @@ write_subset_of_data <- function(df, filen) {
 
 
 # N.B. Qualtrics exports in UTF-16
-data <- load_qualtrics_data(filename, fileEncoding = "utf-16")
+data <- load_qualtrics_data("raw_survey_data.tsv", fileEncoding = "utf-16")
 
 # Remove rows where the "Finished" column is not "True".
 # This has the added benefit of removing those first two rows
