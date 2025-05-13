@@ -1,25 +1,28 @@
 # Run this script after data_cleanup.R to get an overview of participation rates.
-# Doesn't write new data or figures, just prints out some info.
 
 # Load packages and functions
 suppressWarnings(suppressMessages(source("utils.R")))
 
 
-
-
-data <- load_qualtrics_data("survey", "deidentified_no_qual.tsv")
+data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 # How many participants are in the dataset?
 nrow(data)
 
+# How many participants are not affiliated with UC?
+length(data$campus[data$campus == "I'm not affiliated with UC"])
 
 # How many participants are experienced contributors?
 # (Answered True to the first question, True or False to the second question)
 status <- data %>% select(
   starts_with("contributor_status")
 )
+names(status) <- c(
+  "past",
+  "future"
+)
 status %>%
-  count(contributor_status_1, contributor_status_2)
+  count(past, future)
 
 
 fc <- data %>% select(starts_with("future_contributors"))

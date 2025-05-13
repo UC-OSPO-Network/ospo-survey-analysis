@@ -1,4 +1,4 @@
-# Purpose: create donut charts reflecting response rates by group
+# A script to create donut charts reflecting response rates by group
 
 suppressWarnings(suppressMessages(source("utils.R")))
 
@@ -55,9 +55,70 @@ donut_chart <- function(df) {
 
 
 
+data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 
-data <- load_qualtrics_data("survey", "deidentified_no_qual.tsv")
+############## Bar chart of overall participation (bc a venn diagram is too hard) ##############
+
+# TODO: Maybe a simple table would be better?
+# Look into the mmtable package
+
+# How many participants are in the dataset?
+nrow(data)
+
+# How many participants are not affiliated with UC?
+length(data$campus[data$campus == "I'm not affiliated with UC"])
+
+# How many participants are experienced contributors?
+# (Answered True to the first question, True or False to the second question)
+status <- data %>% select(
+  starts_with("contributor_status")
+)
+names(status) <- c(
+  "past",
+  "future"
+)
+status <- status %>%
+  count(past, future)
+
+# Drop rows where the 'past' and 'future' columns are both empty
+# (These are non-UC respondents)
+status <- status %>%
+  filter(!(past == "" & future == "" | past == "False" & future == "False"))
+
+only_past <- sum((status %>%
+  filter(past == "True" & future == "False"))$n)
+only_future <- sum((status %>%
+  filter(past == "False" & future == "True"))$n)
+both <- sum((status %>%
+  filter(past == "True" & future == "True"))$n)
+
+status_final <- data.frame(
+  status = c("Only Past", "Only Future", "Past and Future"),
+  n = c(only_past, only_future, both)
+)
+
+# Reorder factor levels based on count
+status_final <- status_final %>%
+  mutate(status = fct_reorder(status, n, .desc = TRUE))
+
+
+basic_bar_chart(status_final,
+  x_var = "status",
+  y_var = "n",
+  title = "Participants' status as OS contributors",
+  show_bar_labels = TRUE,
+  label_position = "above",
+  label_color = "black"
+)
+
+save_plot("status.tiff", 5, 6)
+
+
+
+
+
+############## Donut charts of participation by groups ##############
 
 job_data <- create_df_for_plotting(data, "job_category")
 # Clean up this one long job name
@@ -111,3 +172,7 @@ p4 <- donut_chart(staff_data) +
 p3 + p4
 
 save_plot("donut2.tiff", 16, 12)
+
+combined_donuts <- wrap_plots(p1, p2, p3, p4, ncol = 2)
+
+save_plot("combined_donuts.tiff", 18, 12)
