@@ -1,38 +1,7 @@
-# This script generates a stacked bar chart of the perceived importance
-# of open source software among different campus groups.
-# Input: deidentified_no_qual.tsv
-# Output: importance.tiff
+# A script to plot some bar charts showing the perceived importance
+# of open source for different job categories and different tasks.
 
 suppressWarnings(suppressMessages(source("utils.R")))
-
-grouped_bar_chart <- function(df, x_var, fill_var, title, ylabel = NULL) {
-  ylabel <- ifelse(is.null(ylabel), "Number of Respondents", ylabel)
-  ggplot(df, aes(x = .data[[x_var]], fill = .data[[fill_var]])) +
-    geom_bar(position = "dodge") +
-    ggtitle(title) +
-    labs(y = ylabel) +
-    scale_fill_manual(values = colors) + # see utils.R
-    theme(
-      axis.title.x = element_blank(),
-      axis.title.y = element_text(size = 14),
-      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
-      axis.ticks.x = element_blank(),
-      legend.title = element_blank(),
-      legend.text = element_text(size = 12),
-      panel.background = element_blank(),
-      plot.title = element_text(hjust = 0.5, size = 14),
-      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
-    )
-}
-
-
-
-
-
-
-
-
-
 
 
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
@@ -40,7 +9,6 @@ data <- load_qualtrics_data("deidentified_no_qual.tsv")
 importance_and_job <- data %>% select(
   starts_with("importance_opensrc") | starts_with("job_category")
 )
-
 
 # Reshape data to long format
 long_data <- importance_and_job %>%
@@ -59,10 +27,20 @@ long_data <- long_data %>%
     "importance_opensrc_5" = "Job"
   ))
 
-# STOP! DO MANUALLY DOUBLE-CHECK THAT THE IMPORTANCE AREA LABELS ARE CORRECT!
+# # STOP! DO MANUALLY DOUBLE-CHECK THAT THE IMPORTANCE AREA LABELS ARE CORRECT!
+# # Use emails to identify responses, and compare these to the display in Qualtrics.
+# pii <- load_qualtrics_data("pii.tsv")
+# emails <- pii %>%
+#   select(starts_with("stay_in_touch_email"))
 
-# Remove all rows that contain either an NA or an empty string
-long_data <- long_data %>% filter(if_all(everything(), ~ . != "" & !is.na(.)))
+# t <- cbind(emails, importance_and_job)
+# subset(t, startsWith(stay_in_touch_email, "PERSONNAMEHERE"))
+
+
+# Remove all rows that contain an empty string in any column
+# (This cuts out 190 data points)
+long_data <- long_data %>%
+  filter(!if_any(everything(), ~ . == ""))
 
 # Shorten this one very long category
 long_data$job_category <- gsub("^Other.*", "Research Staff", long_data$job_category)
@@ -79,9 +57,41 @@ long_data$importance_level <- factor(long_data$importance_level,
   ordered = TRUE
 )
 
+
+
+############## (Grouped) bar plots for teachers, researchers, and non-research staff ##############
+
+
+teaching <- long_data %>%
+  filter(
+    importance_area == "Teaching"
+  ) %>%
+  filter(
+    importance_level != "Non-applicable"
+  )
+# I assume that if they answered "Teaching", they must be a teacher.
+
+teaching <- teaching %>% select(-c(job_category, importance_area))
+
+teaching <- teaching %>%
+  count(importance_level, name = "Counts")
+
+basic_bar_chart(teaching,
+  x_var = "importance_level",
+  y_var = "Counts",
+  title = "Perceived Importance of Open Source for Teaching",
+  ylabel = "Number of Respondents (Teachers Only)",
+  show_bar_labels = TRUE
+)
+
+save_plot("importance_teachers.tiff", 8, 5)
+
+
+
 research_learning_pd <- long_data %>%
   filter(
     importance_area == "Research" |
+      # If they gave an answer for "research", I assume they must be a researcher.
       importance_area == "Learning" |
       importance_area == "Professional Development"
   ) %>%
@@ -92,7 +102,7 @@ grouped_bar_chart(
   "Perceived Importance of Open Source among Researchers"
 )
 
-
+save_plot("importance_researchers.tiff", 10, 5)
 
 
 
@@ -103,6 +113,7 @@ job_learning_pd <- long_data %>%
       importance_area == "Learning" |
       importance_area == "Professional Development"
   ) %>%
+  filter(job_category == "Non-research Staff") %>%
   filter(importance_level != "Non-applicable")
 
 grouped_bar_chart(
@@ -110,47 +121,65 @@ grouped_bar_chart(
   "Perceived Importance of Open Source among Non-research Staff"
 )
 
-
-teaching <- long_data %>%
-  filter(
-    importance_area == "Teaching"
-  ) %>%
-  filter(
-    importance_level != "Non-applicable"
-  )
+save_plot("importance_nrstaff.tiff", 10, 5)
 
 
-ggplot(teaching, aes(
-  x = importance_level,
-  fill = importance_area
-)) +
-  geom_bar() +
-  ggtitle("Perceived Importance of Open Source for Teaching") +
-  labs(y = "Number of Respondents (Teachers Only)") +
-  scale_fill_manual(values = colors) + # from https://sronpersonalpages.nl/~pault/
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 14),
-    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
-    axis.ticks.x = element_blank(),
-    legend.position = "none",
-    panel.background = element_blank(),
-    plot.title = element_text(hjust = 0.5, size = 14),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
-  )
 
 
-# Let's just choose one job category
 
 
-save_plot("importance.tiff", 10, 5)
 
-faculty <- long_data %>%
-  filter(job_category == "Faculty") %>%
-  filter(importance_level != "Non-applicable")
 
-grouped_bar_chart(
-  faculty, "importance_level", "importance_area",
-  "Perceived Importance of Open Source among Faculty",
-  "Number of Faculty Respondents"
+
+
+
+############## Stacked bar chart for just job, learning, and professional development ##############
+
+recode_values <- c(
+  "Non-applicable" = NA,
+  "Not at all important" = 0,
+  "Slightly important" = 1,
+  "Moderately important" = 2,
+  "Important" = 3,
+  "Very important" = 4
 )
+long_data_quant <- recode_dataframe_likert(long_data, recode_values, "importance_level")
+
+
+long_data_summed <- long_data_quant %>%
+  count(job_category, importance_area, importance_level, name = "Counts")
+
+# Remove rows that contain an NA
+long_data_summed <- na.omit(long_data_summed)
+
+weighted_counts <- long_data_summed %>%
+  group_by(job_category, importance_area) %>%
+  summarise(WeightedCounts = sum(importance_level * Counts), .groups = "drop")
+
+weighted_counts_simple <- weighted_counts %>%
+  filter(importance_area != "Teaching") %>%
+  filter(importance_area != "Research")
+
+weighted_counts_simple$job_category <- factor(weighted_counts_simple$job_category,
+  levels = c(
+    "Faculty",
+    "Post-Doc",
+    "Grad Student",
+    "Undergraduate",
+    "Research Staff",
+    "Non-research Staff"
+  ),
+  ordered = TRUE
+)
+
+
+
+stacked_bar_chart(weighted_counts_simple,
+  x_var = "job_category",
+  y_var = "WeightedCounts",
+  fill = "importance_area",
+  title = "Perceived Importance of Open Source Software by Job Category",
+  ylabel = "Relative Importance",
+  proportional = TRUE
+)
+save_plot("importance_job_category.tiff", 10, 5)

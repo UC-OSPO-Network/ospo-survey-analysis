@@ -168,6 +168,66 @@ basic_bar_chart <- function(
 }
 
 
+
+
+stacked_bar_chart <- function(
+    df,
+    x_var,
+    y_var,
+    fill,
+    title,
+    ylabel = NULL,
+    proportional = FALSE) {
+  # Set position for geom_bar
+  position_type <- if (proportional) "fill" else "stack"
+
+  # Determine y-axis label if not provided
+  ylabel_final <- if (!is.null(ylabel)) ylabel else if (proportional) "Proportion of Responses" else "Number of Responses"
+
+  # Build the plot
+  p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]], fill = .data[[fill]])) +
+    geom_bar(stat = "identity", position = position_type) +
+    ggtitle(title) +
+    labs(y = ylabel_final) +
+    scale_fill_manual(values = colors) +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 14),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 10),
+      axis.text.y = element_text(size = 10),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+      panel.background = element_blank(),
+      legend.title = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 14),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+    )
+  return(p)
+}
+
+
+grouped_bar_chart <- function(df, x_var, fill_var, title, ylabel = NULL) {
+  ylabel <- ifelse(is.null(ylabel), "Number of Respondents", ylabel)
+  ggplot(df, aes(x = .data[[x_var]], fill = .data[[fill_var]])) +
+    geom_bar(position = "dodge") +
+    ggtitle(title) +
+    labs(y = ylabel) +
+    scale_fill_manual(values = colors) +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 14),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
+      axis.ticks.x = element_blank(),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 12),
+      panel.background = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 14),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+    )
+}
+
+
+
 # Save a plot
 # Path is in my ~/.Renviron file
 figure_path <- Sys.getenv("FIGURE_PATH")
@@ -249,26 +309,16 @@ rename_cols_based_on_codenames <- function(df, codes) {
 
 
 # Replace values in a data frame with new values based on a list of codes.
-# THIS IS OLD; USE shorten_long_responses INSTEAD?
-# recode_dataframe <- function(df, codes) {
-#   return(
-#     as.data.frame(lapply(df, recode_column, codes))
-#   )
-# }
 
-# recode_column <- function(column, codes) {
-#   return(
-#     names(codes)[match(column, codes)]
-#   )
-# }
-
-recode_dataframe_likert <- function(df, codes) {
-  return(
-    df %>%
-      mutate(across(everything(), ~ codes[.x]))
-  )
+recode_dataframe_likert <- function(df, codes, likert_cols) {
+  df %>%
+    mutate(
+      across(
+        all_of(likert_cols),
+        ~ codes[as.character(.x)] # convert factor to character first
+      )
+    )
 }
-
 
 
 

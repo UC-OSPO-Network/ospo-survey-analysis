@@ -58,10 +58,10 @@ donut_chart <- function(df) {
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 
-############## Bar chart of overall participation (bc a venn diagram is too hard) ##############
-
-# TODO: Maybe a simple table would be better?
-# Look into the mmtable package
+############## Exploring overall participation ##############
+# I ended up making a table in MS Word to display these data.
+# There's no good way in R to create a proportional Venn diagram, and
+# the mmtable2 package looks pretty but is really annoying to use.
 
 # How many participants are in the dataset?
 nrow(data)
@@ -98,21 +98,10 @@ status_final <- data.frame(
   n = c(only_past, only_future, both)
 )
 
-# Reorder factor levels based on count
-status_final <- status_final %>%
-  mutate(status = fct_reorder(status, n, .desc = TRUE))
 
 
-basic_bar_chart(status_final,
-  x_var = "status",
-  y_var = "n",
-  title = "Participants' status as OS contributors",
-  show_bar_labels = TRUE,
-  label_position = "above",
-  label_color = "black"
-)
 
-save_plot("status.tiff", 5, 6)
+
 
 
 
