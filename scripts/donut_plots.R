@@ -1,5 +1,8 @@
-# A script to create donut charts reflecting response rates by group
-# TODO: Repeat donut plots for just OS contributors
+#!/usr/bin/env Rscript
+
+# A script to create donut charts reflecting response rates by various groups.
+# If this script is run without arguments, it will create donut charts for all participants.
+# If run with the command-line flag "-c", it will create donut charts for OS contributors only.
 
 suppressWarnings(suppressMessages(source("utils.R")))
 
@@ -56,53 +59,44 @@ donut_chart <- function(df) {
 
 
 
+
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 
-############## Exploring overall participation ##############
-# I ended up making a table in MS Word to display these data.
-# There's no good way in R to create a proportional Venn diagram, and
-# the mmtable2 package looks pretty but is really annoying to use.
 
-# How many participants are in the dataset?
-nrow(data)
+############## Argument handling ##############
 
-# How many participants are not affiliated with UC?
-length(data$campus[data$campus == "I'm not affiliated with UC"])
+args <- commandArgs(trailingOnly = TRUE) # only the user-supplied part
 
-# How many participants are experienced contributors?
-# (Answered True to the first question, True or False to the second question)
-status <- data %>% select(
-  starts_with("contributor_status")
-)
-names(status) <- c(
-  "past",
-  "future"
-)
-status <- status %>%
-  count(past, future)
+contributor_mode <- FALSE # default
+if (length(args) > 0) {
+  # treat the *first* argument as the flag
+  flag <- tolower(args[1])
+  if (flag %in% c("--contributors", "-c", "contributors")) {
+    contributor_mode <- TRUE
+  } else {
+    stop(
+      "Unknown argument: ", flag,
+      "\nUsage: Rscript myscript.R [--contributors | -c | contributors]"
+    )
+  }
+}
 
-# Drop rows where the 'past' and 'future' columns are both empty
-# (These are non-UC respondents)
-status <- status %>%
-  filter(!(past == "" & future == "" | past == "False" & future == "False"))
+if (contributor_mode) {
+  # Filter the data to include only OS contributors
+  data <- data %>%
+    filter(
+      contributor_status_1 == "True"
+    )
+}
 
-only_past <- sum((status %>%
-  filter(past == "True" & future == "False"))$n)
-only_future <- sum((status %>%
-  filter(past == "False" & future == "True"))$n)
-both <- sum((status %>%
-  filter(past == "True" & future == "True"))$n)
-
-status_final <- data.frame(
-  status = c("Only Past", "Only Future", "Past and Future"),
-  n = c(only_past, only_future, both)
-)
-
-
-
-
-
+population <- ""
+# For plot axis labels
+if (contributor_mode) {
+  population <- "Contributors"
+} else {
+  population <- "Respondents"
+}
 
 
 
@@ -110,6 +104,7 @@ status_final <- data.frame(
 
 ############## Donut charts of participation by groups ##############
 
+# Donut chart 1
 job_data <- create_df_for_plotting(data, "job_category")
 # Clean up this one long job name
 job_data$values <- gsub(
@@ -119,31 +114,27 @@ job_data$values <- gsub(
 )
 job_data <- reorder_factor_by_column(job_data, values, Freq, descending = TRUE)
 
+p1 <- donut_chart(job_data) +
+  labs(title = sprintf("Job Category of %s", population))
+
+
+# Donut chart 2
 campus_data <- create_df_for_plotting(data, "campus")
 campus_data <- reorder_factor_by_column(campus_data, values, Freq, descending = TRUE)
 campus_data <- campus_data %>% filter(values != "I'm not affiliated with UC")
 
-p1 <- donut_chart(job_data) +
-  labs(title = "Job Category of Respondents")
-
 p2 <- donut_chart(campus_data) +
-  labs(title = "Campus of Respondents")
-
-# Combine the two plots side by side
-p1 + p2
+  labs(title = sprintf("Campus of %s", population))
 
 
-save_plot("donut.tiff", 16, 12)
-
-
-
+# Donut chart 3
 field_data <- create_df_for_plotting(data, "field_of_study")
 field_data <- reorder_factor_by_column(field_data, values, Freq, descending = TRUE)
 p3 <- donut_chart(field_data) +
-  labs(title = "Academic respondents' fields of study")
+  labs(title = sprintf("Academic %s' fields of study", tolower(population)))
 
-
-# I'm not using my function for staff because I want to combine the jobs that
+# Donut chart 4
+# I'm not using my function for this group because I want to combine the jobs that
 # have only 1 or 2 responses into the existing "Other" category.
 
 staff_data <- data[["staff_categories"]][nzchar(data[["staff_categories"]])]
@@ -183,12 +174,10 @@ staff_long_data$label <- paste0(staff_long_data$Freq)
 names(staff_long_data)[names(staff_long_data) == "job"] <- "values"
 
 p4 <- donut_chart(staff_long_data) +
-  labs(title = "Staff respondents' work areas")
+  labs(title = sprintf("Staff %s' work areas", tolower(population)))
 
-p3 + p4
-
-save_plot("donut2.tiff", 16, 12)
 
 combined_donuts <- wrap_plots(p1, p2, p3, p4, ncol = 2)
 
-save_plot("combined_donuts.tiff", 18, 12)
+
+save_plot(sprintf("combined_donuts_%s.tiff", tolower(population)), 18, 12)
