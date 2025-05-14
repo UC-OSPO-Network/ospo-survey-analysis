@@ -1,4 +1,5 @@
 # A script to create donut charts reflecting response rates by group
+# TODO: Repeat donut plots for just OS contributors
 
 suppressWarnings(suppressMessages(source("utils.R")))
 
@@ -142,20 +143,46 @@ p3 <- donut_chart(field_data) +
   labs(title = "Academic respondents' fields of study")
 
 
-staff_data <- create_df_for_plotting(data, "staff_categories")
+# I'm not using my function for staff because I want to combine the jobs that
+# have only 1 or 2 responses into the existing "Other" category.
+
+staff_data <- data[["staff_categories"]][nzchar(data[["staff_categories"]])]
+# Count occurrences of each unique value
+staff_data <- as.data.frame(table(staff_data))
+names(staff_data) <- c("job", "count")
+staff_data$job <- as.character(staff_data$job)
 codenames <- c(
   "Academic and Research Support" = "Academic and Research Support",
   "Other" = "Other",
   "Finance" = "Finance"
 )
-staff_data$values <- as.character(staff_data$values)
 staff_data <- shorten_long_responses(staff_data, codenames)
-staff_data$values <- factor(staff_data$values)
-staff_data <- reorder_factor_by_column(staff_data, values, Freq, descending = TRUE)
 
+staff_data_clean <- as.data.frame(staff_data) %>% # your original two-column data frame
+  mutate(job = if_else(count < 3, "Other", job)) %>% # relabel rare jobs as "Other"
+  group_by(job) %>% # gather all “Other” rows together
+  summarise(Freq = sum(count), .groups = "drop")
 
+staff_data_clean <- reorder_factor_by_column(staff_data_clean, job, Freq, descending = TRUE)
 
-p4 <- donut_chart(staff_data) +
+staff_long_data <- as.data.frame(staff_data_clean) %>%
+  mutate(fraction = Freq / sum(Freq)) %>%
+  arrange(desc(fraction))
+
+# Compute the cumulative percentages (top of each rectangle)
+staff_long_data$ymax <- cumsum(staff_long_data$fraction)
+staff_long_data$ymin <- c(0, head(staff_long_data$ymax, n = -1))
+
+# Compute label position
+staff_long_data$labelPosition <- (staff_long_data$ymax + staff_long_data$ymin) / 2
+
+# Create label column
+staff_long_data$label <- paste0(staff_long_data$Freq)
+
+# Rename this one column to match the donut_chart function
+names(staff_long_data)[names(staff_long_data) == "job"] <- "values"
+
+p4 <- donut_chart(staff_long_data) +
   labs(title = "Staff respondents' work areas")
 
 p3 + p4
