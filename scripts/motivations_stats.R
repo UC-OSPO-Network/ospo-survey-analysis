@@ -136,8 +136,10 @@ anova_result
 
 # Can we use the pairwise.comp argument to do pairwise comparisons?
 anova_pw <- anova(fit, resamp = "pit.trap", test = "LR", p.uni = "adjusted", pairwise.comp = X)
-# Ah, but I think this only considers the holistic multivariate response;
-# it's not looking at each response variable separately.
+
+# Indicates three significant pairwise comparisons:
+# Faculty vs Undergraduate, Postdocs and Staff Researchers vs Undergraduate, and Faculty vs Non-research Staff.
+
 
 
 
@@ -234,4 +236,38 @@ pairwise_z_test_lessthan(motivations_raw, # Note we are just looking at post doc
 pairwise_z_test_lessthan(motivations_raw, # Note we are just looking at post docs
   group1 = "Faculty",
   group2 = "Post-Doc"
+)
+
+# Not very promising.
+
+# This is a little p-hacky, but perhaps we can look at the overall trend (slope).
+# Cochran–Armitage test for trend is built into the prop.trend.test function
+# Recall "raw" just means I haven't combined post-docs and other research staff
+n_postdoc <- sum(motivations_raw$Role == "Post-Doc")
+n_postdoc_yes <- sum(motivations_raw$Role == "Post-Doc" & motivations_raw$Skills == 1)
+# For the other groups, it doesn't matter if we use the raw or processed data
+n_faculty <- sum(motivations_processed$Role == "Faculty")
+n_faculty_yes <- sum(motivations_processed$Role == "Faculty" & motivations_processed$Skills == 1)
+
+n_yes <- c(
+  n_undergrad_yes,
+  n_grad_yes,
+  n_postdoc_yes,
+  n_faculty_yes
+)
+
+n_tot <- c(
+  n_undergrad,
+  n_grad,
+  n_postdoc,
+  n_faculty
+)
+
+# Assign scores 1,2,3,4 for Undergrad --> Faculty
+scores <- 1:4
+
+prop.trend.test(
+  x = n_yes,
+  n = n_tot,
+  score = scores
 )
