@@ -1,32 +1,4 @@
-# Utils for loading or installing packages
-
-# If a package is already installed, it is loaded
-# If a package is not installed, it is installed and then loaded
-load_packages <- function(packages) {
-  for (pkg in packages) {
-    if (!require(pkg, character.only = TRUE)) {
-      install.packages(pkg, dependencies = TRUE)
-      library(pkg, character.only = TRUE, quietly = TRUE)
-    }
-  }
-}
-
-required_packages <- c(
-  "ggplot2",
-  "dplyr",
-  "readr",
-  "tidyr",
-  "patchwork",
-  "scales",
-  "gtools",
-  "tools",
-  "stringr",
-  "forcats",
-  "corrplot",
-  "mvabund",
-  "pwr"
-)
-load_packages(required_packages)
+suppressMessages(source("packages.R"))
 
 # Utils for reading data
 
