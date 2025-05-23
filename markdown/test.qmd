@@ -1,6 +1,6 @@
 ---
 title: "ggplot2 demo"
-author: "Norah Jones"
+author: "Norah Foo Jones"
 date: "5/22/2021"
 format:
   html:
