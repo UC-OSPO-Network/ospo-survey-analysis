@@ -1,5 +1,3 @@
-suppressMessages(source("packages.R"))
-
 # Utils for reading data
 
 load_qualtrics_data <- function(filename, fileEncoding = NULL) {

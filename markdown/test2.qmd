@@ -1,0 +1,56 @@
+---
+title: "Initial data cleanup (WIP)"
+author: "Virginia Scarlett"
+date: "5/23/2025"
+format:
+  html:
+    code-fold: true
+---
+
+## Overview
+This script reads in the raw survey data from Qualtrics and splits the data into multiple files. It assumes the data were exported from Qualtrics using 'More Options' > 'Split multi-value fields into columns'.\
+\
+It also assumes the data file is called 'raw_survey_data.tsv'.\
+\
+I'm storing the path to my data folder in .Renviron like so: DATA_PATH = "/Path/to/data/folder"\
+Because the data contain personally identifiable information, I'm grabbing them from elsewhere in my filesystem, outside of this project directory.
+
+## Import packages and utilities
+I'm using here() to define the project root because within .qmd cells, getwd() reflects whichever directory I've opened to in VScode.
+```{r}
+project_root <- here::here()
+print(paste0("Project root: ",project_root))
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+## Define functions specific to this script
+```{r}
+write_subset_of_data <- function(df, filen) {
+  write.table(df,
+    file.path(Sys.getenv("DATA_PATH"), filen),
+    quote = FALSE,
+    row.names = FALSE,
+    sep = "\t"
+  )
+}
+```
+
+## Load data
+
+Open the raw survey data from Qualtrics. N.B. Qualtrics exports in UTF-16.
+```{r}
+data <- load_qualtrics_data("raw_survey_data.tsv", fileEncoding = "utf-16")
+```
+
+## Inspect data
+As mentioned above in [Overview], we used Qualtrics' 'Split multi-value fields into columns' function when we exported the data from Qualtrics, which causes every response field to be its own column. So if a multiple-choice question has 4 possible responses, it will have 4 columns in the dataframe.\
+Here are the dimensions of the data:
+```{r}
+dim(data)
+```
+Here are the columns, as a vector:
+```{r}
+names(data)
+```
+The column names are based on the question names in Qualtrics (which I chose). I don't know why the numbers at the end are kind of arbitrary for certain questions. I'm pretty sure Qualtrics automatically added that "_TEXT" suffix to the free-response question columns.
