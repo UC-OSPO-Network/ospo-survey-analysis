@@ -1,6 +1,3 @@
-# Ignore weird web files from quarto
-reports/markdown/*/
-
 # History files
 .DS_Store
 

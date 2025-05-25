@@ -2,9 +2,6 @@
 title: "Initial data cleanup (WIP)"
 author: "Virginia Scarlett"
 date: "5/23/2025"
-format:
-  html:
-    code-fold: true
 ---
 
 ## Overview
@@ -16,9 +13,8 @@ I'm storing the path to my data folder in .Renviron like so: DATA_PATH = "/Path/
 Because the data contain personally identifiable information, I'm grabbing them from elsewhere in my filesystem, outside of this project directory.
 
 ## Import packages and utilities
-I'm using here() to define the project root because within .qmd cells, getwd() reflects whichever directory I've opened to in VScode.
 ```{r}
-project_root <- here::here()
+project_root <- here::here() # requires that you be in project directory if using VS Code (i.e. not home dir)
 print(paste0("Project root: ",project_root))
 suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
