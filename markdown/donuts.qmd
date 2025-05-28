@@ -1,0 +1,244 @@
+---
+title: "Donut plots"
+author: "Virginia Scarlett"
+format: pdf
+---
+
+
+# Overview
+This script creates donut plots that show survey participation rates across various groups.
+If the script is run without arguments, it will create donut charts for all participants.
+If run with the command-line flag "-c", it will create donut charts for OS contributors only.
+
+## Import packages and utilities
+
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+## Define functions
+#### create_df_for_plotting
+* Arguments:
+    * `data`: The unmodified data frame with all the (deidentified) survey data.
+    * `column`: The name of the column with the data to be plotted.
+* Details:  
+    * This function creates a new data frame suitable for plotting as a donut plot. It essentially creates a single stacked bar with all our data, and then plots that on a polar coordinate system to make it a donut. Method from https://r-graph-gallery.com/128-ring-or-donut-plot.html. This function extracts the data of interest from the larger data frame, and puts them into a new data frame along with relevant breakpoints for and label locations.
+* Outputs: 
+    * `long_data`: a new data frame with columns values, Freq, fraction, ymax, ymin, labelPosition, and label.
+```{r}
+create_df_for_plotting <- function(data, column) {
+  if (!column %in% names(data)) {
+    stop("Column not found in data frame")
+  }
+  # Extract specified column and remove rows where this column is an empty string
+  # i.e. the participant didn't answer
+  values <- data[[column]][nzchar(data[[column]])]
+  # Count occurrences of each unique value
+  values_table <- table(values)
+
+  # Convert to data frame and compute fractions
+  long_data <- as.data.frame(values_table) %>%
+    mutate(fraction = Freq / sum(Freq)) %>%
+    arrange(desc(fraction))
+
+  # Compute the cumulative percentages (top of each rectangle)
+  long_data$ymax <- cumsum(long_data$fraction)
+  long_data$ymin <- c(0, head(long_data$ymax, n = -1))
+
+  # Compute label position
+  long_data$labelPosition <- (long_data$ymax + long_data$ymin) / 2
+
+  # Create label column
+  long_data$label <- paste0(long_data$Freq)
+
+  return(long_data)
+}
+```
+
+#### donut_chart
+* Arguments: 
+    * `df`: The data frame ready for plotting, such as the one produced by create_df_for_plotting.
+* Details:  
+    * This function creates a donut plot.
+* Outputs: 
+    * A ggplot object.
+```{r}
+donut_chart <- function(df) {
+  ggplot(df, aes(ymax = ymax, 
+                ymin = ymin, 
+                xmax = 4, 
+                xmin = 3, 
+                fill = values)) +
+    geom_rect() +
+    # Add labels
+    geom_text(x = 3.5, aes(y = labelPosition, 
+                           label = label), 
+                           size = 6,
+                           color = "white") +
+    scale_fill_manual(values = colors) +
+    theme_void() +
+    coord_polar(theta = "y") +
+    xlim(c(2, 4)) +
+    theme(
+      legend.text = element_text(size = 14),
+      legend.title = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 20),
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+}
+```
+
+## Load data
+
+```{r}
+data <- load_qualtrics_data("deidentified_no_qual.tsv")
+```
+
+## Process command-line arguments
+Here, I use a boolean variable called `contributor_mode` to record whether the user wants to create donut plots for all respondents or contributors only.
+It's FALSE by default, so if you want to run this script interactively in a notebook, you can safely run this cell without any adjustments.
+```{r}
+args <- commandArgs(trailingOnly = TRUE) # only the user-supplied part
+
+contributor_mode <- FALSE # default
+if (length(args) > 0) {
+  # treat the *first* argument as the flag
+  flag <- tolower(args[1])
+  if (flag %in% c("--contributors", "-c", "contributors")) {
+    contributor_mode <- TRUE
+  } else {
+    stop(
+      "Unknown argument: ", flag,
+      "\nUsage: Rscript myscript.R [--contributors | -c | contributors]"
+    )
+  }
+}
+
+if (contributor_mode) {
+  # Filter the data to include only OS contributors
+  data <- data %>%
+    filter(
+      contributor_status_1 == "True"
+    )
+}
+
+population <- ""
+# For plot axis labels
+if (contributor_mode) {
+  population <- "Contributors"
+} else {
+  population <- "Respondents"
+}
+```
+
+# Donut charts of participation by groups
+
+This script creates 4 plots, called `p1`-`p4`. 
+
+Plot #1 is of job category (Undergrad, Post-Doc, Non-research Staff, etc.).
+```{r}
+job_data <- create_df_for_plotting(data, "job_category")
+# Clean up this one long job name:
+# "Other research staff (e.g., research scientist, research software engineer)"
+job_data$values <- gsub(
+  "^Other.*",
+  "Other research staff",
+  job_data$values
+)
+# from scripts/utils.R
+job_data <- reorder_factor_by_column(job_data, values, Freq, descending = TRUE)
+
+p1 <- donut_chart(job_data) +
+  labs(title = sprintf("Job Category of %s", population))
+```
+
+Here's a look at the `job_data` data frame that will be used for plotting the donut chart.
+```{r}
+job_data
+```
+
+Plot #2 is of campus.
+```{r}
+campus_data <- create_df_for_plotting(data, "campus")
+campus_data <- reorder_factor_by_column(campus_data, values, Freq, descending = TRUE)
+campus_data <- campus_data %>% filter(values != "I'm not affiliated with UC")
+
+p2 <- donut_chart(campus_data) +
+  labs(title = sprintf("Campus of %s", population))
+```
+
+
+Plot #3 is of their field of study. Qualitative answers are not included in this plot.
+```{r}
+field_data <- create_df_for_plotting(data, "field_of_study")
+field_data <- reorder_factor_by_column(field_data, values, Freq, descending = TRUE)
+p3 <- donut_chart(field_data) +
+  labs(title = sprintf("Academic %s' fields of study", tolower(population)))
+```
+
+Plot #4 is of staff categories (IT, Research Support, etc.). This one is more complicated. I'm not using my create_df_for_plotting function for this group because I want to combine the jobs that have only 1 or 2 responses into the existing "Other" category. So the code is similar but not the same.
+```{r}
+staff_data <- data[["staff_categories"]][nzchar(data[["staff_categories"]])]
+# Count occurrences of each unique value
+staff_data <- as.data.frame(table(staff_data))
+names(staff_data) <- c("job", "count")
+staff_data$job <- as.character(staff_data$job)
+codenames <- c(
+  "Academic and Research Support" = "Academic and Research Support",
+  "Other" = "Other",
+  "Finance" = "Finance"
+)
+# a two-column dataframe: "job" and "count"
+staff_data <- shorten_long_responses(staff_data, codenames)
+
+staff_data_clean <- as.data.frame(staff_data) %>%
+  mutate(job = if_else(count < 3, "Other", job)) %>% # relabel rare jobs as "Other"
+  group_by(job) %>% # gather all “Other” rows together
+  summarise(Freq = sum(count), .groups = "drop")
+
+staff_data_clean <- reorder_factor_by_column(staff_data_clean, job, Freq, descending = TRUE)
+
+staff_long_data <- as.data.frame(staff_data_clean) %>%
+  mutate(fraction = Freq / sum(Freq)) %>%
+  arrange(desc(fraction))
+
+# Compute the cumulative percentages (top of each rectangle)
+staff_long_data$ymax <- cumsum(staff_long_data$fraction)
+staff_long_data$ymin <- c(0, head(staff_long_data$ymax, n = -1))
+
+# Compute label position
+staff_long_data$labelPosition <- (staff_long_data$ymax + staff_long_data$ymin) / 2
+
+# Create label column
+staff_long_data$label <- paste0(staff_long_data$Freq)
+
+# Rename this one column to match the donut_chart function
+names(staff_long_data)[names(staff_long_data) == "job"] <- "values"
+
+p4 <- donut_chart(staff_long_data) +
+  labs(title = sprintf("Staff %s' work areas", tolower(population)))
+```
+
+## Look at the plot
+```{r}
+combined_donuts <- patchwork::wrap_plots(p1, p2, p3, p4, ncol = 2)
+```
+
+```{r, fig.width=18, fig.height=12}
+combined_donuts
+```
+## Save the plot
+```{r}
+# Function from utils.R, uses a path in .Renviron
+save_plot(sprintf("combined_donuts_%s.tiff", tolower(population)), 18, 12)
+```
+
+# Session Info
+```{r}
+sessionInfo()
+```

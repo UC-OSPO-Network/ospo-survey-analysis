@@ -12,6 +12,4 @@ I am using `renv` to manage my R packages. To add or remove packages, I edit `sc
 
 ## Publishing
 
-I'm currently in the process of transitioning from R scripts to .qmd notebooks. I don't really love these... but the plan is to transition to them so that I can render my scripts to readable reports. As I go along, and some of the (.qmd) notebooks are basically finalized, I will publish them as pdfs in `reports/markdown` (Quarto insists on this spurious intermediate directory).
-
-Note to self: to publish, do `quarto render --to pdf`.
+I'm currently in the process of transitioning from R scripts to .qmd notebooks. The plan is to eventually phase out the scripts, so that I can render my notebooks to readable reports. I will publish them as pdfs in `reports/markdown` (Quarto apparently insists on this spurious intermediate directory). I'm also creating web files for HTML+CSS reports, but these make for noisy git diffs so I'm not including them in version control.

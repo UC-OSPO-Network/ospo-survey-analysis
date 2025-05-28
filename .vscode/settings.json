@@ -1,0 +1,18 @@
+{
+  "[r]": {
+      "editor.defaultFormatter": "posit.air-vscode",
+      "editor.formatOnSave": true,
+      "editor.tabSize": 2,
+      "editor.detectIndentation": false
+  },
+  "[quarto]": {
+      "editor.defaultFormatter": "posit.air-vscode",
+      "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "posit.air-vscode",
+    "editor.formatOnSave":     true
+  },
+  "rainbow_csv.align_in_scratch_file": true
+}
+

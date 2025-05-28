@@ -15,5 +15,29 @@
   "vcs.ignore.cellar": true,
   "vcs.ignore.library": true,
   "vcs.ignore.local": true,
-  "vcs.manage.ignores": true
+  "vcs.manage.ignores": true,
+  "r.plot.useHttpgd": true,
+  "r.bracketedPaste": true,
+  "r.rpath.mac": "/usr/local/bin/R",
+  "r.rterm.mac": "/Users/virginiascarlett/.rye/shims/radian",
+  "r.rterm.option": [
+      "--no-save",
+      "--no-restore",
+      "--r-binary=/usr/local/bin/R"
+  ],
+  "[r]": {
+      "editor.defaultFormatter": "posit.air-vscode",
+      "editor.formatOnSave": true,
+      "editor.tabSize": 2,
+      "editor.detectIndentation": false
+  },
+  "[quarto]": {
+      "editor.defaultFormatter": "posit.air-vscode",
+      "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "posit.air-vscode",
+    "editor.formatOnSave":     true
+  },
+  "rainbow_csv.align_in_scratch_file": true
 }

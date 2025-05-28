@@ -15,7 +15,6 @@ Because the data contain personally identifiable information, I'm grabbing them 
 ## Import packages and utilities
 ```{r}
 project_root <- here::here() # requires that you be in project directory if using VS Code (i.e. not home dir)
-print(paste0("Project root: ",project_root))
 suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
@@ -45,8 +44,10 @@ Here are the dimensions of the data:
 ```{r}
 dim(data)
 ```
+
 Here are the columns, as a vector:
 ```{r}
 names(data)
 ```
+
 The column names are based on the question names in Qualtrics (which I chose). I don't know why the numbers at the end are kind of arbitrary for certain questions. I'm pretty sure Qualtrics automatically added that "_TEXT" suffix to the free-response question columns.
