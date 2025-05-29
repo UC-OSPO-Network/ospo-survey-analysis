@@ -3,7 +3,9 @@ title: "Importance of open source"
 ---
 
 # Overview
-This script creates bar plots from question 2 on the survey, which is about the perceived importance of open source for different job categories and different tasks.
+This script creates bar plots from question 2 on the survey, which is about the
+perceived importance of open source for different job categories and different
+tasks.
 
 # Import packages and utilities
 ```{r}
@@ -20,11 +22,16 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 #### get_percent_more_than_moderate
 
 - Arguments:
-  - `df`: A data frame with a column named 'importance_level'. Should contain only rows that you want to count. Extra columns is okay.
+  - `df`: A data frame with a column named `importance_level`. Should contain
+    only rows that you want to count. Extra columns are okay.
 - Details:
-  - A simple function to count what percent of rows in a data frame have an importance_level of more than 'Moderately important'. Checks that there are no extra rows with an unexpected value in the importance_level column.
+  - A simple function to count what percent of rows in a data frame have an
+    `importance_level` of more than `Moderately important`. Checks that there
+    are no extra rows with an unexpected value in the importance_level column.
 - Outputs:
-  - A scalar value representing the percentage of respondents who selected an importance_level of more than 'Moderately important', rounded to 2 decimal places.
+  - A scalar value representing the percentage of respondents who selected an
+    `importance_level` of more than `Moderately important`, rounded to 2 decimal
+    places.
 ```{r}
 get_percent_more_than_moderate <- function(df) {
   # check that df has the required column
@@ -91,7 +98,13 @@ long_data <- long_data %>%
 long_data
 ```
 
-**STOP!!!** At this point, I manually compared this data frame to the results table in Qualtrics to make sure the columns (e.g. `importance_opensrc_1`) correspond to the options I expect (e.g. "Research"). I had to use peoples' email addresses to make sure I was comparing the same rows in each table. I assumed that the variables were ordered by their order on the survey, but you never know. In this case, my assumption was correct. I've commented out the code for this because it only needed to be done once.
+**STOP!!!** At this point, I manually compared this data frame to the results
+table in Qualtrics to make sure the columns (e.g. `importance_opensrc_1`)
+correspond to the options I expect (e.g. "Research"). I had to use peoples'
+email addresses to make sure I was comparing the same rows in each table. I
+assumed that the variables were ordered by their order on the survey, but you
+never know. In this case, my assumption was correct. I've commented out the
+code for this because it only needed to be done once.
 ```{r}
 # pii <- load_qualtrics_data("pii.tsv")
 # emails <- pii %>%
@@ -103,7 +116,11 @@ long_data
 
 Back to data wrangling.
 
-Here, I removed all rows that contain an empty string in any column. Since both questions were mandatory, I'm actually only removing people who never saw the demographic questions: people who are not affiliated with UC (2) + people who are neither past nor future open source contributors (36). (2+36)*5 importance areas = 190 rows removed.
+Here, I removed all rows that contain an empty string in any column. Since both
+questions were mandatory, I'm actually only removing people who never saw the
+demographic questions: people who are not affiliated with UC (2) + people who
+are neither past nor future open source contributors (36). (2+36)\*5 importance
+areas = 190 rows removed.
 ```{r}
 dim(long_data)
 
@@ -142,7 +159,11 @@ long_data
 # Bar plots
 
 ## Simple bar plot for teachers
-Now let's start making some bar plots. Let's start by making a bar plot showing how teachers rate the importance of open source for their teaching. Since we didn't ask people "Do you teach?", and since there was a "Non-applicable" option, we will simply assume that if they gave an answer for the "Teaching" option, they must be a teacher.
+Now let's start making some bar plots. Let's start by making a bar plot showing
+how teachers rate the importance of open source for their teaching. Since we
+didn't ask people "Do you teach?", and since there was a "Non-applicable"
+option, we will simply assume that if they gave an answer for the "Teaching"
+option, they must be a teacher.
 ```{r}
 teaching <- long_data %>%
   filter(
@@ -178,7 +199,8 @@ Save the plot using a function that lives in my utilities script (`scripts/utils
 #save_plot("importance_teachers.tiff", 8, 5)
 ```
 
-Finally, let's check what percentage of teachers said OS is more than moderately important for their teaching.
+Finally, let's check what percentage of teachers said OS is more than 
+moderately important for their teaching.
 ```{r}
 teaching_high <- teaching %>%
   filter(
@@ -199,14 +221,17 @@ round(nrow(teaching_high) / nrow(teaching) * 100, 2)
 ```
 
 ## Grouped bar plot for researchers
-Now let's look at researchers, and the importance categories that apply to all researchers. The importance categories again are:\
+Now let's look at researchers, and the importance categories that apply to all
+researchers. The importance categories again are:\
 Research\
 Teaching --> Does not apply\
 Learning\
 Professional Development\
 Job (For non-research staff) --> Does not apply\
 
-So we'll make a bar plot with just those three categories that apply to all researchers. As with teachers above, we will assume that if they didn't select "Non-applicable", they must be a researcher.
+So we'll make a bar plot with just those three categories that apply to all
+researchers. As with teachers above, we will assume that if they didn't select
+"Non-applicable", they must be a researcher.
 
 The `grouped_bar_chart` function, like the `basic_bar_chart` function, lives in my utility script.
 ```{r fig.width=10, fig.height=5}
@@ -228,7 +253,8 @@ grouped_bar_chart(
 #save_plot("importance_researchers.tiff", 10, 5)
 ```
 
-Finally, let's check what percentage of researchers said OS is more than moderately important for their research.
+Finally, let's check what percentage of researchers said OS is more than 
+moderately important for their research.
 ```{r}
 research <- research_learning_pd %>%
   filter(
