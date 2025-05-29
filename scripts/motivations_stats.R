@@ -7,8 +7,13 @@
 suppressWarnings(suppressMessages(source("utils.R")))
 
 
-pairwise_z_test_lessthan <- function(df, outcome_col = "Skills",
-                                     group1, group2, alternative = "less") {
+pairwise_z_test_lessthan <- function(
+  df,
+  outcome_col = "Skills",
+  group1,
+  group2,
+  alternative = "less"
+) {
   # Count total and 'yes' outcomes for each group
   n1 <- sum(df[["Role"]] == group1)
   y1 <- sum(df[["Role"]] == group1 & df[[outcome_col]] == 1)
@@ -43,13 +48,17 @@ codenames <- c(
 
 ############## Data wrangling ##############
 
-motivations_raw <- data %>% select(
-  starts_with("motivations")
-)
+motivations_raw <- data %>%
+  select(
+    starts_with("motivations")
+  )
 motivations_raw <- shorten_long_responses(motivations_raw, codenames)
 motivations_raw <- rename_cols_based_on_entries(motivations_raw)
 motivations_raw$Role <- data$job_category
-motivations_raw <- shorten_long_responses(motivations_raw, c("Other research staff" = "Other research staff"))
+motivations_raw <- shorten_long_responses(
+  motivations_raw,
+  c("Other research staff" = "Other research staff")
+)
 
 # Remove any rows where they didn't answer the question
 motivations_raw <- motivations_raw %>%
@@ -69,9 +78,6 @@ motivations_processed <- motivations_raw %>%
       "Other research staff" = "Postdocs and Staff Researchers"
     )
   )
-
-
-
 
 
 ############## Create the regression model ##############
@@ -135,15 +141,16 @@ anova_result
 # a single motivation, it can only predict Skills.
 
 # Can we use the pairwise.comp argument to do pairwise comparisons?
-anova_pw <- anova(fit, resamp = "pit.trap", test = "LR", p.uni = "adjusted", pairwise.comp = X)
+anova_pw <- anova(
+  fit,
+  resamp = "pit.trap",
+  test = "LR",
+  p.uni = "adjusted",
+  pairwise.comp = X
+)
 
 # Indicates three significant pairwise comparisons:
 # Faculty vs Undergraduate, Postdocs and Staff Researchers vs Undergraduate, and Faculty vs Non-research Staff.
-
-
-
-
-
 
 ############## Power analysis ##############
 # Post-hoc power analysis to determine whether we have enough undergraduates
@@ -153,11 +160,17 @@ anova_pw <- anova(fit, resamp = "pit.trap", test = "LR", p.uni = "adjusted", pai
 # What total sample size is needed to achieve 80% power, assuming equal groups?
 
 n_grad <- sum(motivations_processed$Role == "Grad Student")
-n_grad_yes <- sum(motivations_processed$Role == "Grad Student" & motivations_processed$Skills == 1)
+n_grad_yes <- sum(
+  motivations_processed$Role == "Grad Student" &
+    motivations_processed$Skills == 1
+)
 p_grad_yes <- n_grad_yes / n_grad
 
 n_undergrad <- sum(motivations_processed$Role == "Undergraduate")
-n_undergrad_yes <- sum(motivations_processed$Role == "Undergraduate" & motivations_processed$Skills == 1)
+n_undergrad_yes <- sum(
+  motivations_processed$Role == "Undergraduate" &
+    motivations_processed$Skills == 1
+)
 p_undergrad_yes <- n_undergrad_yes / n_undergrad
 
 
@@ -190,7 +203,10 @@ pwr::pwr.2p2n.test(
 
 # What if we do undergrads vs. everyone else combined?
 n_nonundergrad <- sum(motivations_processed$Role != "Undergraduate")
-n_nonundergrad_yes <- sum(motivations_processed$Role != "Undergraduate" & motivations_processed$Skills == 1)
+n_nonundergrad_yes <- sum(
+  motivations_processed$Role != "Undergraduate" &
+    motivations_processed$Skills == 1
+)
 p_nonundergrad_yes <- n_nonundergrad_yes / n_nonundergrad
 
 
@@ -207,14 +223,6 @@ pwr::pwr.2p2n.test(
 # In this case, we have enough undergraduates.
 # So we can proceed with this test.
 
-
-
-
-
-
-
-
-
 ############## Z-tests for significance of role vs. pskills ##############
 
 # Finishing what we started above
@@ -228,12 +236,14 @@ res
 # select “skills” as a motivation than non-undergraduates.
 
 # Let's proceed with some more pairwise comparisons between groups for skills
-pairwise_z_test_lessthan(motivations_raw, # Note we are just looking at post docs
+pairwise_z_test_lessthan(
+  motivations_raw, # Note we are just looking at post docs
   group1 = "Post-Doc",
   group2 = "Grad Student"
 )
 
-pairwise_z_test_lessthan(motivations_raw, # Note we are just looking at post docs
+pairwise_z_test_lessthan(
+  motivations_raw, # Note we are just looking at post docs
   group1 = "Faculty",
   group2 = "Post-Doc"
 )
@@ -244,10 +254,14 @@ pairwise_z_test_lessthan(motivations_raw, # Note we are just looking at post doc
 # Cochran–Armitage test for trend is built into the prop.trend.test function
 # Recall "raw" just means I haven't combined post-docs and other research staff
 n_postdoc <- sum(motivations_raw$Role == "Post-Doc")
-n_postdoc_yes <- sum(motivations_raw$Role == "Post-Doc" & motivations_raw$Skills == 1)
+n_postdoc_yes <- sum(
+  motivations_raw$Role == "Post-Doc" & motivations_raw$Skills == 1
+)
 # For the other groups, it doesn't matter if we use the raw or processed data
 n_faculty <- sum(motivations_processed$Role == "Faculty")
-n_faculty_yes <- sum(motivations_processed$Role == "Faculty" & motivations_processed$Skills == 1)
+n_faculty_yes <- sum(
+  motivations_processed$Role == "Faculty" & motivations_processed$Skills == 1
+)
 
 n_yes <- c(
   n_undergrad_yes,

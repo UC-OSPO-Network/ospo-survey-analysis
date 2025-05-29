@@ -14,9 +14,10 @@ length(data$campus[data$campus == "I'm not affiliated with UC"])
 
 # How many participants are experienced contributors?
 # (Answered True to the first question, True or False to the second question)
-status <- data %>% select(
-  starts_with("contributor_status")
-)
+status <- data %>%
+  select(
+    starts_with("contributor_status")
+  )
 names(status) <- c(
   "past",
   "future"
@@ -46,7 +47,8 @@ codenames <- c(
 )
 fc_cleaned <- shorten_long_responses(fc_cleaned, codenames)
 fc_cleaned <- rename_cols_based_on_entries(fc_cleaned)
-fc_summary <- fc_cleaned %>% summarise(across(everything(), ~ sum(!is.na(.) & . != "")))
+fc_summary <- fc_cleaned %>%
+  summarise(across(everything(), ~ sum(!is.na(.) & . != "")))
 fc_long <- fc_summary %>%
   pivot_longer(
     everything(),
@@ -80,4 +82,5 @@ proj_types <- strip_descriptions(proj_types)
 proj_types <- gsub("^Other.*", "Other", proj_types)
 proj_types_cleaned <- rename_cols_based_on_entries(proj_types)
 # Count non-NA and non-empty responses in each column
-proj_types_cleaned %>% summarise(across(everything(), ~ sum(!is.na(.) & . != "")))
+proj_types_cleaned %>%
+  summarise(across(everything(), ~ sum(!is.na(.) & . != "")))

@@ -3,12 +3,12 @@
 
 suppressWarnings(suppressMessages(source("utils.R")))
 
-
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
-importance_and_job <- data %>% select(
-  starts_with("importance_opensrc") | starts_with("job_category")
-)
+importance_and_job <- data %>%
+  select(
+    starts_with("importance_opensrc") | starts_with("job_category")
+  )
 
 # Reshape data to long format
 long_data <- importance_and_job %>%
@@ -19,13 +19,16 @@ long_data <- importance_and_job %>%
   )
 
 long_data <- long_data %>%
-  mutate(importance_area = recode(importance_area,
-    "importance_opensrc_1" = "Research",
-    "importance_opensrc_2" = "Teaching",
-    "importance_opensrc_3" = "Learning",
-    "importance_opensrc_4" = "Professional Development",
-    "importance_opensrc_5" = "Job"
-  ))
+  mutate(
+    importance_area = recode(
+      importance_area,
+      "importance_opensrc_1" = "Research",
+      "importance_opensrc_2" = "Teaching",
+      "importance_opensrc_3" = "Learning",
+      "importance_opensrc_4" = "Professional Development",
+      "importance_opensrc_5" = "Job"
+    )
+  )
 
 # # STOP! DO MANUALLY DOUBLE-CHECK THAT THE IMPORTANCE AREA LABELS ARE CORRECT!
 # # Use emails to identify responses, and compare these to the display in Qualtrics.
@@ -36,16 +39,20 @@ long_data <- long_data %>%
 # t <- cbind(emails, importance_and_job)
 # subset(t, startsWith(stay_in_touch_email, "PERSONNAMEHERE"))
 
-
 # Remove all rows that contain an empty string in any column
 # (This cuts out 190 data points)
 long_data <- long_data %>%
   filter(!if_any(everything(), ~ . == ""))
 
 # Shorten this one very long category
-long_data$job_category <- gsub("^Other.*", "Research Staff", long_data$job_category)
+long_data$job_category <- gsub(
+  "^Other.*",
+  "Research Staff",
+  long_data$job_category
+)
 
-long_data$importance_level <- factor(long_data$importance_level,
+long_data$importance_level <- factor(
+  long_data$importance_level,
   levels = c(
     "Very important",
     "Important",
@@ -58,9 +65,7 @@ long_data$importance_level <- factor(long_data$importance_level,
 )
 
 
-
 ############## (Grouped) bar plots for teachers, researchers, and non-research staff ##############
-
 
 teaching <- long_data %>%
   filter(
@@ -76,7 +81,8 @@ teaching <- teaching %>% select(-c(job_category, importance_area))
 teaching <- teaching %>%
   count(importance_level, name = "Counts")
 
-basic_bar_chart(teaching,
+basic_bar_chart(
+  teaching,
   x_var = "importance_level",
   y_var = "Counts",
   title = "Perceived Importance of Open Source for Teaching",
@@ -85,7 +91,6 @@ basic_bar_chart(teaching,
 )
 
 save_plot("importance_teachers.tiff", 8, 5)
-
 
 
 research_learning_pd <- long_data %>%
@@ -98,13 +103,13 @@ research_learning_pd <- long_data %>%
   filter(importance_level != "Non-applicable")
 
 grouped_bar_chart(
-  research_learning_pd, "importance_level", "importance_area",
+  research_learning_pd,
+  "importance_level",
+  "importance_area",
   "Perceived Importance of Open Source among Researchers"
 )
 
 save_plot("importance_researchers.tiff", 10, 5)
-
-
 
 
 job_learning_pd <- long_data %>%
@@ -117,20 +122,13 @@ job_learning_pd <- long_data %>%
   filter(importance_level != "Non-applicable")
 
 grouped_bar_chart(
-  job_learning_pd, "importance_level", "importance_area",
+  job_learning_pd,
+  "importance_level",
+  "importance_area",
   "Perceived Importance of Open Source among Non-research Staff"
 )
 
 save_plot("importance_nrstaff.tiff", 10, 5)
-
-
-
-
-
-
-
-
-
 
 
 ############## Stacked bar chart for just job, learning, and professional development ##############
@@ -143,7 +141,11 @@ recode_values <- c(
   "Important" = 3,
   "Very important" = 4
 )
-long_data_quant <- recode_dataframe_likert(long_data, recode_values, "importance_level")
+long_data_quant <- recode_dataframe_likert(
+  long_data,
+  recode_values,
+  "importance_level"
+)
 
 
 long_data_summed <- long_data_quant %>%
@@ -160,7 +162,8 @@ weighted_counts_simple <- weighted_counts %>%
   filter(importance_area != "Teaching") %>%
   filter(importance_area != "Research")
 
-weighted_counts_simple$job_category <- factor(weighted_counts_simple$job_category,
+weighted_counts_simple$job_category <- factor(
+  weighted_counts_simple$job_category,
   levels = c(
     "Faculty",
     "Post-Doc",
@@ -173,8 +176,8 @@ weighted_counts_simple$job_category <- factor(weighted_counts_simple$job_categor
 )
 
 
-
-stacked_bar_chart(weighted_counts_simple,
+stacked_bar_chart(
+  weighted_counts_simple,
   x_var = "job_category",
   y_var = "WeightedCounts",
   fill = "importance_area",

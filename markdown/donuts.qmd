@@ -4,11 +4,12 @@ author: "Virginia Scarlett"
 format: pdf
 ---
 
-
 # Overview
-This script creates donut plots that show survey participation rates across various groups.
-If the script is run without arguments, it will create donut charts for all participants.
-If run with the command-line flag "-c", it will create donut charts for OS contributors only.
+
+This script creates donut plots that show survey participation rates across
+various groups. If the script is run without arguments, it will create donut
+charts for all participants. If run with the command-line flag "-c", it will
+create donut charts for OS contributors only.
 
 ## Import packages and utilities
 
@@ -22,14 +23,23 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
 ## Define functions
+
 #### create_df_for_plotting
-* Arguments:
-    * `data`: The unmodified data frame with all the (deidentified) survey data.
-    * `column`: The name of the column with the data to be plotted.
-* Details:  
-    * This function creates a new data frame suitable for plotting as a donut plot. It essentially creates a single stacked bar with all our data, and then plots that on a polar coordinate system to make it a donut. Method from https://r-graph-gallery.com/128-ring-or-donut-plot.html. This function extracts the data of interest from the larger data frame, and puts them into a new data frame along with relevant breakpoints for and label locations.
-* Outputs: 
-    * `long_data`: a new data frame with columns values, Freq, fraction, ymax, ymin, labelPosition, and label.
+
+- Arguments:
+  - `data`: The unmodified data frame with all the (deidentified) survey data.
+  - `column`: The name of the column with the data to be plotted.
+- Details:
+  - This function creates a new data frame suitable for plotting as a donut
+    plot. It essentially creates a single stacked bar with all our data, and
+    then plots that on a polar coordinate system to make it a donut. Method from
+    https://r-graph-gallery.com/128-ring-or-donut-plot.html. This function
+    extracts the data of interest from the larger data frame, and puts them into
+    a new data frame along with relevant breakpoints for and label locations.
+- Outputs:
+  - `long_data`: a new data frame with columns values, Freq, fraction, ymax,
+    ymin, labelPosition, and label.
+
 ```{r}
 create_df_for_plotting <- function(data, column) {
   if (!column %in% names(data)) {
@@ -61,25 +71,26 @@ create_df_for_plotting <- function(data, column) {
 ```
 
 #### donut_chart
-* Arguments: 
-    * `df`: The data frame ready for plotting, such as the one produced by create_df_for_plotting.
-* Details:  
-    * This function creates a donut plot.
-* Outputs: 
-    * A ggplot object.
+
+- Arguments:
+  - `df`: The data frame ready for plotting, such as the one produced by
+    create_df_for_plotting.
+- Details:
+  - This function creates a donut plot.
+- Outputs:
+  - A ggplot object.
+
 ```{r}
 donut_chart <- function(df) {
-  ggplot(df, aes(ymax = ymax, 
-                ymin = ymin, 
-                xmax = 4, 
-                xmin = 3, 
-                fill = values)) +
+  ggplot(df, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 3, fill = values)) +
     geom_rect() +
     # Add labels
-    geom_text(x = 3.5, aes(y = labelPosition, 
-                           label = label), 
-                           size = 6,
-                           color = "white") +
+    geom_text(
+      x = 3.5,
+      aes(y = labelPosition, label = label),
+      size = 6,
+      color = "white"
+    ) +
     scale_fill_manual(values = colors) +
     theme_void() +
     coord_polar(theta = "y") +
@@ -100,8 +111,12 @@ data <- load_qualtrics_data("deidentified_no_qual.tsv")
 ```
 
 ## Process command-line arguments
-Here, I use a boolean variable called `contributor_mode` to record whether the user wants to create donut plots for all respondents or contributors only.
-It's FALSE by default, so if you want to run this script interactively in a notebook, you can safely run this cell without any adjustments.
+
+Here, I use a boolean variable called `contributor_mode` to record whether the
+user wants to create donut plots for all respondents or contributors only. It's
+FALSE by default, so if you want to run this script interactively in a notebook,
+you can safely run this cell without any adjustments.
+
 ```{r}
 args <- commandArgs(trailingOnly = TRUE) # only the user-supplied part
 
@@ -138,9 +153,10 @@ if (contributor_mode) {
 
 # Donut charts of participation by groups
 
-This script creates 4 plots, called `p1`-`p4`. 
+This script creates 4 plots, called `p1`-`p4`.
 
 Plot #1 is of job category (Undergrad, Post-Doc, Non-research Staff, etc.).
+
 ```{r}
 job_data <- create_df_for_plotting(data, "job_category")
 # Clean up this one long job name:
@@ -157,12 +173,15 @@ p1 <- donut_chart(job_data) +
   labs(title = sprintf("Job Category of %s", population))
 ```
 
-Here's a look at the `job_data` data frame that will be used for plotting the donut chart.
+Here's a look at the `job_data` data frame that will be used for plotting the
+donut chart.
+
 ```{r}
 job_data
 ```
 
 Plot #2 is of campus.
+
 ```{r}
 campus_data <- create_df_for_plotting(data, "campus")
 campus_data <- reorder_factor_by_column(campus_data, values, Freq, descending = TRUE)
@@ -172,8 +191,9 @@ p2 <- donut_chart(campus_data) +
   labs(title = sprintf("Campus of %s", population))
 ```
 
+Plot #3 is of their field of study. Qualitative answers are not included in this
+plot.
 
-Plot #3 is of their field of study. Qualitative answers are not included in this plot.
 ```{r}
 field_data <- create_df_for_plotting(data, "field_of_study")
 field_data <- reorder_factor_by_column(field_data, values, Freq, descending = TRUE)
@@ -181,7 +201,11 @@ p3 <- donut_chart(field_data) +
   labs(title = sprintf("Academic %s' fields of study", tolower(population)))
 ```
 
-Plot #4 is of staff categories (IT, Research Support, etc.). This one is more complicated. I'm not using my create_df_for_plotting function for this group because I want to combine the jobs that have only 1 or 2 responses into the existing "Other" category. So the code is similar but not the same.
+Plot #4 is of staff categories (IT, Research Support, etc.). This one is more
+complicated. I'm not using my create_df_for_plotting function for this group
+because I want to combine the jobs that have only 1 or 2 responses into the
+existing "Other" category. So the code is similar but not the same.
+
 ```{r}
 staff_data <- data[["staff_categories"]][nzchar(data[["staff_categories"]])]
 # Count occurrences of each unique value
@@ -225,6 +249,7 @@ p4 <- donut_chart(staff_long_data) +
 ```
 
 ## Look at the plot
+
 ```{r}
 combined_donuts <- patchwork::wrap_plots(p1, p2, p3, p4, ncol = 2)
 ```
@@ -232,13 +257,16 @@ combined_donuts <- patchwork::wrap_plots(p1, p2, p3, p4, ncol = 2)
 ```{r, fig.width=18, fig.height=12}
 combined_donuts
 ```
+
 ## Save the plot
+
 ```{r}
 # Function from utils.R, uses a path in .Renviron
 save_plot(sprintf("combined_donuts_%s.tiff", tolower(population)), 18, 12)
 ```
 
 # Session Info
+
 ```{r}
 sessionInfo()
 ```
