@@ -1,3 +1,6 @@
 project:
   output-dir: reports
   execute-dir: project
+format: 
+  html: default
+  pdf: default
