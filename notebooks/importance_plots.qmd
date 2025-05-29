@@ -49,13 +49,13 @@ get_percent_more_than_moderate <- function(df) {
     "Not at all important"
   )
 
-  n_high_rows <- nrow(df$importance_level %in% high_importance_cats)
-  n_low_rows <- nrow(df$importance_level %in% low_importance_cats)
+  n_high_rows <- nrow(df %>% filter(importance_level %in% high_importance_cats))
+  n_low_rows <- nrow(df %>% filter(importance_level %in% low_importance_cats))
   total <- nrow(df)
   if (n_high_rows + n_low_rows != total) {
     stop("`df` has at least one unexpected value in 'importance_level'.")
   }
-  pct <- round(n_high_rows / total, 2)
+  pct <- round(n_high_rows / total * 100, 2)
   return(pct)
 }
 ```
@@ -202,22 +202,7 @@ Save the plot using a function that lives in my utilities script (`scripts/utils
 Finally, let's check what percentage of teachers said OS is more than 
 moderately important for their teaching.
 ```{r}
-teaching_high <- teaching %>%
-  filter(
-    importance_level == "Very important" |
-      importance_level == "Important"
-  )
-
-teaching_low <- teaching %>%
-  filter(
-    importance_level == "Moderately important" |
-      importance_level == "Slightly important" |
-      importance_level == "Not at all important"
-  )
-nrow(teaching_high)
-nrow(teaching_low)
-nrow(teaching)
-round(nrow(teaching_high) / nrow(teaching) * 100, 2)
+get_percent_more_than_moderate(teaching)
 ```
 
 ## Grouped bar plot for researchers
@@ -260,22 +245,7 @@ research <- research_learning_pd %>%
   filter(
     importance_area == "Research"
   )
-research_high <- research %>%
-  filter(
-    importance_level == "Very important" | 
-    importance_level == "Important"
-  )
-
-teaching_low <- teaching %>%
-  filter(
-    importance_level == "Moderately important" | 
-    importance_level == "Slightly important" |
-    importance_level == "Not at all important"
-  )
-nrow(teaching_high)
-nrow(teaching_low)
-nrow(teaching)
-round(nrow(teaching_high)/nrow(teaching)*100, 2)
+get_percent_more_than_moderate(research)
 ```
 
 ## Grouped bar plot for non-research staff
@@ -300,3 +270,9 @@ grouped_bar_chart(
 #save_plot("importance_nrstaff.tiff", 10, 5)
 ```
 
+```{r}
+job_nrstaff <- job_learning_pd %>%
+  filter(importance_area == "Job")
+
+get_percent_more_than_moderate(job_nrstaff)
+```
