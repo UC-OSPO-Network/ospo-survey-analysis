@@ -5,7 +5,6 @@ title: "Importance of open source"
 # Overview
 This script creates bar plots from question 2 on the survey, which is about the perceived importance of open source for different job categories and different tasks.
 
-
 # Import packages and utilities
 ```{r}
 project_root <- here::here() # requires that you be somewhere in the
@@ -14,6 +13,44 @@ project_root <- here::here() # requires that you be somewhere in the
 suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 # functions and objects used across scripts
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Define functions
+
+#### get_percent_more_than_moderate
+
+- Arguments:
+  - `df`: A data frame with a column named 'importance_level'. Should contain only rows that you want to count. Extra columns is okay.
+- Details:
+  - A simple function to count what percent of rows in a data frame have an importance_level of more than 'Moderately important'. Checks that there are no extra rows with an unexpected value in the importance_level column.
+- Outputs:
+  - A scalar value representing the percentage of respondents who selected an importance_level of more than 'Moderately important', rounded to 2 decimal places.
+```{r}
+get_percent_more_than_moderate <- function(df) {
+  # check that df has the required column
+  if (!"importance_level" %in% names(df)) {
+    stop("`df` must have a column named 'importance_level'.")
+  }
+
+  high_importance_cats <- c(
+    "Very important",
+    "Important"
+  )
+  low_importance_cats <- c(
+    "Moderately important",
+    "Slightly important",
+    "Not at all important"
+  )
+
+  n_high_rows <- nrow(df$importance_level %in% high_importance_cats)
+  n_low_rows <- nrow(df$importance_level %in% low_importance_cats)
+  total <- nrow(df)
+  if (n_high_rows + n_low_rows != total) {
+    stop("`df` has at least one unexpected value in 'importance_level'.")
+  }
+  pct <- round(n_high_rows / total, 2)
+  return(pct)
+}
 ```
 
 # Load data
@@ -76,7 +113,7 @@ long_data <- long_data %>%
 dim(long_data)
 ```
 
-Shorten this one long category name. (`Other research staff (e.g., research scientist, research software engineer)` becomes simply `Other`.)
+Shorten this one long category name. `Other research staff (e.g., research scientist, research software engineer)` becomes simply `Other`.
 ```{r}
 long_data$job_category <- gsub(
   "^Other.*",
@@ -115,19 +152,20 @@ teaching <- long_data %>%
     importance_level != "Non-applicable"
   )
 
-# Remove the "importance_area" column because it's "Teaching" for every row.
-teaching <- teaching %>% select(-c(job_category, importance_area))
+# For our bar plot, we only care about how many times each 'importance level' was selected.
+teaching_to_plot <- teaching %>% select(-c(job_category, importance_area))
 
-teaching <- teaching %>%
+teaching_to_plot <- teaching_to_plot %>%
   count(importance_level, name = "Counts")
 
 # By sheer luck, the columns are already ordered by response rates.
-teaching
+teaching_to_plot
 ```
+
 Now let's make that bar chart using a function that lives in my utilities script (`scripts/utils.R`).
 ```{r}
 basic_bar_chart(
-  teaching,
+  teaching_to_plot,
   x_var = "importance_level",
   y_var = "Counts",
   title = "Perceived Importance of Open Source for Teaching",
@@ -138,6 +176,26 @@ basic_bar_chart(
 Save the plot using a function that lives in my utilities script (`scripts/utils.R`).
 ```{r}
 #save_plot("importance_teachers.tiff", 8, 5)
+```
+
+Finally, let's check what percentage of teachers said OS is more than moderately important for their teaching.
+```{r}
+teaching_high <- teaching %>%
+  filter(
+    importance_level == "Very important" |
+      importance_level == "Important"
+  )
+
+teaching_low <- teaching %>%
+  filter(
+    importance_level == "Moderately important" |
+      importance_level == "Slightly important" |
+      importance_level == "Not at all important"
+  )
+nrow(teaching_high)
+nrow(teaching_low)
+nrow(teaching)
+round(nrow(teaching_high) / nrow(teaching) * 100, 2)
 ```
 
 ## Grouped bar plot for researchers
@@ -155,8 +213,8 @@ The `grouped_bar_chart` function, like the `basic_bar_chart` function, lives in 
 research_learning_pd <- long_data %>%
   filter(
     importance_area == "Research" |
-    importance_area == "Learning" |
-    importance_area == "Professional Development"
+      importance_area == "Learning" |
+      importance_area == "Professional Development"
   ) %>%
   filter(importance_level != "Non-applicable")
 
@@ -170,14 +228,38 @@ grouped_bar_chart(
 #save_plot("importance_researchers.tiff", 10, 5)
 ```
 
+Finally, let's check what percentage of researchers said OS is more than moderately important for their research.
+```{r}
+research <- research_learning_pd %>%
+  filter(
+    importance_area == "Research"
+  )
+research_high <- research %>%
+  filter(
+    importance_level == "Very important" | 
+    importance_level == "Important"
+  )
+
+teaching_low <- teaching %>%
+  filter(
+    importance_level == "Moderately important" | 
+    importance_level == "Slightly important" |
+    importance_level == "Not at all important"
+  )
+nrow(teaching_high)
+nrow(teaching_low)
+nrow(teaching)
+round(nrow(teaching_high)/nrow(teaching)*100, 2)
+```
+
 ## Grouped bar plot for non-research staff
 This is very similar to what I did above, except the three applicable categories have changed.
 ```{r fig.width=10, fig.height=5}
 job_learning_pd <- long_data %>%
   filter(
     importance_area == "Job" |
-    importance_area == "Learning" |
-    importance_area == "Professional Development"
+      importance_area == "Learning" |
+      importance_area == "Professional Development"
   ) %>%
   filter(job_category == "Non-research Staff") %>%
   filter(importance_level != "Non-applicable")

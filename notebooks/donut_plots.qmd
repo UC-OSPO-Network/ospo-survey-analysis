@@ -1,6 +1,5 @@
 ---
 title: "Donut plots"
-author: "Virginia Scarlett"
 ---
 
 # Overview

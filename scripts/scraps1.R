@@ -3,7 +3,6 @@
 # Load packages and functions
 suppressWarnings(suppressMessages(source("utils.R")))
 
-
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 # How many participants are in the dataset?
