@@ -132,6 +132,9 @@ save_plot("importance_nrstaff.tiff", 10, 5)
 
 
 ############## Stacked bar chart for just job, learning, and professional development ##############
+# I AM NOT KEEPING THIS IN THE FINAL ANALYSIS BECAUSE I JUST REALIZED THAT THE 'JOB' ANSWER
+# ONLY APPLIES TO NON-RESEARCH STAFF (see survey intrument Q2; we instructed only non-research
+# staff to answer it.)
 
 recode_values <- c(
   "Non-applicable" = NA,

@@ -1,0 +1,194 @@
+---
+title: "Importance of open source"
+---
+
+# Overview
+This script creates bar plots from question 2 on the survey, which is about the perceived importance of open source for different job categories and different tasks.
+
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+```{r}
+data <- load_qualtrics_data("deidentified_no_qual.tsv")
+```
+
+# Wrangle data
+Let's extract the columns we care about.
+```{r}
+importance_and_job <- data %>%
+  select(
+    starts_with("importance_opensrc") | starts_with("job_category")
+  )
+head(importance_and_job)
+```
+
+Let's reshape the data from wide to long format.
+```{r}
+long_data <- importance_and_job %>%
+  pivot_longer(
+    cols = starts_with("importance_opensrc"),
+    names_to = "importance_area",
+    values_to = "importance_level"
+  )
+
+long_data <- long_data %>%
+  mutate(
+    importance_area = recode(
+      importance_area,
+      "importance_opensrc_1" = "Research",
+      "importance_opensrc_2" = "Teaching",
+      "importance_opensrc_3" = "Learning",
+      "importance_opensrc_4" = "Professional Development",
+      "importance_opensrc_5" = "Job"
+    )
+  )
+long_data
+```
+
+**STOP!!!** At this point, I manually compared this data frame to the results table in Qualtrics to make sure the columns (e.g. `importance_opensrc_1`) correspond to the options I expect (e.g. "Research"). I had to use peoples' email addresses to make sure I was comparing the same rows in each table. I assumed that the variables were ordered by their order on the survey, but you never know. In this case, my assumption was correct. I've commented out the code for this because it only needed to be done once.
+```{r}
+# pii <- load_qualtrics_data("pii.tsv")
+# emails <- pii %>%
+#   select(starts_with("stay_in_touch_email"))
+
+# t <- cbind(emails, importance_and_job)
+# subset(t, startsWith(stay_in_touch_email, "PERSONNAMEHERE"))
+```
+
+Back to data wrangling.
+
+Here, I removed all rows that contain an empty string in any column. Since both questions were mandatory, I'm actually only removing people who never saw the demographic questions: people who are not affiliated with UC (2) + people who are neither past nor future open source contributors (36). (2+36)*5 importance areas = 190 rows removed.
+```{r}
+dim(long_data)
+
+long_data <- long_data %>%
+  filter(!if_any(everything(), ~ . == ""))
+
+dim(long_data)
+```
+
+Shorten this one long category name. (`Other research staff (e.g., research scientist, research software engineer)` becomes simply `Other`.)
+```{r}
+long_data$job_category <- gsub(
+  "^Other.*",
+  "Research Staff",
+  long_data$job_category
+)
+```
+
+Reorder factor levels for plotting.
+```{r}
+long_data$importance_level <- factor(
+  long_data$importance_level,
+  levels = c(
+    "Very important",
+    "Important",
+    "Moderately important",
+    "Slightly important",
+    "Not at all important",
+    "Non-applicable"
+  ),
+  ordered = TRUE
+)
+long_data
+```
+
+# Bar plots
+
+## Simple bar plot for teachers
+Now let's start making some bar plots. Let's start by making a bar plot showing how teachers rate the importance of open source for their teaching. Since we didn't ask people "Do you teach?", and since there was a "Non-applicable" option, we will simply assume that if they gave an answer for the "Teaching" option, they must be a teacher.
+```{r}
+teaching <- long_data %>%
+  filter(
+    importance_area == "Teaching"
+  ) %>%
+  filter(
+    importance_level != "Non-applicable"
+  )
+
+# Remove the "importance_area" column because it's "Teaching" for every row.
+teaching <- teaching %>% select(-c(job_category, importance_area))
+
+teaching <- teaching %>%
+  count(importance_level, name = "Counts")
+
+# By sheer luck, the columns are already ordered by response rates.
+teaching
+```
+Now let's make that bar chart using a function that lives in my utilities script (`scripts/utils.R`).
+```{r}
+basic_bar_chart(
+  teaching,
+  x_var = "importance_level",
+  y_var = "Counts",
+  title = "Perceived Importance of Open Source for Teaching",
+  ylabel = "Number of Respondents (Teachers Only)",
+  show_bar_labels = TRUE
+)
+```
+Save the plot using a function that lives in my utilities script (`scripts/utils.R`).
+```{r}
+#save_plot("importance_teachers.tiff", 8, 5)
+```
+
+## Grouped bar plot for researchers
+Now let's look at researchers, and the importance categories that apply to all researchers. The importance categories again are:\
+Research\
+Teaching --> Does not apply\
+Learning\
+Professional Development\
+Job (For non-research staff) --> Does not apply\
+
+So we'll make a bar plot with just those three categories that apply to all researchers. As with teachers above, we will assume that if they didn't select "Non-applicable", they must be a researcher.
+
+The `grouped_bar_chart` function, like the `basic_bar_chart` function, lives in my utility script.
+```{r fig.width=10, fig.height=5}
+research_learning_pd <- long_data %>%
+  filter(
+    importance_area == "Research" |
+    importance_area == "Learning" |
+    importance_area == "Professional Development"
+  ) %>%
+  filter(importance_level != "Non-applicable")
+
+grouped_bar_chart(
+  df = research_learning_pd,
+  x_var = "importance_level",
+  fill_var = "importance_area",
+  title = "Perceived Importance of Open Source among Researchers"
+)
+
+#save_plot("importance_researchers.tiff", 10, 5)
+```
+
+## Grouped bar plot for non-research staff
+This is very similar to what I did above, except the three applicable categories have changed.
+```{r fig.width=10, fig.height=5}
+job_learning_pd <- long_data %>%
+  filter(
+    importance_area == "Job" |
+    importance_area == "Learning" |
+    importance_area == "Professional Development"
+  ) %>%
+  filter(job_category == "Non-research Staff") %>%
+  filter(importance_level != "Non-applicable")
+
+grouped_bar_chart(
+  df = job_learning_pd,
+  x_var = "importance_level",
+  fill_var = "importance_area",
+  title = "Perceived Importance of Open Source among Non-research Staff"
+)
+
+#save_plot("importance_nrstaff.tiff", 10, 5)
+```
+
