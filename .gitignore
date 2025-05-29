@@ -1,8 +1,8 @@
 # Exclude web files from quarto preview from git, because they make messy diffs
 # The double asterisk covers subdirectories
-reports/markdown/**
+reports/notebook/**
 # But re-include (unignore) PDFs
-!/rendered/*.pdf
+!/reports/*.pdf
 
 # History files
 .DS_Store
