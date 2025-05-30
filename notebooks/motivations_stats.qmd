@@ -99,7 +99,7 @@ pit_resids <- residuals(fit, type = "pit.trap")
 hist(pit_resids[, "Skills"], main = "PIT Residuals: Skills")
 ```
 
-Admittedly, I don't fully understand this plot, but the paper emphasizes it. (https://doi.org/10.1111/j.2041-210X.2012.00190.x) I think the point is that the residuals should be distributed around zero. What you don't want is a "fan shape", where as the predictions get more extreme, the residuals do, too. This tutorial from the package author shows an example of this. https://cran.r-project.org/web/packages/ecostats/vignettes/Chapter14Solutions.html I think my plot look as good as the plots he approves of in that tutorial.
+Admittedly, I don't fully understand this next plot, but the mvabund paper emphasizes it. (https://doi.org/10.1111/j.2041-210X.2012.00190.x) I think the point is that the residuals should be distributed around zero. What you don't want is a "fan shape", where as the predictions get more extreme, the residuals do, too. This tutorial from the package author shows an example of this. https://cran.r-project.org/web/packages/ecostats/vignettes/Chapter14Solutions.html I think my plot look as good as the plots he approves of in that tutorial.
 ```{r}
 plot(fit)
 ```
@@ -153,7 +153,7 @@ The results indicate three significant pairwise comparisons:\
 
 In my other script, motivations_plots, we have one plot where we apparently see a trend: the probability of a respondent choosing "skills" as a motivator appears to decrease as they advance in their academic career. We will use a Cochrane-Armitage test for trend to evaluate whether this trend is real. More precisely, I believe we are evaluating whether the order "P(Yes | Undergrad) > P(Yes | Grad) > P(Yes | Postdoc) > P(Yes | Faculty)" is highly unlikely (<95% chance) given the null hypothesis that all four categories have the same probability of a "yes" response.
 
-Full disclosure: I'm being a little p-hacky here, because I'm only trying this after I tried a series of pairwise z-tests to see whether the proportion of "yes" for "skills" was significantly different from undergrads vs. grads, grads vs. postdocs, etc. I can show those data later. I don't actually feel that I am p-hacking because I'm not just using a new test to try and make the same claim; this is a different test and we will interpret it the way a Cochrane-Armitage test is meant to be interpreted. I'm not claiming that undergrads are more likely than grads to select skills; I'm just claiming that there is a trend across the 4 categories. 
+Full disclosure: I'm being a little p-hacky here, because I'm only trying this after I tried a series of pairwise z-tests to see whether the proportion of "yes" for "skills" was significantly different from undergrads vs. grads, grads vs. postdocs, etc. That analysis is after this section. In all seriousness, I don't actually feel that I am p-hacking because I'm not just using a new test to try and make the same claim; this is a different test and we will interpret it appropriately. I'm not claiming that undergrads are more likely than grads to select skills; I'm just claiming that there is a trend across the 4 categories. 
 
 ```{r}
 # Recall "raw" just means I haven't combined post-docs and other research staff
@@ -204,3 +204,154 @@ stats::prop.trend.test(
 )
 ```
 I'm honestly not sure whether this is a one-tailed or two-tailed test... I would assume one-tailed, but the documentation is terse. Anyway, even if we divide that p-value by two it's still well under p=0.05.
+
+# Negative/abandoned analysis: Pairwise z-tests
+
+I also looked at that skills trend from a different perspective: is each pair of consecutive categories significantly different? So, are faculty significantly less likely to select "Skills" than postdocs, are postdocs significantly less likely than grad students to select it, etc.?
+
+The results of this analysis are both less significant and harder to interpret than the trend test, but I'm including it for posterity. 
+
+I also did some post-hoc power analyses, because we have small sample sizes: 15 postdocs and 7 undergraduates. If we fail to reject the null hypothesis, it could just be because we lack statistical power. Here are some links that I based this on:\
+https://rpubs.com/sypark0215/223385 \
+https://cran.r-project.org/web/packages/pwr/vignettes/pwr-vignette.html \
+Essentially I am asking: what ratio of group1:group2 is needed to achieve 80% power?
+
+
+## Function definition
+#### pairwise_z_test_lessthan
+- Arguments:
+  - `df`: A data frame where rows are participants, and columns are `Role`
+    plus at least one response variable, e.g. `Skills`, `Give back`, etc.
+    Extra columns are okay. The response variable of interest should be a
+    column of 0s and 1s.
+  - `outcome col`: A string. `Skills` by default, but could be any of the
+    7 response variables, e.g. `Improve tools`, `Job`, etc.
+  - `group1`: A string. The job category that you suspect has a lower
+    "success rate", of the two.
+  - `group2`: A string. The job category that you suspect has a higher
+    "success rate", of the two.
+- Details:
+  - A simple function that performs a pairwise z-test for equality of two
+    proportions. Most of the function is just summing across the data frame.
+    it calls stats::prop.test to run a one-sided z-test testing whether
+    the proportion of "successes" in group1 is less than that of group2.
+- Outputs:
+  - An "htest" object, from stats::prop.test.
+```{r}
+pairwise_z_test_lessthan <- function(
+  df,
+  outcome_col = "Skills",
+  group1,
+  group2,
+  alternative = "less"
+) {
+  # Count total and 'yes' outcomes for each group
+  n1 <- sum(df[["Role"]] == group1)
+  y1 <- sum(df[["Role"]] == group1 & df[[outcome_col]] == 1)
+
+  n2 <- sum(df[["Role"]] == group2)
+  y2 <- sum(df[["Role"]] == group2 & df[[outcome_col]] == 1)
+
+  # Perform the one-sided prop test (testing if group1 < group2)
+  result <- prop.test(
+    x = c(y1, y2),
+    n = c(n1, n2),
+    alternative = alternative,
+  )
+
+  return(result)
+}
+```
+
+### Graduate students vs. Undergraduates
+
+Let's start with the power analysis. 
+
+First, let's prepare the proportions we'll need to run the power test. We might as well do this for all four job categories of interest.
+```{r}
+# If this were python I would make a class, but I'm not that good
+# at R coding so I'm just making a bunch of variables LOL.
+
+p_grad_yes <- n_grad_yes / n_grad
+p_undergrad_yes <- n_undergrad_yes / n_undergrad
+p_faculty_yes <- n_faculty_yes / n_faculty
+p_postdoc_yes <- n_postdoc_yes / n_postdoc
+```
+
+Calculate Cohen's h, the effect size.
+```{r}
+h <- pwr::ES.h(p_grad_yes, p_undergrad_yes)
+```
+
+Now, what ratio of n_undergrads to n_gradstudents is needed to achieve 80% power? This one-sided test allows us to specify our unequal group sizes.
+```{r}
+pwr::pwr.2p2n.test(
+  h = h,
+  n1 = n_grad,
+  sig.level = 0.05,
+  power = 0.8,
+  alternative = "less"
+)
+```
+
+So we would need 10.5 undergrads to achieve 80% power. Alas, we only have 7. So there is no point in proceeding with the hypothesis test.
+
+### Postdocs vs. Graduate students
+
+Calculate Cohen's h, the effect size.
+```{r}
+h <- pwr::ES.h(p_postdoc_yes, p_grad_yes)
+```
+
+```{r}
+tryCatch(
+  pwr::pwr.2p2n.test(
+    h = h,
+    n1 = n_grad,
+    sig.level = 0.05,
+    power = 0.8,
+    alternative = "greater"
+  ),
+  error = function(e) e
+)
+
+```
+
+This test fails to give an answer. I think the problem is that the difference in proportions is so small (81% vs. 73%), and the number of grad students is also so small (26), that we will never have enough postdocs to achieve 80% power. With a Cohen's h of 0.5 or greater, it says we would need at least 500 postdocs. With h less than 0.5, the function breaks. So if the absolute value of the effect size were larger, we would have more power, which makes sense. I could plot this function for various h values, but honestly I don't care.
+```{r}
+pwr::pwr.2p2n.test(
+  h = 0.5,
+  n1 = n_grad,
+  sig.level = 0.05,
+  power = 0.8,
+  alternative = "greater"
+)
+```
+
+
+### Faculty vs. Postdocs
+
+Calculate Cohen's h, the effect size.
+```{r}
+h <- pwr::ES.h(p_faculty_yes, p_postdoc_yes)
+```
+
+```{r}
+pwr::pwr.2p2n.test(
+  h = h,
+  n1 = n_faculty,
+  sig.level = 0.05,
+  power = 0.8,
+  alternative = "less"
+)
+```
+We have 15 postdocs, and we need 15.6 postdocs for a one-sided test. Good enough.
+
+```{r}
+pairwise_z_test_lessthan(
+  motivations_raw, # Note we are just looking at post docs
+  group1 = "Faculty",
+  group2 = "Post-Doc"
+)
+```
+It appears that faculty are significantly less likely than postdocs to select "Skills" as a motivator.
