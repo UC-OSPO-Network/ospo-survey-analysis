@@ -15,6 +15,53 @@ suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
+
+## Function definition
+#### pairwise_z_test_lessthan
+- Arguments:
+  - `df`: A data frame where rows are participants, and columns are `Role`
+    plus at least one response variable, e.g. `Skills`, `Give back`, etc.
+    Extra columns are okay. The response variable of interest should be a
+    column of 0s and 1s.
+  - `outcome_col`: A string. `Skills` by default, but could be any of the
+    7 response variables, e.g. `Improve tools`, `Job`, etc.
+  - `group1`: A string. The job category that you suspect has a lower
+    "success rate", of the two.
+  - `group2`: A string. The job category that you suspect has a higher
+    "success rate", of the two.
+- Details:
+  - A simple function that performs a pairwise z-test for equality of two
+    proportions. Most of the function is just summing across the data frame.
+    it calls stats::prop.test to run a one-sided z-test testing whether
+    the proportion of "successes" in group1 is less than that of group2.
+- Outputs:
+  - An "htest" object, from stats::prop.test.
+```{r}
+pairwise_z_test_lessthan <- function(
+  df,
+  outcome_col = "Skills",
+  group1,
+  group2,
+  alternative = "less"
+) {
+  # Count total and 'yes' outcomes for each group
+  n1 <- sum(df[["Role"]] == group1)
+  y1 <- sum(df[["Role"]] == group1 & df[[outcome_col]] == 1)
+
+  n2 <- sum(df[["Role"]] == group2)
+  y2 <- sum(df[["Role"]] == group2 & df[[outcome_col]] == 1)
+
+  # Perform the one-sided prop test (testing if group1 < group2)
+  result <- prop.test(
+    x = c(y1, y2),
+    n = c(n1, n2),
+    alternative = alternative,
+  )
+
+  return(result)
+}
+```
+
 # Load data
 ```{r}
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
@@ -93,7 +140,7 @@ This is a really dumb way to assess goodness of fit, but I also like to look at 
 # Assess goodness of fit
 Next, I'm eyeballing some plots to assess goodness of fit.
 
-The distribution of the residuals seems normal-ish.
+The distribution of the residuals seems normal-ish. Note I'm just picking one of the categories that had a weird coefficient, to make sure the data in that category aren't too weird.
 ```{r}
 pit_resids <- residuals(fit, type = "pit.trap")
 hist(pit_resids[, "Skills"], main = "PIT Residuals: Skills")
@@ -216,53 +263,6 @@ https://rpubs.com/sypark0215/223385 \
 https://cran.r-project.org/web/packages/pwr/vignettes/pwr-vignette.html \
 Essentially I am asking: what ratio of group1:group2 is needed to achieve 80% power?
 
-
-## Function definition
-#### pairwise_z_test_lessthan
-- Arguments:
-  - `df`: A data frame where rows are participants, and columns are `Role`
-    plus at least one response variable, e.g. `Skills`, `Give back`, etc.
-    Extra columns are okay. The response variable of interest should be a
-    column of 0s and 1s.
-  - `outcome col`: A string. `Skills` by default, but could be any of the
-    7 response variables, e.g. `Improve tools`, `Job`, etc.
-  - `group1`: A string. The job category that you suspect has a lower
-    "success rate", of the two.
-  - `group2`: A string. The job category that you suspect has a higher
-    "success rate", of the two.
-- Details:
-  - A simple function that performs a pairwise z-test for equality of two
-    proportions. Most of the function is just summing across the data frame.
-    it calls stats::prop.test to run a one-sided z-test testing whether
-    the proportion of "successes" in group1 is less than that of group2.
-- Outputs:
-  - An "htest" object, from stats::prop.test.
-```{r}
-pairwise_z_test_lessthan <- function(
-  df,
-  outcome_col = "Skills",
-  group1,
-  group2,
-  alternative = "less"
-) {
-  # Count total and 'yes' outcomes for each group
-  n1 <- sum(df[["Role"]] == group1)
-  y1 <- sum(df[["Role"]] == group1 & df[[outcome_col]] == 1)
-
-  n2 <- sum(df[["Role"]] == group2)
-  y2 <- sum(df[["Role"]] == group2 & df[[outcome_col]] == 1)
-
-  # Perform the one-sided prop test (testing if group1 < group2)
-  result <- prop.test(
-    x = c(y1, y2),
-    n = c(n1, n2),
-    alternative = alternative,
-  )
-
-  return(result)
-}
-```
-
 ### Graduate students vs. Undergraduates
 
 Let's start with the power analysis. 
@@ -356,3 +356,134 @@ pairwise_z_test_lessthan(
 ```
 It appears that faculty are significantly less likely than postdocs to select "Skills" as a motivator.
 
+# By popular demand: IT vs. Academics
+
+Greg raised an interesting question: what about IT staff vs. academics? Let's play around with this. It's basically the same question we had before, but now our predictor variable only has two categories.
+
+I plotted the data (see motivations_plots.qmd), and it appears that these groups are somewhat different. The "Job" motivation looks to be the most different, just by eyeballing it. But let's see what the statistics say.
+
+## Data Wrangling
+
+```{r}
+it <- data %>%
+  filter(staff_categories == "Information Technology (IT)") %>%
+  select(
+    starts_with("motivations")
+  )
+
+it <- shorten_long_responses(it, codenames)
+it <- exclude_empty_columns(it)
+it <- exclude_empty_rows(it)
+it <- rename_cols_based_on_entries(it)
+it <- make_df_binary(it)
+it$Role <- "IT"
+head(it)
+dim(it)
+```
+
+```{r}
+# Exclude non-research staff
+academics <- motivations_processed %>% 
+  filter(
+    Role == "Faculty" |
+      Role == "Grad Students" |
+      Role == "Postdocs and Staff Researchers" |
+      Role == "Undergraduates"
+  )
+academics$Role <- "Academic"
+```
+
+```{r}
+it_acad <- rbind(it, academics)
+it_acad$Role <- as.factor(it_acad$Role)
+```
+
+## Regression
+Let's try the logistic regression. This model may be more powerful than we need, but since I already have the code, let's just do it.
+```{r}
+Y <- as.matrix(it_acad[, motivation_cols])
+X <- it_acad$Role
+```
+
+I'm just glancing at the AIC values, degrees of freedom, and the residual plot. They seem fine. It would be a bit weird if they weren't, since this is the same data as before; the categories are just grouped differently (and in fact, our minimum sample size is larger).
+```{r}
+fit <- mvabund::manyglm(Y ~ X, family = "binomial", show.coef=TRUE)
+fit
+plot(fit)
+```
+
+
+```{r}
+anova_result <- anova(fit, resamp = "pit.trap", test = "LR", p.uni = "adjusted")
+anova_result
+```
+ANOVA/LR test shows the groups are significant. They help explain the data.
+
+We can also look at the Pr(>Dev) for each univariate test, which I'm assuming are p-values. These show that the only motivation that is predicted on its own by these two groups is "Job", with a p-value of 0.023.
+
+```{r}
+tryCatch(
+  anova_pw <- anova(
+    fit,
+    resamp = "pit.trap",
+    test = "LR",
+    p.uni = "adjusted",
+    pairwise.comp = X
+  ),
+  error = function(e) e
+)
+```
+Uh-oh. The pairwise comparison fails. Well, that makes sense. The two groups must be different from each other, or else the global model fit wouldn't be significant. So we actually don't need this test.
+
+## Power analysis
+
+So, we already know that the IT/Academic distinction is a pretty good predictor of the "Job" motivation. But since I already have the code for the z-test of proportions, I kind of want to do that test, too, just out of curiosity. I feel pretty confident that the regression is working well, but I will feel even better if the z-test is significant, too.
+
+```{r}
+n_it <- sum(it_acad$Role == "IT")
+n_it_yes <- sum(
+  it_acad$Role == "IT" &
+    it_acad$Job == 1
+)
+p_it_yes <- n_it_yes / n_it
+
+n_acad <- sum(it_acad$Role == "Academic")
+n_acad_yes <- sum(
+  it_acad$Role == "Academic" &
+    it_acad$Job == 1
+)
+p_acad_yes <- n_acad_yes / n_acad
+
+paste0("IT total: ", n_it)
+paste0("IT yes to 'Job': ", n_it_yes)
+paste0("IT proportion yes: ", p_it_yes)
+
+paste0("Academics total: ", n_acad)
+paste0("Academics yes to 'Job': ", n_acad_yes)
+paste0("Academics proportion yes: ", p_acad_yes)
+```
+
+Power analysis
+```{r}
+h <- pwr::ES.h(p_it_yes, p_acad_yes)
+
+pwr::pwr.2p2n.test(
+  h = h,
+  n1 = n_acad,
+  sig.level = 0.05,
+  power = 0.8,
+  alternative = "less"
+)
+```
+Great. We only need 19 IT people, but we have 33.
+
+Now let's proceed with our hypothesis test.
+```{r}
+pairwise_z_test_lessthan(
+  it_acad,
+  outcome_col = "Job",
+  group1 = "IT",
+  group2 = "Academic"
+)
+```
+Good! A pairwise z-test for proportions says the difference in "success rates" (proportion of yes answers) for IT (21% said yes) and academics (50% said yes) for the "Job" motivation is indeed significant.

@@ -272,7 +272,8 @@ it <- rename_cols_based_on_entries(it)
 it <- make_df_binary(it)
 head(it)
 dim(it)
-
+```
+```{r}
 it <- data.frame(
   Motivation = names(it),
   Count = unname(apply(it, 2, function(x) round(sum(x, na.rm = TRUE))))
