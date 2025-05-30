@@ -1,0 +1,206 @@
+---
+title: "Motivations for contributing to OS: statistical analysis"
+---
+
+# Overview
+This script runs some statistical tests on data from Q6, which is about participants' reasons for contributing to open source.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+```{r}
+data <- load_qualtrics_data("deidentified_no_qual.tsv")
+```
+
+# Wrangle data
+Here, we use some functions in my utility script (scripts/utilities.R) to clean up the data for Q6. We'll call the resulting data frame `motivations_raw`. This data frame also has a `Role` column indicating the participant's job category.
+```{r}
+codenames <- c(
+  "Developing open-source" = "Job",
+  "To improve the tools" = "Improve Tools",
+  "To customize existing" = "Customize",
+  "To build a network" = "Network",
+  "To give back to" = "Give back",
+  "To improve my skills" = "Skills",
+  "Because it's fun" = "Fun",
+  "Other " = "Other"
+)
+
+motivations_raw <- data %>%
+  select(
+    starts_with("motivations")
+  )
+motivations_raw <- shorten_long_responses(motivations_raw, codenames)
+motivations_raw <- rename_cols_based_on_entries(motivations_raw)
+motivations_raw$Role <- data$job_category # Let's also include job category
+motivations_raw <- shorten_long_responses(
+  motivations_raw,
+  c("Other research staff" = "Other research staff")
+)
+
+# Remove any rows where they didn't answer the question
+motivations_raw <- motivations_raw %>%
+  filter(if_any(Job:Other, ~ .x != ""))
+
+motivation_cols <- as.vector(codenames) # Names of all columns except Role
+motivations_raw <- make_df_binary(motivations_raw, cols = motivation_cols)
+head(motivations_raw)
+```
+
+Here, we combine postdocs and other research staff into one category. We'll call the resulting data frame `motivations_processed`. We will use this for most of our statistical analysis. It gives us more statistical power, and I think it is reasonable in terms of interpretability.
+```{r}
+motivations_processed <- motivations_raw %>%
+  mutate(
+    Role = recode(
+      Role,
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
+    )
+  )
+```
+
+# Create the regression model
+I'm interested in the whether a person's job category affects how they will answer this question. In other words, can we predict their profile of motivations significantly better when taking job category into account? I am doing a multivariate logistic regression predicting a vector of binary responses. It's multivariate because instead of doing Y ~ X, we are now doing [Y1, Y2, Y3...] ~ X. It's logistic because all response variables are binary. I'm using the mvabund() package, which is designed for non-continuous data: counts and binary outcomes (they call these "abundance data" in the packaage documentation). Base R's lm() is for continuous data, and I didn't see a function in base R for this type of analysis.
+
+First, we just split our data frame into two. For each observation, X is a single categorical outcome, and we have seven Ys which are binary outcomes.
+```{r}
+Y <- as.matrix(motivations_processed[, motivation_cols])
+X <- motivations_processed$Role
+head(Y)
+head(X)
+```
+
+Create the model. I'm mostly using the default settings.
+```{r}
+fit <- mvabund::manyglm(Y ~ X, family = "binomial", show.coef=TRUE)
+fit
+```
+
+Immediately, we notice that the coefficients for Undergraduates on "Skills" and "Give back" are very different from all other coefficients. This is presumably because all 7 undergraduates who answered this question selected both those options.
+
+The residual deviance statistic is close to the degrees of freedom, which I think suggests a good fit? https://online.stat.psu.edu/stat504/lesson/2/2.5
+
+This is a really dumb way to assess goodness of fit, but I also like to look at the AIC, and if it's in the thousands, I start to get nervous. Ours are in the hundreds, so that seems promising?
+
+# Assess goodness of fit
+Next, I'm eyeballing some plots to assess goodness of fit.
+
+The distribution of the residuals seems normal-ish.
+```{r}
+pit_resids <- residuals(fit, type = "pit.trap")
+hist(pit_resids[, "Skills"], main = "PIT Residuals: Skills")
+```
+
+Admittedly, I don't fully understand this plot, but the paper emphasizes it. (https://doi.org/10.1111/j.2041-210X.2012.00190.x) I think the point is that the residuals should be distributed around zero. What you don't want is a "fan shape", where as the predictions get more extreme, the residuals do, too. This tutorial from the package author shows an example of this. https://cran.r-project.org/web/packages/ecostats/vignettes/Chapter14Solutions.html I think my plot look as good as the plots he approves of in that tutorial.
+```{r}
+plot(fit)
+```
+
+I think a correlation matrix is also applicable here. The correlations between variables are near zero (ish), suggesting that the model captures the important relationships.
+```{r}
+corrplot(cor(pit_resids), method = "circle")
+```
+
+# Hypothesis testing
+
+Now we want to know whether this model is significantly better than a model where the probability of a particular set of motivations is the same for all job categories. anova() summarizes the statistical significance of the fitted model. test="LR" is the default, and specifies a likelihood ratio test. So I guess we are using the likelihood ratio test statistic instead of the standard anova F-statistic, but I think this might be the kind of situation where those two statistics are basically the same? (nested models for hypothesis vs. null) The resamp="pit.trap" ("probability integral transform" residuals) argument is the default resampling method. I think the function resamples the data to get a null distribution.
+
+## Global model fit + univariate tests
+```{r}
+anova_result <- anova(fit, resamp = "pit.trap", test = "LR", p.uni = "adjusted")
+anova_result
+```
+
+The anova output starts with a table of the multivariate test statistics. This tests for the global effect of Role, by resampling the whole response vector.
+
+The next part of the table is the univariate test statistics, which are separate logistic regressions for each response variable, ignoring the other variables.
+
+Our Pr(>Dev) is a statistically significant p-value, indicating that Role significantly predicts motivation profile. Basically, the model including role better explains the data than the null model.
+
+Only "Skills" shows a significant univariate effect of Role after multiple testing correction (p.uni = "adjusted"). In other words, when considering whether Role can predict a single motivation, it can only predict Skills.
+
+I think this also means that we have enough umdergraduates, because if we didn't, we wouldn't have enough statistical power to reject the null hypothesis, right?
+
+## Pairwise tests for job categories
+
+I believe we can use the pairwise.comp argument to test whether pairs of categories in our explanatory variable are significantly different from each other.
+
+```{r}
+anova_pw <- anova(
+  fit,
+  resamp = "pit.trap",
+  test = "LR",
+  p.uni = "adjusted",
+  pairwise.comp = X
+)
+anova_pw
+```
+
+The results indicate three significant pairwise comparisons:\
+* Faculty vs Undergraduate\
+* Postdocs and Staff Researchers vs Undergraduate\
+* Faculty vs Non-research Staff\
+
+# Test for trend in "skills"
+
+In my other script, motivations_plots, we have one plot where we apparently see a trend: the probability of a respondent choosing "skills" as a motivator appears to decrease as they advance in their academic career. We will use a Cochrane-Armitage test for trend to evaluate whether this trend is real. More precisely, I believe we are evaluating whether the order "P(Yes | Undergrad) > P(Yes | Grad) > P(Yes | Postdoc) > P(Yes | Faculty)" is highly unlikely (<95% chance) given the null hypothesis that all four categories have the same probability of a "yes" response.
+
+Full disclosure: I'm being a little p-hacky here, because I'm only trying this after I tried a series of pairwise z-tests to see whether the proportion of "yes" for "skills" was significantly different from undergrads vs. grads, grads vs. postdocs, etc. I can show those data later. I don't actually feel that I am p-hacking because I'm not just using a new test to try and make the same claim; this is a different test and we will interpret it the way a Cochrane-Armitage test is meant to be interpreted. I'm not claiming that undergrads are more likely than grads to select skills; I'm just claiming that there is a trend across the 4 categories. 
+
+```{r}
+# Recall "raw" just means I haven't combined post-docs and other research staff
+n_postdoc <- sum(motivations_raw$Role == "Post-Doc")
+n_postdoc_yes <- sum(
+  motivations_raw$Role == "Post-Doc" & motivations_raw$Skills == 1
+)
+# For the other groups, it doesn't matter if we use the raw or processed data
+n_faculty <- sum(motivations_processed$Role == "Faculty")
+n_faculty_yes <- sum(
+  motivations_processed$Role == "Faculty" & motivations_processed$Skills == 1
+)
+
+n_grad <- sum(motivations_processed$Role == "Grad Student")
+n_grad_yes <- sum(
+  motivations_processed$Role == "Grad Student" &
+    motivations_processed$Skills == 1
+)
+
+n_undergrad <- sum(motivations_processed$Role == "Undergraduate")
+n_undergrad_yes <- sum(
+  motivations_processed$Role == "Undergraduate" &
+    motivations_processed$Skills == 1
+)
+
+n_yes <- c(
+  n_undergrad_yes,
+  n_grad_yes,
+  n_postdoc_yes,
+  n_faculty_yes
+)
+
+n_tot <- c(
+  n_undergrad,
+  n_grad,
+  n_postdoc,
+  n_faculty
+)
+
+# Assign scores 1,2,3,4 for Undergrad --> Faculty
+# To indicate the ordering
+scores <- 1:4
+
+stats::prop.trend.test(
+  x = n_yes,
+  n = n_tot,
+  score = scores
+)
+```
+I'm honestly not sure whether this is a one-tailed or two-tailed test... I would assume one-tailed, but the documentation is terse. Anyway, even if we divide that p-value by two it's still well under p=0.05.
