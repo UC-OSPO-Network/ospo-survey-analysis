@@ -23,8 +23,6 @@ load_qualtrics_data <- function(filename, fileEncoding = NULL) {
 }
 
 
-
-
 # Utils for plotting
 
 colors <- c(
@@ -45,10 +43,16 @@ colors <- c(
 # Re-order factor levels in one column by values in another.
 # Returns the original data frame with factor_col re-ordered based on value_col.
 # Leave column names unquoted.
-reorder_factor_by_column <- function(df, factor_col, value_col, descending = TRUE) {
+reorder_factor_by_column <- function(
+  df,
+  factor_col,
+  value_col,
+  descending = TRUE
+) {
   df <- df %>%
     mutate(
-      {{ factor_col }} := fct_reorder( # double-curlys and := assign a col by name using tidy evaluation
+      {{ factor_col }} := fct_reorder(
+        # double-curlys and := assign a col by name using tidy evaluation
         .f = {{ factor_col }},
         .x = {{ value_col }},
         .fun = if (descending) `-` else identity # If descending = TRUE, add a negative sign (-) to reverse the sort
@@ -58,33 +62,35 @@ reorder_factor_by_column <- function(df, factor_col, value_col, descending = TRU
 }
 
 
-
 basic_bar_chart <- function(
-    df,
-    x_var,
-    y_var,
-    title,
-    ylabel = "Number of Respondents",
-    show_axis_title_x = FALSE,
-    show_axis_title_y = TRUE,
-    axis_title_size_x = 14,
-    axis_title_size_y = 14,
-    axis_text_size_x = 12,
-    axis_text_size_y = 12,
-    axis_text_angle_x = 60,
-    title_size = 14,
-    color_index = 1,
-    horizontal = FALSE,
-    show_ticks_x = FALSE,
-    show_ticks_y = TRUE,
-    show_bar_labels = FALSE,
-    label_position = c("inside", "above"),
-    label_color = "white") {
+  df,
+  x_var,
+  y_var,
+  title,
+  ylabel = "Number of Respondents",
+  show_axis_title_x = FALSE,
+  show_axis_title_y = TRUE,
+  axis_title_size_x = 14,
+  axis_title_size_y = 14,
+  axis_text_size_x = 12,
+  axis_text_size_y = 12,
+  axis_text_angle_x = 60,
+  title_size = 14,
+  color_index = 1,
+  horizontal = FALSE,
+  show_ticks_x = FALSE,
+  show_ticks_y = TRUE,
+  show_bar_labels = FALSE,
+  label_position = c("inside", "above"),
+  label_color = "white"
+) {
   label_position <- match.arg(label_position)
 
   # Axis title settings
-  axis_title_x <- if (show_axis_title_x) element_text(size = axis_title_size_x) else element_blank()
-  axis_title_y <- if (show_axis_title_y) element_text(size = axis_title_size_y) else element_blank()
+  axis_title_x <- if (show_axis_title_x)
+    element_text(size = axis_title_size_x) else element_blank()
+  axis_title_y <- if (show_axis_title_y)
+    element_text(size = axis_title_size_y) else element_blank()
 
   # Axis tick settings
   axis_ticks_x <- if (show_ticks_x) element_line() else element_blank()
@@ -98,7 +104,11 @@ basic_bar_chart <- function(
     theme(
       axis.title.x = axis_title_x,
       axis.title.y = axis_title_y,
-      axis.text.x = element_text(angle = axis_text_angle_x, vjust = 0.6, size = axis_text_size_x),
+      axis.text.x = element_text(
+        angle = axis_text_angle_x,
+        vjust = 0.6,
+        size = axis_text_size_x
+      ),
       axis.text.y = element_text(size = axis_text_size_y),
       axis.ticks.x = axis_ticks_x,
       axis.ticks.y = axis_ticks_y,
@@ -111,21 +121,24 @@ basic_bar_chart <- function(
   # Add text labels (optional)
   if (show_bar_labels) {
     if (horizontal) {
-      p <- p + geom_text(
-        aes(label = .data[[y_var]]),
-        color = label_color,
-        size = 5,
-        hjust = if (label_position == "inside") 1.2 else -0.1, # shift left of bar end
-        vjust = 0.5
-      )
-    } else { # vertical bars
-      p <- p + geom_text(
-        aes(label = .data[[y_var]]),
-        color = label_color,
-        size = 5,
-        vjust = if (label_position == "inside") 1.2 else -0.3, # above bar = negative vjust
-        hjust = 0.5
-      )
+      p <- p +
+        geom_text(
+          aes(label = .data[[y_var]]),
+          color = label_color,
+          size = 5,
+          hjust = if (label_position == "inside") 1.2 else -0.1, # shift left of bar end
+          vjust = 0.5
+        )
+    } else {
+      # vertical bars
+      p <- p +
+        geom_text(
+          aes(label = .data[[y_var]]),
+          color = label_color,
+          size = 5,
+          vjust = if (label_position == "inside") 1.2 else -0.3, # above bar = negative vjust
+          hjust = 0.5
+        )
     }
   }
 
@@ -138,24 +151,27 @@ basic_bar_chart <- function(
 }
 
 
-
-
 stacked_bar_chart <- function(
-    df,
-    x_var,
-    y_var,
-    fill,
-    title,
-    ylabel = NULL,
-    proportional = FALSE) {
+  df,
+  x_var,
+  y_var,
+  fill,
+  title,
+  ylabel = NULL,
+  proportional = FALSE
+) {
   # Set position for geom_bar
   position_type <- if (proportional) "fill" else "stack"
 
   # Determine y-axis label if not provided
-  ylabel_final <- if (!is.null(ylabel)) ylabel else if (proportional) "Proportion of Responses" else "Number of Responses"
+  ylabel_final <- if (!is.null(ylabel)) ylabel else if (proportional)
+    "Proportion of Responses" else "Number of Responses"
 
   # Build the plot
-  p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]], fill = .data[[fill]])) +
+  p <- ggplot(
+    df,
+    aes(x = .data[[x_var]], y = .data[[y_var]], fill = .data[[fill]])
+  ) +
     geom_bar(stat = "identity", position = position_type) +
     ggtitle(title) +
     labs(y = ylabel_final) +
@@ -197,7 +213,6 @@ grouped_bar_chart <- function(df, x_var, fill_var, title, ylabel = NULL) {
 }
 
 
-
 # Save a plot
 # Path is in my ~/.Renviron file
 figure_path <- Sys.getenv("FIGURE_PATH")
@@ -211,7 +226,6 @@ save_plot <- function(fname, w, h) {
     dpi = 700
   )
 }
-
 
 
 # Utils to clean data
@@ -291,7 +305,6 @@ recode_dataframe_likert <- function(df, codes, likert_cols) {
 }
 
 
-
 make_df_binary <- function(df, cols = NULL) {
   # Determine columns to modify
   if (is.null(cols)) {
@@ -301,12 +314,17 @@ make_df_binary <- function(df, cols = NULL) {
   } else if (is.character(cols)) {
     cols_to_modify <- cols
   } else {
-    stop("`cols` must be NULL, a character vector of column names, or numeric indices.")
+    stop(
+      "`cols` must be NULL, a character vector of column names, or numeric indices."
+    )
   }
 
   df <- df %>%
     # Convert "Non-applicable" to NA
-    mutate(across(all_of(cols_to_modify), ~ ifelse(.x == "Non-applicable", NA, .x))) %>%
+    mutate(across(
+      all_of(cols_to_modify),
+      ~ ifelse(.x == "Non-applicable", NA, .x)
+    )) %>%
     # Turn empty strings into NAs, and turn non-empty strings into 1s
     mutate(across(all_of(cols_to_modify), ~ ifelse(.x == "", NA, 1))) %>%
     # Convert all NAs to 0s
@@ -343,14 +361,15 @@ make_df_binary <- function(df, cols = NULL) {
 # 10   1             1         0       0         1      1   0     0
 
 exclude_empty_rows <- function(df) {
-  df[rowSums(df != 0 & df != "" & !is.na(df)) > 0, , drop = FALSE]
-} # Exclude rows that are entirely 0, NA, or empty strings.
+  df[rowSums(is.na(df) | df == "") < ncol(df), , drop = FALSE]
+} # Drop rows that are entirely NA or empty strings.
+# Rows of all zeros will be retained.
+# (For mandatory Qs, there shouldn't be any.)
 
-
-
-
-
-
+exclude_empty_columns <- function(df) {
+  df[, colSums(is.na(df) | df == "") < nrow(df)]
+} # Drop columns that are entirely NA or empty strings.
+# Columns of all zeros will be retained.
 
 # Functions to calculate summary statistics
 

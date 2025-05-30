@@ -1,0 +1,420 @@
+---
+title: "Motivations for contributing to OS: plots"
+---
+
+# Overview
+This script makes some plots from Q6, which is about participants' reasons for contributing to open source.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Define functions
+#### get_df_for_job_category
+- Arguments:
+  - `job`: A string. 
+  - `raw_data`: The Qualtrics data, unmodified. Don't mess with this. I
+    only made this an argument just to clarify that there's another data
+    structure going into this function besides `job`.
+- Details:
+  - A function that takes a particular job category of interest and produces
+    a data frame with counts for all motivation categories. By 'count', I
+    mean the number of people who selected that motivation.
+- Outputs:
+  - A data frame with two columns: `Motivation` and `Count`. Count is the
+    number of 'yes' responses for that motivation for the given job category.
+```{r}
+get_df_for_job_category <- function(job, raw_data = data) {
+  df <- raw_data %>%
+    filter(job_category == job) %>%
+    select(
+      starts_with("motivations")
+    )
+  df <- shorten_long_responses(df, codenames)
+  # Remove any columns that are all NA or empty strings
+  df <- df[, colSums(is.na(df) | df == "") < nrow(df)]
+  df <- rename_cols_based_on_entries(df)
+  # Remove any rows where they didn't answer the question about motivations
+  df <- make_df_binary(df)
+  df <- data.frame(
+    Motivation = names(df),
+    Count = unname(apply(df, 2, function(x) round(sum(x, na.rm = TRUE))))
+  )
+  return(df)
+}
+```
+```{r}
+stacked_bar_chart <- function(
+    df,
+    x_var,
+    y_var,
+    fill,
+    title,
+    ylabel = NULL,
+    proportional = FALSE) {
+  # Set position for geom_bar
+  position_type <- if (proportional) "fill" else "stack"
+
+  # Determine y-axis label if not provided
+  ylabel_final <- if (!is.null(ylabel)) ylabel else if (proportional) "Proportion of Responses" else "Number of Responses"
+
+  # Build the plot
+  p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]], fill = .data[[fill]])) +
+    geom_bar(stat = "identity", position = position_type) +
+    ggtitle(title) +
+    labs(y = ylabel_final) +
+    scale_fill_manual(values = colors) +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 14),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 10),
+      axis.text.y = element_text(size = 10),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+      panel.background = element_blank(),
+      legend.title = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 14),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+    )
+  return(p)
+}
+```
+
+```{r}
+line_plot <- function(df, x_var, y_var, title) {
+  p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
+    geom_point(size = 4) + # Adjust dot size
+    labs(
+      x = "Career stage",
+      y = "Proportion of Participants Motivated by\nDesire to Learn New Skills",
+      title = title
+    ) +
+    theme(
+      axis.title.x = element_text(size = 14),
+      axis.title.y = element_text(size = 14),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
+      axis.text.y = element_text(size = 12),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+      legend.title = element_blank(),
+      plot.title = element_text(hjust = 0.5, size = 14),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
+      panel.grid = element_line(linetype = "solid", color = "gray90"),
+      panel.background = element_blank()
+    )
+  return(p)
+}
+```
+
+
+# Load data
+```{r}
+data <- load_qualtrics_data("deidentified_no_qual.tsv")
+```
+
+# Define codes
+```{r}
+codenames <- c(
+  "Developing open-source" = "Job",
+  "To improve the tools" = "Improve Tools",
+  "To customize existing" = "Customize",
+  "To build a network" = "Network",
+  "To give back to" = "Give back",
+  "To improve my skills" = "Skills",
+  "Because it's fun" = "Fun",
+  "Other " = "Other"
+)
+```
+
+# Basic bar plot of contributor motivations
+First we wrangle the data using several functions from my utilities script `scripts/utils.R`.
+```{r}
+motivations <- data %>% select(
+  starts_with("motivations")
+)
+motivations <- shorten_long_responses(motivations, codenames)
+
+# Remove any columns that are all NA or empty strings
+# (Which means nobody selected that response)
+motivations <- exclude_empty_columns(motivations)
+# Remove any rows that are all NA or empty strings
+# (The participant did not answer the question
+# (because they're not UC or not a contributor))
+motivations <- exclude_empty_rows(motivations)
+
+motivations <- rename_cols_based_on_entries(motivations)
+motivations <- make_df_binary(motivations)
+head(motivations)
+```
+
+Now we sum up counts for each motivation.
+```{r}
+motivations <- data.frame(
+  Motivation = names(motivations),
+  Count = unname(apply(motivations, 2, function(x) round(sum(x, na.rm = TRUE))))
+)
+motivations
+```
+
+Reorder factor levels based on count.
+```{r}
+motivations <- motivations %>%
+  mutate(Motivation = fct_reorder(Motivation, Count, .desc = FALSE))
+```
+
+And make a plot, using a function in utils.R.
+```{r}
+overall_plot <- basic_bar_chart(motivations,
+  x_var = "Motivation",
+  y_var = "Count",
+  title = "Reasons for Contributing to Open Source: All Contributors",
+  horizontal = TRUE,
+  show_bar_labels = TRUE,
+  show_ticks_y = FALSE,
+  color_index = 3,
+  show_axis_title_y = FALSE
+)
+```
+
+Save the plot if you wish.
+```{r}
+#save_plot("motivations_overall.tiff", 8, 6)
+```
+
+# Stacked bar plots of motivations by role
+Now let's make some stacked bar plots of motivations by role (job category). We'll make two: one with the absolute number of responses, and one where all roles are normalized to 1, so we can see the relative proportions of each motivation.
+```{r}
+faculty <- get_df_for_job_category("Faculty")
+nrstaff <- get_df_for_job_category("Non-research Staff")
+postdocs <- get_df_for_job_category("Post-Doc")
+other_researchers <- get_df_for_job_category(
+  "Other research staff (e.g., research scientist, research software engineer)"
+)
+grads <- get_df_for_job_category("Grad Student")
+undergrads <- get_df_for_job_category("Undergraduate")
+# Example
+faculty
+```
+
+For visual clarity, let's combine post-docs and other research staff into one category.
+```{r}
+postdocs_other <- bind_rows(postdocs, other_researchers) %>%
+  group_by(Motivation) %>%
+  summarise(Count = sum(Count, na.rm = TRUE), .groups = "drop")
+```
+
+Add a `Role` column and combine these little data frames into one long-format data frame.
+```{r}
+faculty$Role <- "Faculty"
+nrstaff$Role <- "Non-research Staff"
+grads$Role <- "Grad Students"
+postdocs_other$Role <- "Postdocs and Staff Researchers"
+undergrads$Role <- "Undergraduates"
+composite_df <- rbind(faculty, nrstaff, grads, postdocs_other, undergrads)
+head(composite_df)
+```
+
+Create a plot with the absolute number of responses on the y-axis.
+```{r}
+stacked_plot_raw <- stacked_bar_chart(composite_df,
+  x_var = "Role",
+  y_var = "Count",
+  fill = "Motivation",
+  title = "Reasons for Contributing to Open Source",
+)
+```
+Create a plot where all jobs are scaled to 1.
+```{r}
+stacked_plot_proportional <- stacked_bar_chart(composite_df,
+  x_var = "Role",
+  y_var = "Count",
+  fill = "Motivation",
+  title = "Reasons for Contributing to Open Source",
+  proportional = TRUE
+)
+```
+
+Visualize
+```{r}
+stacked_plot_raw + stacked_plot_proportional
+```
+
+Save
+```{r}
+save_plot("motivations_stacks.tiff", 12, 8)
+```
+
+Request from Greg: What about IT vs. academics? (Students, Teachers, and Researchers)
+```{r}
+it <- data %>%
+  filter(staff_categories == "Information Technology (IT)") %>%
+  select(
+    starts_with("motivations")
+  )
+
+it <- shorten_long_responses(it, codenames)
+
+# Remove any columns that are all NA or empty strings
+# (Which means nobody selected that response)
+it <- exclude_empty_columns(it)
+# Remove any rows that are all NA or empty strings
+# (The participant did not answer the question
+# (because they're not UC or not a contributor))
+it <- exclude_empty_rows(it)
+
+it <- rename_cols_based_on_entries(it)
+it <- make_df_binary(it)
+head(it)
+dim(it)
+
+it <- data.frame(
+  Motivation = names(it),
+  Count = unname(apply(it, 2, function(x) round(sum(x, na.rm = TRUE))))
+)
+it$Role <- "IT"
+it
+
+academics <- composite_df %>%
+  filter(
+    Role == "Faculty" |
+      Role == "Grad Students" |
+      Role == "Postdocs and Staff Researchers" |
+      Role == "Undergraduates"
+  )
+academics$Role <- "Academic"
+
+it_academics <- rbind(it, academics)
+
+stacked_plot_raw_it <- stacked_bar_chart(
+  it_academics,
+  x_var = "Role",
+  y_var = "Count",
+  fill = "Motivation",
+  title = "Reasons for Contributing to Open Source",
+)
+
+stacked_plot_proportional_it <- stacked_bar_chart(
+  it_academics,
+  x_var = "Role",
+  y_var = "Count",
+  fill = "Motivation",
+  title = "Reasons for Contributing to Open Source",
+  proportional = TRUE
+)
+```
+
+Visualize
+```{r}
+stacked_plot_raw_it + stacked_plot_proportional_it
+```
+
+Save
+```{r}
+save_plot("motivations_stacks_it_academics.tiff", 12, 8)
+```
+
+# Line plots for particular motivations
+
+All 7 undergraduates selected "Skills" and "Give back" as motivations. This made me curious about whether these motivations decrease as we get older and advance in our careers. Let's make some line plots to investigate.
+```{r}
+motivations_raw <- data %>% select(
+  starts_with("motivations")
+)
+motivations_raw <- shorten_long_responses(motivations_raw, codenames)
+motivations_raw <- rename_cols_based_on_entries(motivations_raw)
+motivations_raw$Role <- data$job_category
+motivations_raw <- shorten_long_responses(motivations_raw, c("Other research staff" = "Other research staff"))
+
+# Remove any rows where they didn't answer the question about motivations
+motivations_raw <- motivations_raw %>%
+  filter(if_any(Job:Other, ~ .x != ""))
+
+motivation_cols <- as.vector(codenames)
+motivations_raw <- make_df_binary(motivations_raw, cols = motivation_cols)
+
+
+skills_by_role <- motivations_raw %>%
+  group_by(Role) %>%
+  summarise(
+    n_yes = sum(Skills == 1), # number of 1s
+    n_tot = n(), # total rows
+    Proportion = n_yes / n_tot
+  )
+
+skills_by_role_clean <- skills_by_role %>%
+  # drop the staff categories
+  filter(!Role %in% c("Non-research Staff", "Other research staff")) %>%
+  # drop the unnecessary columns
+  select(Role, Proportion) %>%
+  # order the factor levels
+  mutate(Role = factor(Role,
+    levels = c(
+      "Undergraduate",
+      "Grad Student",
+      "Post-Doc",
+      "Faculty"
+    ),
+    ordered = TRUE
+  )) %>%
+  arrange(Role)
+```
+
+Plot and visualize
+```{r}
+line_plot(skills_by_role_clean,
+  x_var = "Role",
+  y_var = "Proportion",
+  title = "Proportion of Participants Motivated by\nDesire to Learn New Skills"
+)
+```
+Save
+```{r}
+#save_plot("motivations_skill_by_role.tiff", 8, 6)
+```
+
+What about giving back?
+```{r}
+give_by_role <- motivations_raw %>%
+  group_by(Role) %>%
+  summarise(
+    n_yes = sum(`Give back` == 1), # number of 1s
+    n_tot = n(), # total rows
+    Proportion = n_yes / n_tot
+  )
+
+give_by_role_clean <- give_by_role %>%
+  # drop the staff categories
+  filter(!Role %in% c("Non-research Staff", "Other research staff")) %>%
+  # drop the unnecessary columns
+  select(Role, Proportion) %>%
+  # order the factor levels
+  mutate(Role = factor(Role,
+    levels = c(
+      "Undergraduate",
+      "Grad Student",
+      "Post-Doc",
+      "Faculty"
+    ),
+    ordered = TRUE
+  )) %>%
+  arrange(Role)
+```
+
+Plot and visualize
+```{r}
+line_plot(give_by_role_clean,
+  x_var = "Role",
+  y_var = "Proportion",
+  title = "Proportion of Participants Motivated by\nDesire to Give Back"
+)
+```
+Save
+```{r}
+save_plot("motivations_giveback_by_role.tiff", 8, 6)
+```
