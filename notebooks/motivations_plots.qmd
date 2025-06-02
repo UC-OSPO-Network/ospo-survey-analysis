@@ -155,7 +155,7 @@ head(motivations)
 
 Now we sum up counts for each motivation.
 ```{r}
-motivations <- data.frame(
+motivations_to_plot <- data.frame(
   Motivation = names(motivations),
   Count = unname(apply(motivations, 2, function(x) round(sum(x, na.rm = TRUE))))
 )
@@ -164,13 +164,13 @@ motivations
 
 Reorder factor levels based on count.
 ```{r}
-motivations <- motivations %>%
+motivations_to_plot <- motivations_to_plot %>%
   mutate(Motivation = fct_reorder(Motivation, Count, .desc = FALSE))
 ```
 
 And make a plot, using a function in utils.R.
 ```{r}
-overall_plot <- basic_bar_chart(motivations,
+overall_plot <- basic_bar_chart(motivations_to_plot,
   x_var = "Motivation",
   y_var = "Count",
   title = "Reasons for Contributing to Open Source: All Contributors",
@@ -229,6 +229,7 @@ stacked_plot_raw <- stacked_bar_chart(composite_df,
   title = "Reasons for Contributing to Open Source",
 )
 ```
+
 Create a plot where all jobs are scaled to 1.
 ```{r}
 stacked_plot_proportional <- stacked_bar_chart(composite_df,
@@ -247,7 +248,7 @@ stacked_plot_raw + stacked_plot_proportional
 
 Save
 ```{r}
-save_plot("motivations_stacks.tiff", 12, 8)
+#save_plot("motivations_stacks.tiff", 12, 8)
 ```
 
 Request from Greg: What about IT vs. academics? (Students, Teachers, and Researchers)

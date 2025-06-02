@@ -3,9 +3,7 @@ title: "Importance of open source"
 ---
 
 # Overview
-This script creates bar plots from question 2 on the survey, which is about the
-perceived importance of open source for different job categories and different
-tasks.
+This script creates bar plots from question 2 on the survey, which is about the perceived importance of open source for different job categories and different tasks. My favorite plot is the one in the [final section](#Percent-more-than-moderately-important), "Percent more than moderately important".
 
 # Import packages and utilities
 ```{r}
@@ -194,16 +192,12 @@ basic_bar_chart(
   show_bar_labels = TRUE
 )
 ```
+
 Save the plot using a function that lives in my utilities script (`scripts/utils.R`).
 ```{r}
 #save_plot("importance_teachers.tiff", 8, 5)
 ```
 
-Finally, let's check what percentage of teachers said OS is more than 
-moderately important for their teaching.
-```{r}
-get_percent_more_than_moderate(teaching)
-```
 
 ## Grouped bar plot for researchers
 Now let's look at researchers, and the importance categories that apply to all
@@ -234,19 +228,12 @@ grouped_bar_chart(
   fill_var = "importance_area",
   title = "Perceived Importance of Open Source among Researchers"
 )
+```
 
+```{r}
 #save_plot("importance_researchers.tiff", 10, 5)
 ```
 
-Finally, let's check what percentage of researchers said OS is more than 
-moderately important for their research.
-```{r}
-research <- research_learning_pd %>%
-  filter(
-    importance_area == "Research"
-  )
-get_percent_more_than_moderate(research)
-```
 
 ## Grouped bar plot for non-research staff
 This is very similar to what I did above, except the three applicable categories have changed.
@@ -266,13 +253,345 @@ grouped_bar_chart(
   fill_var = "importance_area",
   title = "Perceived Importance of Open Source among Non-research Staff"
 )
-
-#save_plot("importance_nrstaff.tiff", 10, 5)
 ```
 
 ```{r}
-job_nrstaff <- job_learning_pd %>%
-  filter(importance_area == "Job")
+#save_plot("importance_nrstaff.tiff", 10, 5)
+```
 
-get_percent_more_than_moderate(job_nrstaff)
+
+# Percent more than moderately important
+
+Renata suggested I try to combine all these data into one figure that summarizes the question at a glance. Here's my attempt.
+
+I think a useful "statistic" is the percent of a particular group that said OS is more than moderately important for a particular area of work. Let's make a dataframe with those percentages. I'd ultimately like to turn this into a bar plot where the color or design of the bars corresponds to the five job categories, and the x-axis shows four groups that I think are most relevant: teachers, researchers, non-research staff, and students. However, not all these groups were explicit survey categories, and not all 5 importance areas apply to all groups, so we'll need to do a fair amount of data wrangling.
+
+To start, let's get the percent of teachers who said teaching was more than moderately important.
+```{r}
+teaching <- long_data %>%
+  filter(
+    importance_area == "Teaching"
+  ) %>%
+  filter(
+    importance_level != "Non-applicable"
+  )
+
+more_than_mod <- data.frame(
+  job_category = "Teachers",
+  importance_area = "Teaching",
+  pct = get_percent_more_than_moderate(teaching)
+)
+
+more_than_mod
+```
+
+The code is basically the same for researchers and researching: as with teaching, we will assume that anyone who gave an answer for research (i.e, didn't select "N/A") is a researcher.
+```{r}
+research <- long_data %>%
+  filter(
+    importance_area == "Research"
+  ) %>%
+  filter(
+    importance_level != "Non-applicable"
+  )
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Researchers",
+    "Research",
+    get_percent_more_than_moderate(research)
+  )
+)
+```
+
+The code for non-research staff and "Job" is slightly different. Our intention was that only non-research staff would answer this question, but there were some people who answered this but did not select "non-research staff" as their job category. So let's just ensure that we're only looking at responses from non-research staff by filtering for non-research staff using the job_category column.
+```{r}
+nrstaff <- long_data %>%
+  filter(
+    job_category == "Non-research Staff"
+  ) %>%
+  filter(
+    importance_area == "Job"
+  ) %>%
+  filter(
+    importance_level != "Non-applicable"
+  )
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Non-research Staff",
+    "Job",
+    get_percent_more_than_moderate(nrstaff)
+  )
+)
+```
+
+Next, I want to look at two importance areas, Learning and Professional Development, for all four job categories: Teachers, Researchers, Non-research staff, and Students. We'll have to determine teachers and researchers based on who answered the teaching question and who answered the research question, respectively. Meanwhile, for "Student", we'll have to combine grad students and undergrads into one group. 
+
+We will have to go back to an earlier data frame and redo some of the data wrangling. (We want to filter for people who answered e.g. teaching, but look at their answers for the other questions. This information was lost when we rearranged from wide to long format.)
+```{r}
+# Rename this one long job category
+importance_and_job$job_category <- gsub(
+  "^Other.*",
+  "Research Staff",
+  importance_and_job$job_category
+)
+
+#Rename columns for readability
+importance_and_job <- importance_and_job %>%
+  rename(
+    Research = importance_opensrc_1,
+    Teaching = importance_opensrc_2,
+    Learning = importance_opensrc_3,
+    `Professional Development` = importance_opensrc_4,
+    Job = importance_opensrc_5
+  )
+
+# Remove rows that contain any empty strings
+importance_and_job <- importance_and_job %>%
+  filter(!if_any(everything(), ~ . == ""))
+```
+
+Let's keep rows from teachers, but keep columns for Learning and Professional Development. Then we change the job_category column to "Teacher".
+```{r}
+teachers_learn_pd <- importance_and_job %>%
+  filter(Teaching != "Non-applicable") %>%
+  select(Learning, `Professional Development`, job_category)
+
+teachers_learn_pd$job_category <- "Teacher"
+head(teachers_learn_pd)
+```
+
+Now we can add two more rows to `more_than_mod`.
+```{r}
+teachers_learning <- teachers_learn_pd %>%
+  select(Learning, job_category) %>%
+  #unlikely but you never know
+  filter(Learning != "Non-applicable") %>%
+  # Change the column name because our function expects it
+  rename(importance_level = Learning)
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Teachers",
+    "Learning",
+    get_percent_more_than_moderate(teachers_learning)
+  )
+)
+
+teachers_pd <- teachers_learn_pd %>%
+  select(`Professional Development`, job_category) %>%
+  #unlikely but you never know
+  filter(`Professional Development` != "Non-applicable") %>%
+  # Change the column name because our function expects it
+  rename(importance_level = `Professional Development`)
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Teachers",
+    "Professional Development",
+    get_percent_more_than_moderate(teachers_pd)
+  )
+)
+more_than_mod
+```
+
+And let's do the same for researchers.
+```{r}
+researchers_learn_pd <- importance_and_job %>%
+  filter(Research != "Non-applicable") %>%
+  select(Learning, `Professional Development`, job_category)
+
+researchers_learn_pd$job_category <- "Researcher"
+
+researchers_learning <- researchers_learn_pd %>%
+  select(Learning, job_category) %>%
+  #unlikely but you never know
+  filter(Learning != "Non-applicable") %>%
+  # Change the column name because our function expects it
+  rename(importance_level = Learning)
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Researchers",
+    "Learning",
+    get_percent_more_than_moderate(researchers_learning)
+  )
+)
+
+researchers_pd <- researchers_learn_pd %>%
+  select(`Professional Development`, job_category) %>%
+  #unlikely but you never know
+  filter(`Professional Development` != "Non-applicable") %>%
+  # Change the column name because our function expects it
+  rename(importance_level = `Professional Development`)
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Researchers",
+    "Professional Development",
+    get_percent_more_than_moderate(researchers_pd)
+  )
+)
+more_than_mod
+```
+
+Now get percentages for non-research staff. This is straightforward since it was a survey category.
+
+```{r}
+nrstaff_learn_pd <- importance_and_job %>%
+  filter(job_category == "Non-research Staff") %>%
+  select(Learning, `Professional Development`, job_category)
+
+nrstaff_learning <- nrstaff_learn_pd %>%
+  select(Learning, job_category) %>%
+  #unlikely but you never know
+  filter(Learning != "Non-applicable") %>%
+  # Change the column name because our function expects it
+  rename(importance_level = Learning)
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Non-research Staff",
+    "Learning",
+    get_percent_more_than_moderate(nrstaff_learning)
+  )
+)
+
+nrstaff_pd <- nrstaff_learn_pd %>%
+  select(`Professional Development`, job_category) %>%
+  #unlikely but you never know
+  filter(`Professional Development` != "Non-applicable") %>%
+  # Change the column name because our function expects it
+  rename(importance_level = `Professional Development`)
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Non-research Staff",
+    "Professional Development",
+    get_percent_more_than_moderate(nrstaff_pd)
+  )
+)
+```
+
+Finally, let's get students.
+```{r}
+students_learn_pd <- importance_and_job %>%
+  filter(job_category == "Undergraduate" | job_category == "Grad Student") %>%
+  select(Learning, `Professional Development`, job_category)
+
+students_learn_pd$job_category <- "Student"
+
+students_learning <- students_learn_pd %>%
+  select(Learning, job_category) %>%
+  #unlikely but you never know
+  filter(Learning != "Non-applicable") %>%
+  # Change the column name because our function expects it
+  rename(importance_level = Learning)
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Students",
+    "Learning",
+    get_percent_more_than_moderate(students_learning)
+  )
+)
+
+students_pd <- students_learn_pd %>%
+  select(`Professional Development`, job_category) %>%
+  #unlikely but you never know
+  filter(`Professional Development` != "Non-applicable") %>%
+  # Change the column name because our function expects it
+  rename(importance_level = `Professional Development`)
+
+more_than_mod <- rbind(
+  more_than_mod,
+  list(
+    "Students",
+    "Professional Development",
+    get_percent_more_than_moderate(students_pd)
+  )
+)
+```
+
+FINALLY, let's plot it! 
+
+```{r}
+more_than_mod$job_category <- factor(
+  more_than_mod$job_category,
+  levels = c(
+    "Teachers",
+    "Researchers",
+    "Non-research Staff",
+    "Students"
+  )
+)
+
+more_than_mod$importance_area <- factor(
+  more_than_mod$importance_area,
+  levels = c(
+    "Learning",
+    "Professional Development",
+    "Teaching",
+    "Research",
+    "Job"
+  )
+)
+```
+
+I'm not using my `grouped_bar_chart` function in `scripts/utils.R` because I have pre-computed the bar heights, and that function counts rows. Since I'm currently only creating this kind of bar chart once, I'm not bothering to create a new function (or incorporate this option into the `grouped_bar_chart` function).
+
+
+```{r fig.width=10, fig.height=5}
+p <- ggplot(
+  more_than_mod,
+  aes(
+    x = job_category,
+    y = pct,
+    fill = importance_area
+  )
+) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  ggtitle("Perceived Importance of Open Source\nfor Different Kinds of Work") +
+  labs(
+    y = "Percent of Respondents Who Said OS\nIs More than Moderately Important"
+  ) +
+  ylim(0, 100) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 14),
+    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 12),
+    panel.background = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 14),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
+    panel.grid.major.y = element_line(color = "lightgray", linewidth = 0.2)
+  ) +
+  #https://sronpersonalpages.nl/~pault/
+  scale_fill_manual(
+    values = c(
+      '#4477AA',
+      '#EE6677',
+      '#228833',
+      '#CCBB44',
+      '#66CCEE'
+    )
+  )
+
+p
+```
+
+```{r}
+save_plot("importance_all_pct.tiff", 10, 5)
 ```
