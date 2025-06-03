@@ -595,3 +595,9 @@ p
 ```{r}
 save_plot("importance_all_pct.tiff", 10, 5)
 ```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

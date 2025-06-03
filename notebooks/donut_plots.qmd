@@ -37,7 +37,6 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 - Outputs:
   - `long_data`: a new data frame with columns values, Freq, fraction, ymax,
     ymin, labelPosition, and label.
-
 ```{r}
 create_df_for_plotting <- function(data, column) {
   if (!column %in% names(data)) {
@@ -64,6 +63,17 @@ create_df_for_plotting <- function(data, column) {
   # Create label column
   long_data$label <- paste0(long_data$Freq)
 
+  # Make the text wrap so the legend is more compact
+  long_data <- long_data %>%
+    mutate(values = str_wrap(values, width = 20))
+  
+  # from scripts/utils.R
+  long_data <- reorder_factor_by_column(
+    long_data,
+    values,
+    Freq
+  )
+
   return(long_data)
 }
 ```
@@ -77,26 +87,64 @@ create_df_for_plotting <- function(data, column) {
   - This function creates a donut plot.
 - Outputs:
   - A ggplot object.
-
 ```{r}
-donut_chart <- function(df) {
-  ggplot(df, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 3, fill = values)) +
+donut_chart <- function(
+  df,
+  cpalette = colors, # default: colors from utils.R
+  legendpos = "right",
+  title_bottom_margin = 15,
+  legend_top_margin = 0,
+  white_labels = FALSE
+) {
+
+    if (white_labels) {
+    label_x     <- 3.5
+    label_size  <- 8
+    label_color <- "white"
+    # We only need xlim up to 4 (labels sit inside the ring)
+    #x_limits   <- c(2, 4)
+  } else {
+    label_x     <- 4.3
+    label_size  <- 9
+    label_color <- "black"
+    # Extend x‐axis so outside labels aren't cut off
+    #x_limits   <- c(2, 4.6)
+  }
+
+  ggplot(
+    df,
+    aes(
+      ymax = ymax,
+      ymin = ymin,
+      xmax = 4,
+      xmin = 3,
+      fill = values
+    )
+  ) +
     geom_rect() +
     # Add labels
     geom_text(
-      x = 3.5,
+      x = label_x,
       aes(y = labelPosition, label = label),
-      size = 6,
-      color = "white"
+      size = label_size,
+      color = label_color
     ) +
-    scale_fill_manual(values = colors) +
+    scale_fill_manual(values = cpalette) +
     theme_void() +
     coord_polar(theta = "y") +
     xlim(c(2, 4)) +
     theme(
-      legend.text = element_text(size = 14),
+      legend.text = element_text(size = 18),
       legend.title = element_blank(),
-      plot.title = element_text(hjust = 0.5, size = 20),
+      legend.position = legendpos,
+      legend.key.spacing.y = unit(0.5, "lines"),
+      legend.margin = margin(t = unit(legend_top_margin, "lines")),
+      plot.title = element_text(
+        hjust = 0.5,
+        size = 28,
+        margin = margin(b = title_bottom_margin)
+      ),
+      plot.margin = margin(t = 20, r = 5, b = 5, l = 5),
       plot.background = element_rect(fill = "white", color = "white")
     )
 }
@@ -112,11 +160,13 @@ data <- load_qualtrics_data("deidentified_no_qual.tsv")
 
 Here, I use a boolean variable called `contributor_mode` to record whether the
 user wants to create donut plots for all respondents or contributors only. It's
-FALSE by default, so if you want to run this script interactively in a notebook,
-you can safely run this cell without any adjustments.
+FALSE by default. If you want to run this script interactively in a notebook,
+you can safely run this cell without any adjustments, and it will create plots
+for all respondents, or manually change contributor mode to TRUE to create plots
+for just OS contributors.
 
 ```{r}
-args <- commandArgs(trailingOnly = TRUE) # only the user-supplied part
+args <- commandArgs(trailingOnly = TRUE)
 
 contributor_mode <- FALSE # default
 if (length(args) > 0) {
@@ -164,26 +214,20 @@ job_data$values <- gsub(
   "Other research staff",
   job_data$values
 )
-# from scripts/utils.R
-job_data <- reorder_factor_by_column(job_data, values, Freq, descending = TRUE)
-
+job_data
 p1 <- donut_chart(job_data) +
   labs(title = sprintf("Job Category of %s", population))
 ```
 
-Here's a look at the `job_data` data frame that will be used for plotting the
-donut chart.
-
-```{r}
-job_data
-```
 
 Plot #2 is of campus.
 
 ```{r}
 campus_data <- create_df_for_plotting(data, "campus")
-campus_data <- reorder_factor_by_column(campus_data, values, Freq, descending = TRUE)
-campus_data <- campus_data %>% filter(values != "I'm not affiliated with UC")
+campus_data <- campus_data %>%
+  filter(
+    !startsWith(as.character(values), "I'm not affiliat")
+  )
 
 p2 <- donut_chart(campus_data) +
   labs(title = sprintf("Campus of %s", population))
@@ -194,7 +238,6 @@ plot.
 
 ```{r}
 field_data <- create_df_for_plotting(data, "field_of_study")
-field_data <- reorder_factor_by_column(field_data, values, Freq, descending = TRUE)
 p3 <- donut_chart(field_data) +
   labs(title = sprintf("Academic %s' fields of study", tolower(population)))
 ```
@@ -223,8 +266,6 @@ staff_data_clean <- as.data.frame(staff_data) %>%
   group_by(job) %>% # gather all “Other” rows together
   summarise(Freq = sum(count), .groups = "drop")
 
-staff_data_clean <- reorder_factor_by_column(staff_data_clean, job, Freq, descending = TRUE)
-
 staff_long_data <- as.data.frame(staff_data_clean) %>%
   mutate(fraction = Freq / sum(Freq)) %>%
   arrange(desc(fraction))
@@ -234,7 +275,8 @@ staff_long_data$ymax <- cumsum(staff_long_data$fraction)
 staff_long_data$ymin <- c(0, head(staff_long_data$ymax, n = -1))
 
 # Compute label position
-staff_long_data$labelPosition <- (staff_long_data$ymax + staff_long_data$ymin) / 2
+staff_long_data$labelPosition <- (staff_long_data$ymax + staff_long_data$ymin) /
+  2
 
 # Create label column
 staff_long_data$label <- paste0(staff_long_data$Freq)
@@ -242,12 +284,43 @@ staff_long_data$label <- paste0(staff_long_data$Freq)
 # Rename this one column to match the donut_chart function
 names(staff_long_data)[names(staff_long_data) == "job"] <- "values"
 
+# Wrap text
+staff_long_data <- staff_long_data %>%
+  mutate(values = str_wrap(values, width = 20))
+
+# from scripts/utils.R
+staff_long_data <- reorder_factor_by_column(
+  staff_long_data,
+  values,
+  Freq
+)
+
 p4 <- donut_chart(staff_long_data) +
   labs(title = sprintf("Staff %s' work areas", tolower(population)))
+
 ```
 
-## Look at the plot
+# View and save combined plot
 
+First let's view and save one plot.
+
+#### Individual plot: campus
+```{r, fig.width=9, fig.height=6}
+p2
+```
+
+```{r}
+# Function from utils.R
+save_plot(
+  sprintf("campus_donut_%s.tiff", tolower(population)),
+  9,
+  6,
+  p = p2
+)
+```
+
+#### All four plots combined 
+It's also nice to see them all in one figure.
 ```{r}
 combined_donuts <- patchwork::wrap_plots(p1, p2, p3, p4, ncol = 2)
 ```
@@ -256,12 +329,118 @@ combined_donuts <- patchwork::wrap_plots(p1, p2, p3, p4, ncol = 2)
 combined_donuts
 ```
 
-## Save the plot
-
 ```{r}
 # Function from utils.R, uses a path in .Renviron
-save_plot(sprintf("combined_donuts_%s.tiff", tolower(population)), 18, 12)
+save_plot(
+  sprintf("combined_donuts_%s.tiff", tolower(population)),
+  18,
+  12,
+  p = combined_donuts
+)
 ```
+
+# Refine plot aesthetics
+
+I'm envisioning a figure where I'd like to have some variety in the color palettes and the legend position. I'll put three donuts onto one canvas in Powerpoint, and then make some additional tweaks: I'll add some lines to illustrate which slices of the donut I'm focusing on, and also I will need to fix this bug where the legend keys stretch to multiple lines. (https://github.com/tidyverse/ggplot2/issues/3669) (A fix has been merged, but it's not yet available in the latest release of ggplot2.)
+
+#### Left plot: fields of study
+```{r, fig.width=9, fig.height=6}
+p3 <- donut_chart(
+  field_data,
+  cpalette = c(
+    '#BBBBBB',
+    '#EE7733',
+    '#EE3377',
+    '#33BBEE',
+    '#CC3311'
+  ),
+  legendpos="left"
+) +
+  labs(title = sprintf("Academic %s' fields of study", tolower(population)))
+p3
+```
+
+To save a smaller version (Canva has a file size limit of 50Mb), I'm reducing the resolution from 700 dpi to 450 dpi.
+```{r}
+# Function from utils.R
+save_plot(sprintf("field_donut_%s.tiff", tolower(population)), 10, 6, p = p3)
+save_plot(
+  sprintf("field_donut_%s_small.tiff", tolower(population)),
+  10,
+  6,
+  res = 450,
+  p = p3
+)
+```
+
+#### Central plot: job categories
+```{r, fig.width=9, fig.height=6}
+p1 <- donut_chart(
+  job_data,
+  legendpos = "bottom",
+  title_bottom_margin = 40,
+  legend_top_margin = 20,
+  white_labels = TRUE
+) +
+  labs(title = sprintf("Job Category of %s", tolower(population))
+  )
+p1
+```
+
+Save plot
+```{r}
+# Function from utils.R
+save_plot(
+  sprintf("job_category_donut_%s.tiff", tolower(population)),
+  10,
+  6,
+  p = p1
+)
+save_plot(
+  sprintf("job_category_donut_%s_small.tiff", tolower(population)),
+  10,
+  6,
+  res = 450,
+  p = p1
+)
+```
+
+#### Right plot: non-research staff categories
+```{r, fig.width=9, fig.height=6}
+p4 <- donut_chart(
+  staff_long_data,
+  cpalette = c(
+    '#EECC66',
+    '#EE99AA',
+    '#6699CC',
+    '#997700',
+    '#994455'
+  )
+) +
+  labs(title = sprintf("Staff %s' work areas", tolower(population)))
+p4
+```
+
+
+```{r}
+# Function from utils.R
+save_plot(
+  sprintf("nrstaff_category_donut_%s.tiff", tolower(population)),
+  10,
+  6,
+  p = p4
+)
+save_plot(
+  sprintf("nrstaff_category_donut_%s_small.tiff", tolower(population)),
+  10,
+  6,
+  res = 450,
+  p = p4
+)
+```
+
+
+
 
 # Session Info
 

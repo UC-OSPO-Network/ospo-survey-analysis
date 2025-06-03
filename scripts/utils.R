@@ -36,7 +36,7 @@ colors <- c(
   "#CC6677",
   "#882255",
   "#AA4499",
-  "#353535"
+  "#BBBBBB"
 )
 
 
@@ -216,14 +216,15 @@ grouped_bar_chart <- function(df, x_var, fill_var, title, ylabel = NULL) {
 # Save a plot
 # Path is in my ~/.Renviron file
 figure_path <- Sys.getenv("FIGURE_PATH")
-save_plot <- function(fname, w, h) {
+save_plot <- function(fname, w, h, p = NULL, ftype = "tiff", res = 700) {
   ggsave(
     filename = fname,
-    path = figure_path,
     width = w,
     height = h,
-    device = "tiff",
-    dpi = 700
+    plot = p, # if NULL, ggsave() will use the last‐drawn plot
+    device = ftype,
+    dpi = res,
+    path = figure_path
   )
 }
 
