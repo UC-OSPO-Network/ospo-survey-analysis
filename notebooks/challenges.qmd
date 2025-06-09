@@ -4,7 +4,7 @@ title: "Challenges"
 
 # Overview
 
-Unfinished analysis of survey Q9: "How frequently have you encountered the following challenges while working on open-source projects?"
+Initial analysis of survey Q9: "How frequently have you encountered the following challenges while working on open-source projects?"
 
 ## Import packages and utilities
 
@@ -34,7 +34,7 @@ challenges <- data %>%
 head(challenges)
 ```
 
-**STOP!!** Presumably, "challenges_1" corresponds to the first option, "challenges_2" corresponds to the second option, etc. But we still need to check. I am manually comparing the answers in this data frame to those in the Qualtrics interface, which shows the whole response, i.e. "Limited time for writing new code", not just "challenges_1". To be extra confident that I am comparing the same rows between the two tables, I am looking at responses associated with a particular email. After this code chunk, I go back to using the data frame that doesn't contain the emails.
+**STOP!!** Presumably, "challenges_1" corresponds to the first option, "challenges_2" corresponds to the second option, etc., but we still need to check. I am manually comparing the answers in this data frame to those in the Qualtrics interface, which shows the whole response, i.e. "Limited time for writing new code", not just "challenges_1". To be extra confident that I am comparing the same rows between the two tables, I am looking at responses associated with a particular email. After this code chunk, I go back to using the data frame that doesn't contain the emails.
 
 Since this code only needed to be run once, I've commented it out.
 ```{r}
@@ -49,15 +49,16 @@ Since this code only needed to be run once, I've commented it out.
 # # matches their response to "Limited time for writing new code", etc.
 # subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
 ```
+My assumption above was correct; the options are ordered as expected.
 
-Next, remove empty rows, i.e. rows from respondents who didn't receive this question.
+Next, remove empty rows, i.e. rows from respondents who didn't receive this question. As with many questions in this survey, we can cut some corners in the code because the question was mandatory. For example, no need to worry about incomplete answers.
 ```{r}
 nrow(challenges)
 challenges <- exclude_empty_rows(challenges) # from scripts/utils.R
 nrow(challenges)
 ```
 
-
+Let's reshape the data from wide to long format for easier plotting later.
 ```{r}
 long_data <- challenges %>%
   pivot_longer(
@@ -101,13 +102,15 @@ long_data <- long_data %>%
   )
 # Using interger literals 0L, 1L, etc., ensures that
 # the new column will be integers, not doubles.
-# We can get away with not checking for unmapped values
-# because this question was mandatory.
 
 long_data
 ```
 
-
+Next, let's calculate some simple descriptive statistics. I will choose:
+* The total "score", that is, the total number of "points" a challenge received ("Never" = 0, "Non-applicable"  = 0,"Rarely" = 1, "Occasionally" = 2, "Frequently" = 3, "Always" = 4)
+* The mean (which might be misleading if 0s drag it down, and also, who's to say what a 2.5 really means? Are the distances between the Likert points equal? We don't know.)
+* The mode
+* The standard deviation
 ```{r}
 # Helper to compute the (numeric) mode
 get_mode <- function(x) {
@@ -145,7 +148,6 @@ sd_df
 Fascinating! The greatest standard deviations are from securing funding, finding funding, and hiring. This makes sense, as these are, at least in my perception, "manager tasks"--tasks that only some people face, but they're likely to be a big challenge for those who face them. I would guess that these might show a bimodal distribution. Let's plot them and find out!
 
 # Plot the distributions
-
 Prepare data for plotting
 ```{r}
 ordered_levels <- c(
@@ -169,16 +171,38 @@ to_plot <- long_data %>%
 to_plot
 ```
 
+Create a plot for each "challenge"
 ```{r}
-t <- to_plot %>%
-  filter(
-    challenge == "Documentation time"
-  )
-
-basic_bar_chart(
-  t,
-  x_var = "challenge_level",
-  y_var = "total",
-  title = "Limited time for writing documentation"
+titles <- list(
+    "Coding time" = "Limited time for writing new code",
+    "Documentation time" = "Limited time for writing documentation",
+    "Managing issues" = "Managing issues and pull requests",
+    "Attracting users" = "Attracting users and/or contributors",
+    "Recognition" = "Receiving recognition for my contributions",
+    "Hiring" = "Finding and hiring qualified personnel",
+    "Security" = "Managing security risks",
+    "Finding peers" = "Finding a community of peers who share my interests",
+    "Finding mentors" = "Finding mentors",
+    "Education time" = "Finding time to educate myself",
+    "Educational resources" = "Identifying helpful educational resources",
+    "Legal" = "Navigating licensing and other legal issues",
+    "Finding funding" = "Identifying potential funding sources\nfor my open source projects",
+    "Securing funding" = "Securing funding for my open source projects"
 )
+
+
+for (ch in unique(summary_df$challenge)) { 
+    # use summary_df to get ordered levels
+  df_ch <- filter(to_plot, challenge == ch)
+  plot_title <- titles[[ch]]
+  p <- basic_bar_chart(
+    df_ch,
+    x_var     = "challenge_level",
+    y_var     = "total",
+    title     = plot_title,
+    show_grid = TRUE
+  )
+  print(p) # need to explicitly print
+}
+
 ```

@@ -82,15 +82,22 @@ basic_bar_chart <- function(
   show_ticks_y = TRUE,
   show_bar_labels = FALSE,
   label_position = c("inside", "above"),
-  label_color = "white"
+  label_color = "white",
+  show_grid = FALSE
 ) {
   label_position <- match.arg(label_position)
 
   # Axis title settings
-  axis_title_x <- if (show_axis_title_x)
-    element_text(size = axis_title_size_x) else element_blank()
-  axis_title_y <- if (show_axis_title_y)
-    element_text(size = axis_title_size_y) else element_blank()
+  axis_title_x <- if (show_axis_title_x) {
+    element_text(size = axis_title_size_x)
+  } else {
+    element_blank()
+  }
+  axis_title_y <- if (show_axis_title_y) {
+    element_text(size = axis_title_size_y)
+  } else {
+    element_blank()
+  }
 
   # Axis tick settings
   axis_ticks_x <- if (show_ticks_x) element_line() else element_blank()
@@ -114,6 +121,11 @@ basic_bar_chart <- function(
       axis.ticks.y = axis_ticks_y,
       legend.position = "none",
       panel.background = element_blank(),
+      panel.grid = if (show_grid) {
+        element_line(linetype = "solid", color = "gray90")
+      } else {
+        element_blank()
+      },
       plot.title = element_text(hjust = 0.5, size = title_size),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
@@ -164,8 +176,13 @@ stacked_bar_chart <- function(
   position_type <- if (proportional) "fill" else "stack"
 
   # Determine y-axis label if not provided
-  ylabel_final <- if (!is.null(ylabel)) ylabel else if (proportional)
-    "Proportion of Responses" else "Number of Responses"
+  ylabel_final <- if (!is.null(ylabel)) {
+    ylabel
+  } else if (proportional) {
+    "Proportion of Responses"
+  } else {
+    "Number of Responses"
+  }
 
   # Build the plot
   p <- ggplot(
