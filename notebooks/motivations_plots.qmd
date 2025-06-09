@@ -420,3 +420,9 @@ Save
 ```{r}
 save_plot("motivations_giveback_by_role.tiff", 8, 6)
 ```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```

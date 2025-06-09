@@ -109,7 +109,7 @@ code for this because it only needed to be done once.
 #   select(starts_with("stay_in_touch_email"))
 
 # t <- cbind(emails, importance_and_job)
-# subset(t, startsWith(stay_in_touch_email, "PERSONNAMEHERE"))
+# subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
 ```
 
 Back to data wrangling.
