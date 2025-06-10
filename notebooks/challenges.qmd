@@ -17,6 +17,25 @@ suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
+## Define functions
+
+```{r}
+multiple_plots <- function(df, title_codes, cols_of_interest) {
+  for (ch in cols_of_interest) {
+    df_ch <- filter(df, challenge == ch)
+    plot_title <- title_codes[[ch]]
+    p <- basic_bar_chart(
+      df_ch,
+      x_var = "challenge_level",
+      y_var = "total",
+      title = plot_title,
+      show_grid = TRUE
+    )
+    print(p)
+  }
+}
+```
+
 ## Load data
 
 ```{r}
@@ -49,7 +68,27 @@ Since this code only needed to be run once, I've commented it out.
 # # matches their response to "Limited time for writing new code", etc.
 # subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
 ```
-My assumption above was correct; the options are ordered as expected.
+
+My assumption above was correct; the options are ordered as expected. Let's rename the columns accordingly.
+```{r}
+challenge_codes <- c(
+  "Coding time" = "challenges_1",
+  "Documentation time" = "challenges_2",
+  "Managing issues" = "challenges_3",
+  "Attracting users" = "challenges_4",
+  "Recognition" = "challenges_5",
+  "Hiring" = "challenges_6",
+  "Security" = "challenges_7",
+  "Finding peers" = "challenges_8",
+  "Finding mentors" = "challenges_9",
+  "Education time" = "challenges_10",
+  "Educational resources" = "challenges_11",
+  "Legal" = "challenges_12",
+  "Finding funding" = "challenges_13",
+  "Securing funding" = "challenges_14"
+)
+challenges <- rename(challenges, challenge_codes)
+```
 
 Next, remove empty rows, i.e. rows from respondents who didn't receive this question. As with many questions in this survey, we can cut some corners in the code because the question was mandatory. For example, no need to worry about incomplete answers.
 ```{r}
@@ -62,30 +101,9 @@ Let's reshape the data from wide to long format for easier plotting later.
 ```{r}
 long_data <- challenges %>%
   pivot_longer(
-    cols = starts_with("challenges"),
+    cols = everything(),
     names_to = "challenge",
     values_to = "challenge_level"
-  )
-
-long_data <- long_data %>%
-  mutate(
-    challenge = recode(
-      challenge,
-      "challenges_1" = "Coding time",
-      "challenges_2" = "Documentation time",
-      "challenges_3" = "Managing issues",
-      "challenges_4" = "Attracting users",
-      "challenges_5" = "Recognition",
-      "challenges_6" = "Hiring",
-      "challenges_7" = "Security",
-      "challenges_8" = "Finding peers",
-      "challenges_9" = "Finding mentors",
-      "challenges_10" = "Education time",
-      "challenges_11" = "Educational resources",
-      "challenges_12" = "Legal",
-      "challenges_13" = "Finding funding",
-      "challenges_14" = "Securing funding"
-    )
   )
 
 long_data <- long_data %>%
@@ -171,7 +189,17 @@ to_plot <- long_data %>%
 to_plot
 ```
 
-Create a plot for each "challenge"
+Create a plot for each "challenge". After inspecting the plots, I attempted to order them into groups based on the shape of their distribution. These are the shapes I observed (this is extremely subjective):
+* Right-skewed: Documentation time, coding time, education time
+  * Interpretation: Common tasks that are frequently challenging
+* Highly bimodal: Securing funding, identifying funding, hiring
+  * Interpretation: Tasks that are not as common, but they are frequently challenging for the people tasked with them.
+* Normal: Educational resources, Legal
+  * Interpretation: Moderately common tasks that are challenging with moderate frequency.
+* NA-skewed but otherwise normal: Attracting users, Receiving recognition, finding mentors, managing security risks, managing issues
+  * Interpretation: Less-common tasks that are challenging with moderate frequency.
+* Left-skewed: Finding peers
+  * Interpretation: Moderately common tasks that are infrequently challenging.
 ```{r}
 titles <- list(
     "Coding time" = "Limited time for writing new code",
@@ -190,19 +218,88 @@ titles <- list(
     "Securing funding" = "Securing funding for my open source projects"
 )
 
+right_skewed <- c(
+    "Coding time",
+    "Documentation time",
+    "Education time"
+)
+bimodal <- c(
+    "Finding funding",
+    "Securing funding",
+    "Hiring"
+)
+normal <- c(
+    "Educational resources",
+    "Legal"
+)
+na_skewed <- c(
+    "Managing issues",
+    "Attracting users",
+    "Recognition",
+    "Security",
+    "Finding mentors"
+)
+left_skewed <- c(
+    "Finding peers"
+)
 
-for (ch in unique(summary_df$challenge)) { 
-    # use summary_df to get ordered levels
-  df_ch <- filter(to_plot, challenge == ch)
-  plot_title <- titles[[ch]]
-  p <- basic_bar_chart(
-    df_ch,
-    x_var     = "challenge_level",
-    y_var     = "total",
-    title     = plot_title,
-    show_grid = TRUE
+```
+
+### "right-skewed"
+```{r}
+multiple_plots(to_plot, titles, right_skewed)
+```
+
+### "highly bimodal"
+```{r}
+multiple_plots(to_plot, titles, bimodal)
+```
+
+### "normal"
+```{r}
+multiple_plots(to_plot, titles, normal)
+```
+
+### "na-skewed"
+```{r}
+multiple_plots(to_plot, titles, na_skewed)
+```
+
+### "left-skewed"
+```{r}
+multiple_plots(to_plot, titles, left_skewed)
+```
+Next, I should probably divide these groups up using some more rigorous method. Maybe clustering the different challenges (e.g. k-means).
+
+# Dimensionality reduction (Shelved, for now)
+In the above sections, I was looking at each challenge as its own data point, and effectively clustering challenges. Here, I started regarding each person as a data point, and clustering people. But this didn't seem too promising, and I don't know if I care enough to pursue it.
+NOTE THE DIFFERENT CODING SCHEME
+```{r}
+challnumeric <- challenges %>%
+  mutate(
+    across(
+      everything(),
+      ~ recode(
+        .x,
+        "Never" = 0L,
+        "Non-applicable" = -1L, # THIS IS DIFFERENT (-1, not 0)
+        "Rarely" = 1L,
+        "Occasionally" = 2L,
+        "Frequently" = 3L,
+        "Always" = 4L
+      )
+    )
   )
-  print(p) # need to explicitly print
-}
 
+
+pca <- prcomp(challnumeric, scale = TRUE)
+summary(pca)
+biplot(pca)
+```
+
+For later, maybe: k-means clustering.
+```{r}
+set.seed(42)
+km <- kmeans(scale(challnumeric), centers = 5)
+challnumeric$cluster_km <- km$cluster
 ```
