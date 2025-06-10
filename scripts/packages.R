@@ -1,7 +1,9 @@
 # Edit this list to add or remove packages
 # After editing, update the lockfile by running renv::snapshot()
+library(cluster)
 library(corrplot)
 library(dplyr)
+library(factoextra)
 library(forcats)
 library(ggplot2)
 library(gtools)

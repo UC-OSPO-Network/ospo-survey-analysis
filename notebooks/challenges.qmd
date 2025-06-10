@@ -269,9 +269,85 @@ multiple_plots(to_plot, titles, na_skewed)
 ```{r}
 multiple_plots(to_plot, titles, left_skewed)
 ```
-Next, I should probably divide these groups up using some more rigorous method. Maybe clustering the different challenges (e.g. k-means).
 
-# Dimensionality reduction (Shelved, for now)
+# K-means clustering of distributions
+This seems like an interesting line of inquiry. Let's make it a little more rigorous by clustering the challenges based on the response rates (actually, the absolute response numbers).
+
+Wrangle data
+```{r}
+wide_counts <- to_plot %>%
+  pivot_wider(
+    names_from   = challenge_level,
+    values_from  = total,
+    values_fill  = 0
+  )
+
+wide_counts <- data.frame(wide_counts)
+#Turn this categorical column into row names
+rownames(wide_counts) <- wide_counts$challenge
+wide_counts <- wide_counts[,2:(ncol(wide_counts))]
+
+# scaling probably isn't necessary?
+scaled <- scale(wide_counts)
+scaled
+```
+
+Plot an elbow plot to find the point of diminishing returns.
+```{r}
+factoextra::fviz_nbclust(scaled, kmeans, method = "wss")
+```
+
+I seem to get diminishing returns around k=4.
+
+```{r}
+factoextra::fviz_nbclust(scaled, kmeans, method = "silhouette")
+```
+Hm. The silhouette plot seems to indicate I should use k=3.
+
+I think I'll use k=4 first, since it's closer to the number I got from eyeballing.
+```{r}
+km <- kmeans(scaled, centers = 4, nstart = 25)
+dist_mat <- dist(scaled)
+sil <- cluster::silhouette(km$cluster, dist_mat)
+plot(sil)
+```
+
+Hm. Doesn't look super great. Let's try unscaled data.
+```{r}
+km <- kmeans(wide_counts, centers = 4, nstart = 25)
+dist_mat <- dist(wide_counts)
+sil <- cluster::silhouette(km$cluster, dist_mat)
+plot(sil)
+```
+
+Also doesn't look super great. Try 3 clusters?
+
+```{r}
+km <- kmeans(wide_counts, centers = 3, nstart = 25)
+dist_mat <- dist(wide_counts)
+sil <- cluster::silhouette(km$cluster, dist_mat)
+plot(sil)
+```
+
+With an average silhouette width of 0.43-0.47, our clusters aren't looking super great. Still, the average silhouette score is highest when k=3.
+
+Let's look at silhouette plots for a couple other algorithms besides k-means.
+
+```{r}
+factoextra::fviz_nbclust(wide_counts, FUNcluster = pam, method = "silhouette")
+factoextra::fviz_nbclust(wide_counts, FUNcluster = clara, method = "silhouette")
+```
+These also seem to be saying that 3 clusters is ideal.
+
+Let's try PAM clustering on the unscaled data with k=3.
+
+```{r}
+cluster::pam(wide_counts, k=3)
+```
+
+These results are starting to look pretty consistent.
+
+# Dimensionality reduction (Abandoned)
 In the above sections, I was looking at each challenge as its own data point, and effectively clustering challenges. Here, I started regarding each person as a data point, and clustering people. But this didn't seem too promising, and I don't know if I care enough to pursue it.
 NOTE THE DIFFERENT CODING SCHEME
 ```{r}
