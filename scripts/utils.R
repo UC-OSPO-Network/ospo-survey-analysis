@@ -70,12 +70,12 @@ basic_bar_chart <- function(
   ylabel = "Number of Respondents",
   show_axis_title_x = FALSE,
   show_axis_title_y = TRUE,
-  axis_title_size_x = 14,
-  axis_title_size_y = 14,
-  axis_text_size_x = 12,
-  axis_text_size_y = 12,
+  axis_title_size_x = 24,
+  axis_title_size_y = 24,
+  axis_text_size_x = 22,
+  axis_text_size_y = 22,
   axis_text_angle_x = 60,
-  title_size = 14,
+  title_size = 24,
   color_index = 1,
   horizontal = FALSE,
   show_ticks_x = FALSE,
@@ -137,7 +137,7 @@ basic_bar_chart <- function(
         geom_text(
           aes(label = .data[[y_var]]),
           color = label_color,
-          size = 5,
+          size = 7,
           hjust = if (label_position == "inside") 1.2 else -0.1, # shift left of bar end
           vjust = 0.5
         )
@@ -195,14 +195,14 @@ stacked_bar_chart <- function(
     scale_fill_manual(values = colors) +
     theme(
       axis.title.x = element_blank(),
-      axis.title.y = element_text(size = 14),
+      axis.title.y = element_text(size = 16),
       axis.text.x = element_text(angle = 60, vjust = 0.6, size = 10),
-      axis.text.y = element_text(size = 10),
+      axis.text.y = element_text(size = 14),
       axis.ticks.x = element_blank(),
       axis.ticks.y = element_blank(),
       panel.background = element_blank(),
       legend.title = element_blank(),
-      plot.title = element_text(hjust = 0.5, size = 14),
+      plot.title = element_text(hjust = 0.5, size = 16),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
   return(p)

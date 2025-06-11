@@ -363,7 +363,6 @@ Greg raised an interesting question: what about IT staff vs. academics? Let's pl
 I plotted the data (see motivations_plots.qmd), and it appears that these groups are somewhat different. The "Job" motivation looks to be the most different, just by eyeballing it. But let's see what the statistics say.
 
 ## Data Wrangling
-
 ```{r}
 it <- data %>%
   filter(staff_categories == "Information Technology (IT)") %>%
@@ -436,7 +435,6 @@ tryCatch(
 Uh-oh. The pairwise comparison fails. Well, that makes sense. The two groups must be different from each other, or else the global model fit wouldn't be significant. So we actually don't need this test.
 
 ## Power analysis
-
 So, we already know that the IT/Academic distinction is a pretty good predictor of the "Job" motivation. But since I already have the code for the z-test of proportions, I kind of want to do that test, too, just out of curiosity. I feel pretty confident that the regression is working well, but I will feel even better if the z-test is significant, too.
 
 ```{r}
@@ -487,3 +485,25 @@ pairwise_z_test_lessthan(
 )
 ```
 Good! A pairwise z-test for proportions says the difference in "success rates" (proportion of yes answers) for IT (21% said yes) and academics (50% said yes) for the "Job" motivation is indeed significant.
+
+I know this notebook should be for stats, and the other should be for plots, but it's just easier right now to make a plot here using the data structures I already have, instead of reconstructing them again in the other script.
+
+```{r}
+to_plot <- data.frame(proportion_yes=c(p_acad_yes*100, p_it_yes*100), role=c("Academic", "IT"))
+
+myplot <- basic_bar_chart(to_plot,
+  x_var = "role",
+  y_var = "proportion_yes",
+  title = "Percent of Respondents who said\n'Developing open source products is part of my job'",
+  show_bar_labels = FALSE,
+  show_ticks_y = FALSE,
+  show_axis_title_y = FALSE,
+  show_axis_title_x = FALSE,
+  show_grid = TRUE
+)
+```
+
+Save the plot if desired.
+```{r}
+save_plot("acad_it_simple.tiff", 8, 9, p=myplot)
+```
