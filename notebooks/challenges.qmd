@@ -17,11 +17,32 @@ suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
-## Define functions
+## Set seed
 
 ```{r}
-multiple_plots <- function(df, title_codes, cols_of_interest) {
-  for (ch in cols_of_interest) {
+set.seed(42)
+```
+
+## Define functions
+
+#### multiple_plots
+- Arguments:
+  - `df`: In this script, this will always be the `to_plot` data frame.
+    Must contain (at least) three columns: `challenge`, `challenge_level`
+    (a character column), and `total`.
+  - `title_codes`: In this script, this will always be the `titles` list.
+    Keys correspond to shorthand codes for each challenge, and values are
+    the full challenge from the survey.
+  - `challenges_of_interest`: A character vector of the challenges you
+    want to plot.
+- Details:
+  - A simple function to call my `basic_bar_chart` function (from 
+    scripts/utils.R) on multiple challenges, producing multiple plots.
+- Outputs:
+  - Prints n plots, where n is the number of challenges of interest.
+```{r}
+multiple_plots <- function(df, title_codes, challenges_of_interest) {
+  for (ch in challenges_of_interest) {
     df_ch <- filter(df, challenge == ch)
     plot_title <- title_codes[[ch]]
     p <- basic_bar_chart(
@@ -37,13 +58,11 @@ multiple_plots <- function(df, title_codes, cols_of_interest) {
 ```
 
 ## Load data
-
 ```{r}
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 ```
 
 ## Wrangle data
-
 ```{r}
 challenges <- data %>%
   select(
@@ -87,7 +106,7 @@ challenge_codes <- c(
   "Finding funding" = "challenges_13",
   "Securing funding" = "challenges_14"
 )
-challenges <- rename(challenges, challenge_codes)
+challenges <- rename(challenges, any_of(challenge_codes))
 ```
 
 Next, remove empty rows, i.e. rows from respondents who didn't receive this question. As with many questions in this survey, we can cut some corners in the code because the question was mandatory. For example, no need to worry about incomplete answers.
@@ -283,11 +302,14 @@ wide_counts <- to_plot %>%
   )
 
 wide_counts <- data.frame(wide_counts)
-#Turn this categorical column into row names
+# Turn this categorical column into row names
 rownames(wide_counts) <- wide_counts$challenge
 wide_counts <- wide_counts[,2:(ncol(wide_counts))]
 
-# scaling probably isn't necessary?
+# Scaling probably isn't necessary?
+# We have the same number of responses throughout,
+# so the units for each challenge are the same
+# (number of responses).
 scaled <- scale(wide_counts)
 scaled
 ```
@@ -298,13 +320,12 @@ factoextra::fviz_nbclust(scaled, kmeans, method = "wss")
 ```
 
 I seem to get diminishing returns around k=4.
-
 ```{r}
 factoextra::fviz_nbclust(scaled, kmeans, method = "silhouette")
 ```
-Hm. The silhouette plot seems to indicate I should use k=3.
+Hm. The silhouette plot indicates I should use k=3.
 
-I think I'll use k=4 first, since it's closer to the number I got from eyeballing.
+I think I'll try k=4 first, since it's closer to the number I got from eyeballing. Let's look at a different type of silhouette plot, which shows us the silhouette width of each cluster and on average across the clusters.
 ```{r}
 km <- kmeans(scaled, centers = 4, nstart = 25)
 dist_mat <- dist(scaled)
@@ -312,7 +333,7 @@ sil <- cluster::silhouette(km$cluster, dist_mat)
 plot(sil)
 ```
 
-Hm. Doesn't look super great. Let's try unscaled data.
+Hm. Looks... acceptable. From Wikipedia: "A clustering with an average silhouette width of over 0.7 is considered to be "strong", a value over 0.5 "reasonable" and over 0.25 "weak"." Let's try unscaled data.
 ```{r}
 km <- kmeans(wide_counts, centers = 4, nstart = 25)
 dist_mat <- dist(wide_counts)
@@ -320,8 +341,7 @@ sil <- cluster::silhouette(km$cluster, dist_mat)
 plot(sil)
 ```
 
-Also doesn't look super great. Try 3 clusters?
-
+Looks slightly worse. Still, I think we should probably stick with unscaled data because it's simpler, and I don't think we should add extra unnecessary procedures. What if we try 3 clusters?
 ```{r}
 km <- kmeans(wide_counts, centers = 3, nstart = 25)
 dist_mat <- dist(wide_counts)
@@ -329,26 +349,59 @@ sil <- cluster::silhouette(km$cluster, dist_mat)
 plot(sil)
 ```
 
-With an average silhouette width of 0.43-0.47, our clusters aren't looking super great. Still, the average silhouette score is highest when k=3.
+With an average silhouette width of 0.43-0.47, our clusters aren't looking amazing. Still, the average silhouette score is 0.47 with unscaled data and k=3. This is not terrible. I think it's consistent with my hunch that the data for the challenges are not all drawn from the same distribution. These are the cluster assignments:
+```{r}
+# A little extra code to achieve prettier printing
+cluster_df <- data.frame(sort(km$cluster))
+cluster_df$challenge <- rownames(cluster_df)
+clusters <- unique(cluster_df[,1])
+for (cl in clusters) {
+  print(cluster_df[cluster_df[,1] == cl,], row.names = FALSE)
+  cat("\n")
+}
+```
 
-Let's look at silhouette plots for a couple other algorithms besides k-means.
-
+Let's look at a silhouette plot for the PAM method, too.
 ```{r}
 factoextra::fviz_nbclust(wide_counts, FUNcluster = pam, method = "silhouette")
-factoextra::fviz_nbclust(wide_counts, FUNcluster = clara, method = "silhouette")
 ```
-These also seem to be saying that 3 clusters is ideal.
+This also says that 3 clusters is ideal.
 
 Let's try PAM clustering on the unscaled data with k=3.
-
 ```{r}
-cluster::pam(wide_counts, k=3)
+pm <- cluster::pam(wide_counts, k=3)
 ```
 
-These results are starting to look pretty consistent.
+Print the clusters in a more readable format.
+```{r}
+cluster_df <- data.frame(sort(pm$cluster))
+cluster_df$challenge <- rownames(cluster_df)
+clusters <- unique(cluster_df[,1])
+for (cl in clusters) {
+  print(cluster_df[cluster_df[,1] == cl,], row.names = FALSE)
+  cat("\n")
+}
+```
+We see the same groups we saw with k-means clustering. Good! 
 
-# Dimensionality reduction (Abandoned)
-In the above sections, I was looking at each challenge as its own data point, and effectively clustering challenges. Here, I started regarding each person as a data point, and clustering people. But this didn't seem too promising, and I don't know if I care enough to pursue it.
+One last check: what about a stability assessment by bootstrap resampling?
+```{r results="hide"}
+# Note I'm hiding the printed status update from each iteration
+boot_res <- fpc::clusterboot(wide_counts, clustermethod = fpc::kmeansCBI, krange = 3)
+# Annoyingly, the documentation doesn't explain 'krange',
+# but I'm pretty sure that this argument lets you specify
+# a desired k or range of k values (e.g. 5:7)
+```
+
+```{r}
+boot_res
+mean(boot_res$bootmean)
+```
+The "Clusterwise" Jaccard bootstrap means are around 0.8-0.9, which is pretty respectable.
+Although this analysis was brief, I think we can conclude that these three clusters are reasonably stable and meaningful.
+
+# PCA (Abandoned)
+In the above sections, I was clustering challenges into groups. Here, I started clustering people into groups. However, this didn't seem too promising, and I don't know if I care enough to pursue it.
 NOTE THE DIFFERENT CODING SCHEME
 ```{r}
 challnumeric <- challenges %>%
@@ -371,11 +424,4 @@ challnumeric <- challenges %>%
 pca <- prcomp(challnumeric, scale = TRUE)
 summary(pca)
 biplot(pca)
-```
-
-For later, maybe: k-means clustering.
-```{r}
-set.seed(42)
-km <- kmeans(scale(challnumeric), centers = 5)
-challnumeric$cluster_km <- km$cluster
 ```
