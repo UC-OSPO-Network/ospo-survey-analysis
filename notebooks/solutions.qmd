@@ -133,24 +133,21 @@ Cool. It looks like sustainability grants are by far the most popular, with assi
 
 Out of curiosity, how does it look when we order by variability?
 ```{r}
-sd_df <- summary_df %>%
-    arrange(desc(st_dev))
-
-sd_df
+summary_df %>%
+  arrange(desc(st_dev))
 ```
 
 This analysis doesn't seem as interesting as it was for the challenges. Industy partnerships, Containerization, and Publicity all show high variance/stdev. These were also somewhat less popular.
 
 Out of curiosity, how many people said they would all be very useful?
 ```{r}
-t <- solutions %>%
-    filter(if_all(.cols=everything(), ~ . == "Very useful"))
-
-nrow(t)
+nrow(
+  solutions %>%
+    filter(if_all(.cols = everything(), ~ . == "Very useful"))
+)
 ```
 
 Ah, ok. Not that many.
-
 
 # Plot the distributions
 Prepare data for plotting.
@@ -178,24 +175,25 @@ Save the plot if you wish.
 save_plot("fave_solutions.tiff", 10, 6, p=grouped_plot)
 ```
 
+# Simple bar plot
 Now let's make a simpler bar plot from the next question, which asked participants to choose their favorite solution.
 ```{r}
 favorites <- data.frame(data$favorite_solution)
 favorites <- exclude_empty_rows(favorites) # from scripts/utils.R
 
 codes2 <- c(
-  "Access to" = "Computing environments",
-  "Assistance promoting" = "Publicity",
+  "Access to free" = "Computing environments",
+  "Assistance promoting your" = "Publicity",
   "Assistance creating" = "Containerization",
   "Assistance writing" = "Documentation help",
-  "An open source" = "A learning community",
-  "Assistance with" = "Event planning",
+  "An open source discussion" = "A learning community",
+  "Assistance with event" = "Event planning",
   "A mentor" = "Mentoring programs",
-  "Educational" = "Education",
-  "Legal" = "Legal support",
-  "Assistance building" = "Industry partnerships",
-  "Dedicated" = "Sustainability grants",
-  "Assistance identifying" = "Help finding funding"
+  "Educational materials" = "Education",
+  "Legal and licensing" = "Legal support",
+  "Assistance building industry" = "Industry partnerships",
+  "Dedicated grants" = "Sustainability grants",
+  "Assistance identifying potential" = "Help finding funding"
 )
 
 favorites <- shorten_long_responses(favorites, codes2)
@@ -226,7 +224,199 @@ faves_plot <- basic_bar_chart(
 faves_plot
 ```
 
+Interestingly, the top solutions are not exactly the same in this question compared to tallying up the totals from the previous one.
+
 Save the plot if you wish.
 ```{r}
-save_plot("fave_solutions.tiff", 10, 6, p=faves_plot)
+save_plot("fave_solutions_simple.tiff", 10, 6, p=faves_plot)
 ```
+
+# Incorporating demographics
+
+## Plots
+
+Who are these people who want access to computing environments? Don't all the UCs already offer this?
+
+Let's start with job category. 
+```{r}
+campus_job_fave <- data %>%
+  select(
+    starts_with("campus") | starts_with("job_category"), favorite_solution
+  )
+
+campus_job_fave <- exclude_empty_rows(campus_job_fave)
+
+# Clean up this one long job name:
+# "Other research staff (e.g., research scientist, research software engineer)"
+campus_job_fave$job_category <- gsub(
+  "^Other.*",
+  "Other research staff",
+  campus_job_fave$job_category
+)
+
+campus_job_fave <- exclude_empty_rows(campus_job_fave, strict = TRUE)
+campus_job_fave <- shorten_long_responses(campus_job_fave, codes2)
+
+
+# For visual clarity, let's combine postdocs and other staff researchers.
+campus_job_fave <- campus_job_fave %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Post-Doc" = "Postdocs and\nStaff Researchers",
+      "Other research staff" = "Postdocs and\nStaff Researchers"
+    )
+  )
+
+head(campus_job_fave)
+```
+
+Of the people who selected "Computing environments", what is the distribution of job categories?
+```{r}
+compute <- campus_job_fave %>% filter (favorite_solution == "Computing environments")
+compute_counts <- data.frame(table(compute$job_category))
+
+compute_counts <- reorder_factor_by_column(
+  df = compute_counts,
+  factor_col = Var1,
+  value_col = Freq
+)
+
+compute_bar <- basic_bar_chart(
+  df = compute_counts,
+  x_var = "Var1",
+  y_var = "Freq",
+  title = "Respondents who wanted\n'Access to free, feature-rich computing environments'",
+  show_bar_labels = TRUE
+)
+compute_bar
+```
+
+Save the plot if you wish.
+```{r}
+save_plot("compute_job.tiff", 10, 10, p=compute_bar)
+```
+
+Let's make the same plot, but this time with campus info.
+
+```{r}
+compute_counts2 <- compute %>%
+  select(-favorite_solution) %>%
+  count(
+    campus,
+    job_category,
+    name = "count"
+  )
+
+compute_counts2$job_category <- factor(
+  compute_counts2$job_category,
+  levels = levels(compute_counts$Var1)
+)
+```
+
+```{r}
+compute_campus_bar <- stacked_bar_chart(
+  df = compute_counts2,
+  x_var = "job_category",
+  y_var = "count",
+  fill = "campus",
+  title = "Respondents who wanted\n'Access to free, feature-rich computing environments'",
+  ylabel = NULL,
+  proportional = FALSE
+)
+```
+
+Save the plot if you wish.
+```{r}
+save_plot("compute_job_campus.tiff", 14, 14, p=compute_campus_bar)
+```
+
+
+## Response rates by campus, for "Compute environments"
+
+I'm wondering if there's one or two campuses in particular where compute environments are lacking. 
+```{r}
+compute_counts_campus <- campus_job_fave %>%
+  filter(favorite_solution == "Computing environments") %>%
+  count(campus, name = "compute_n")
+
+# a scalar
+total_compute_votes <- nrow(campus_job_fave %>%
+  filter(favorite_solution == "Computing environments"))
+```
+```{r}
+campus_totals <- campus_job_fave %>%
+  count(campus, name = "campus_total")
+
+campus_totals <- left_join(campus_totals, compute_counts_campus, by="campus")
+campus_totals <- exclude_empty_rows(campus_totals, strict=TRUE)
+
+campus_totals %>% mutate( compute_perc = 100*compute_n / campus_total)
+```
+
+So, anywhere from 12% to 33% of respondents selected this as their favorite solution, when we break it down by campus. The numbers from UCSB (33%) and UC Merced (25%) should probably be taken with a grain of salt, since those campuses had really low participation rates.
+
+## For each job category, what are the top 3 favorite solutions?
+
+```{r}
+job_fave <- campus_job_fave %>% select(-campus)
+#Reorder factor levels for plotting
+job_fave$job_category <- factor(job_fave$job_category, levels = c(
+  "Faculty",
+  "Postdocs and\nStaff Researchers",
+  "Grad Student",
+  "Undergraduate",
+  "Non-research Staff"
+))
+
+job_fave_counts <- job_fave %>%
+  count(
+    job_category,
+    favorite_solution,
+    name = "count"
+  )
+
+# 2) For each job_category, keep only the top 3 solutions by count
+top3_solutions <- job_fave_counts %>%
+  group_by(job_category) %>%
+  # slice_max() picks the rows with the highest `count`
+  slice_max(order_by = count, n = 3, with_ties = TRUE) %>%
+  ungroup()
+
+top3_solutions
+```
+
+This looks like it's worth plotting. Let's go back to the big data frame, since my grouped_bar_chart function doesn't want counts (it will count rows itself); drop all job/solution combinations except those that appear in the top3_solutions data frame.
+```{r}
+job_fave_top3 <- job_fave %>%
+  semi_join(
+    top3_solutions,
+    by = c("job_category", "favorite_solution")
+  )
+
+head(job_fave_top3)
+```
+```{r}
+# Reorder factor levels so legend items are in order of appearance
+job_fave_top3 <- job_fave_top3 %>%
+  mutate(favorite_solution = fct_inorder(favorite_solution))
+
+top3_plot <- grouped_bar_chart(
+  df = job_fave_top3,
+  x_var = "job_category",
+  fill_var = "favorite_solution",
+  title = "Top three most popular solutions\nfor each job category"
+)
+```
+
+```{r}
+save_plot("top3_solutions_by_job.tiff", 12, 10, p=top3_plot)
+```
+
+So, I think these are the takeaways: 
+* Dedicated grants for OS project sustainability is the most popular solution. This solution was in the top3 for all but undergrads.
+* The other top solutions depend on how you look at the data. For non-research staff, the most popular solution is a learning community, though grants and access to free, feature-rich computing environments are close behind.
+* I was surprised that access to computing environments was in second place. Upon inspection, this seems to be because this choice is popular among non-research staff, and we had a lot of non-research staff in our participant pool. About 12-33% of respondents said this was their top choice, depending on the campus.
+* Undergraduates were the only group in which nobody selected grants as their top choice.
+* Grad students and undergraduates were the only groups for whom a mentoring program was in their top 3. 
+* Researchers and non-research staff have very distinct needs.

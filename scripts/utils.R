@@ -144,7 +144,7 @@ basic_bar_chart <- function(
         geom_text(
           aes(label = .data[[y_var]]),
           color = label_color,
-          size = 7,
+          size = 8,
           hjust = if (label_position == "inside") 1.2 else -0.1, # shift left of bar end
           vjust = 0.5
         )
@@ -154,7 +154,7 @@ basic_bar_chart <- function(
         geom_text(
           aes(label = .data[[y_var]]),
           color = label_color,
-          size = 5,
+          size = 8,
           vjust = if (label_position == "inside") 1.2 else -0.3, # above bar = negative vjust
           hjust = 0.5
         )
@@ -177,6 +177,7 @@ stacked_bar_chart <- function(
   fill,
   title,
   ylabel = NULL,
+  show_grid = TRUE,
   proportional = FALSE
 ) {
   # Set position for geom_bar
@@ -213,10 +214,15 @@ stacked_bar_chart <- function(
       axis.ticks.x = element_blank(),
       axis.ticks.y = element_blank(),
       panel.background = element_blank(),
+      panel.grid = if (show_grid) {
+        element_line(linetype = "solid", color = "gray90")
+      } else {
+        element_blank()
+      },
       legend.title = element_blank(),
       legend.text = element_text(size = 24),
       plot.title = element_text(hjust = 0.5, size = 24),
-      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+      plot.margin = unit(c(0.4, 0.4, 0.4, 0.4), "cm")
     )
   return(p)
 }
@@ -238,18 +244,19 @@ grouped_bar_chart <- function(
     scale_fill_manual(values = colors) +
     theme(
       axis.title.x = element_blank(),
-      axis.title.y = element_text(size = 14),
-      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
+      axis.title.y = element_text(size = 24),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+      axis.text.y = element_text(size = 18),
       axis.ticks.x = element_blank(),
       legend.title = element_blank(),
-      legend.text = element_text(size = 12),
+      legend.text = element_text(size = 18),
       panel.background = element_blank(),
       panel.grid = if (show_grid) {
         element_line(linetype = "solid", color = "gray90")
       } else {
         element_blank()
       },
-      plot.title = element_text(hjust = 0.5, size = 14),
+      plot.title = element_text(hjust = 0.5, size = 24),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
 }
@@ -403,11 +410,29 @@ make_df_binary <- function(df, cols = NULL) {
 # 9    0             0         0       0         0      0   0     0
 # 10   1             1         0       0         1      1   0     0
 
-exclude_empty_rows <- function(df) {
-  df[rowSums(is.na(df) | df == "") < ncol(df), , drop = FALSE]
-} # Drop rows that are entirely NA or empty strings.
+# Function to drop rows that are entirely NA or empty strings.
 # Rows of all zeros will be retained.
-# (For mandatory Qs, there shouldn't be any.)
+# strict mode: drop rows containing even one NA or empty string.
+exclude_empty_rows <- function(df, strict = FALSE) {
+  # Create a logical matrix indicating where values are NA or ""
+  missing_mat <- is.na(df) | df == ""
+
+  # Count per-row how many “missing” entries there are
+  missing_per_row <- rowSums(missing_mat)
+  n_cols <- ncol(df)
+
+  if (strict) {
+    # Keep only rows with zero missing entries
+    keep <- missing_per_row == 0
+  } else {
+    # Keep rows that are not entirely missing
+    keep <- missing_per_row < n_cols
+  }
+
+  # Subset, preserving data.frame structure even if one column
+  df[keep, , drop = FALSE]
+}
+
 
 exclude_empty_columns <- function(df) {
   df[, colSums(is.na(df) | df == "") < nrow(df)]
