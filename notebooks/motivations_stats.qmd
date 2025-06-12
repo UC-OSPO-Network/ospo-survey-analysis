@@ -489,9 +489,9 @@ Good! A pairwise z-test for proportions says the difference in "success rates" (
 I know this notebook should be for stats, and the other should be for plots, but it's just easier right now to make a plot here using the data structures I already have, instead of reconstructing them again in the other script.
 
 ```{r}
-to_plot <- data.frame(proportion_yes=c(p_acad_yes*100, p_it_yes*100), role=c("Academic", "IT"))
+to_plot <- data.frame(proportion_yes=c(p_acad_yes, p_it_yes), role=c("Academic", "IT"))
 
-myplot <- basic_bar_chart(to_plot,
+basic_bar_chart(to_plot,
   x_var = "role",
   y_var = "proportion_yes",
   title = "Percent of Respondents who said\n'Developing open source products is part of my job'",
@@ -499,11 +499,12 @@ myplot <- basic_bar_chart(to_plot,
   show_ticks_y = FALSE,
   show_axis_title_y = FALSE,
   show_axis_title_x = FALSE,
-  show_grid = TRUE
+  show_grid = TRUE,
+  percent = TRUE
 )
 ```
 
 Save the plot if desired.
 ```{r}
-save_plot("acad_it_simple.tiff", 8, 9, p=myplot)
+#save_plot("acad_it_simple.tiff", 9, 9)
 ```

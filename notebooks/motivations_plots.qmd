@@ -49,48 +49,12 @@ get_df_for_job_category <- function(job, raw_data = data) {
   return(df)
 }
 ```
-```{r}
-stacked_bar_chart <- function(
-    df,
-    x_var,
-    y_var,
-    fill,
-    title,
-    ylabel = NULL,
-    proportional = FALSE) {
-  # Set position for geom_bar
-  position_type <- if (proportional) "fill" else "stack"
-
-  # Determine y-axis label if not provided
-  ylabel_final <- if (!is.null(ylabel)) ylabel else if (proportional) "Proportion of Responses" else "Number of Responses"
-
-  # Build the plot
-  p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]], fill = .data[[fill]])) +
-    geom_bar(stat = "identity", position = position_type) +
-    ggtitle(title) +
-    labs(y = ylabel_final) +
-    scale_fill_manual(values = colors) +
-    theme(
-      axis.title.x = element_blank(),
-      axis.title.y = element_text(size = 24),
-      axis.text.x = element_text(angle = 60, vjust = 0.9, hjust=0.98, size = 24),
-      axis.text.y = element_text(size = 24),
-      axis.ticks.x = element_blank(),
-      axis.ticks.y = element_blank(),
-      panel.background = element_blank(),
-      legend.title = element_blank(),
-      legend.text=element_text(size=24),
-      plot.title = element_text(hjust = 0.5, size = 24),
-      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
-    )
-  return(p)
-}
-```
 
 ```{r}
 line_plot <- function(df, x_var, y_var, title) {
   p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
     geom_point(size = 4) + # Adjust dot size
+    scale_y_continuous(labels=scales::percent) +
     labs(
       y = "Proportion of Participants Motivated by\nDesire to Learn New Skills",
       title = title
@@ -373,7 +337,7 @@ Plot and visualize
 line_plot(skills_by_role_clean,
   x_var = "Role",
   y_var = "Proportion",
-  title = "Proportion of Participants Motivated by\nDesire to Learn New Skills"
+  title = "Percent of Participants Motivated by\nDesire to Learn New Skills"
 )
 ```
 Save

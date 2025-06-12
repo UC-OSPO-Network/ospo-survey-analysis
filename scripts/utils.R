@@ -83,7 +83,8 @@ basic_bar_chart <- function(
   show_bar_labels = FALSE,
   label_position = c("inside", "above"),
   label_color = "white",
-  show_grid = FALSE
+  show_grid = TRUE,
+  percent = FALSE
 ) {
   label_position <- match.arg(label_position)
 
@@ -129,6 +130,12 @@ basic_bar_chart <- function(
       plot.title = element_text(hjust = 0.5, size = title_size),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
+
+  # Convert y-axis values from proportion to percent (optional)
+  if (percent) {
+    p <- p +
+      scale_y_continuous(labels = scales::percent)
+  }
 
   # Add text labels (optional)
   if (show_bar_labels) {
@@ -195,21 +202,34 @@ stacked_bar_chart <- function(
     scale_fill_manual(values = colors) +
     theme(
       axis.title.x = element_blank(),
-      axis.title.y = element_text(size = 16),
-      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 10),
-      axis.text.y = element_text(size = 14),
+      axis.title.y = element_text(size = 24),
+      axis.text.x = element_text(
+        angle = 60,
+        vjust = 0.9,
+        hjust = 0.98,
+        size = 24
+      ),
+      axis.text.y = element_text(size = 24),
       axis.ticks.x = element_blank(),
       axis.ticks.y = element_blank(),
       panel.background = element_blank(),
       legend.title = element_blank(),
-      plot.title = element_text(hjust = 0.5, size = 16),
+      legend.text = element_text(size = 24),
+      plot.title = element_text(hjust = 0.5, size = 24),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
   return(p)
 }
 
 
-grouped_bar_chart <- function(df, x_var, fill_var, title, ylabel = NULL) {
+grouped_bar_chart <- function(
+  df,
+  x_var,
+  fill_var,
+  title,
+  ylabel = NULL,
+  show_grid = TRUE
+) {
   ylabel <- ifelse(is.null(ylabel), "Number of Respondents", ylabel)
   ggplot(df, aes(x = .data[[x_var]], fill = .data[[fill_var]])) +
     geom_bar(position = "dodge") +
@@ -224,6 +244,11 @@ grouped_bar_chart <- function(df, x_var, fill_var, title, ylabel = NULL) {
       legend.title = element_blank(),
       legend.text = element_text(size = 12),
       panel.background = element_blank(),
+      panel.grid = if (show_grid) {
+        element_line(linetype = "solid", color = "gray90")
+      } else {
+        element_blank()
+      },
       plot.title = element_text(hjust = 0.5, size = 14),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
