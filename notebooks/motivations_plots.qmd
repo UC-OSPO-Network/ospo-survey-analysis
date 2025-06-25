@@ -334,15 +334,16 @@ skills_by_role_clean <- skills_by_role %>%
 
 Plot and visualize
 ```{r}
-line_plot(skills_by_role_clean,
+skills_plot <- line_plot(skills_by_role_clean,
   x_var = "Role",
   y_var = "Proportion",
-  title = "Percent of Participants Motivated by\nDesire to Learn New Skills"
+  title = "Percent of Participants Motivated by\nDesire to Improve Their Skills"
 )
+skills_plot
 ```
 Save
 ```{r}
-#save_plot("motivations_skill_by_role.tiff", 10, 8)
+save_plot("motivations_skill_by_role.tiff", 10, 8, p=skills_plot)
 ```
 
 What about giving back?

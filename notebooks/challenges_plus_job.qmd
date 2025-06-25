@@ -1,0 +1,227 @@
+---
+title: "Challenges + job category"
+---
+
+# Overview
+
+Secondary analysis of survey Q9: "How frequently have you encountered the following challenges while working on open-source projects?"
+
+In this script, I am considering challenges by job category.
+
+## Import packages and utilities
+
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+
+## Load data
+```{r}
+data <- load_qualtrics_data("deidentified_no_qual.tsv")
+```
+
+## Wrangle data
+```{r}
+challenges <- data %>%
+  select(
+    starts_with("challenges") | starts_with("job_category")
+  )
+
+head(challenges)
+```
+
+Rename columns
+```{r}
+challenge_codes <- c(
+  "Coding time" = "challenges_1",
+  "Documentation time" = "challenges_2",
+  "Managing issues" = "challenges_3",
+  "Attracting users" = "challenges_4",
+  "Recognition" = "challenges_5",
+  "Hiring" = "challenges_6",
+  "Security" = "challenges_7",
+  "Finding peers" = "challenges_8",
+  "Finding mentors" = "challenges_9",
+  "Education time" = "challenges_10",
+  "Educational resources" = "challenges_11",
+  "Legal" = "challenges_12",
+  "Finding funding" = "challenges_13",
+  "Securing funding" = "challenges_14"
+)
+challenges <- rename(challenges, any_of(challenge_codes))
+```
+
+Next, remove rows that contain any empty entries.
+```{r}
+nrow(challenges)
+challenges <- exclude_empty_rows(challenges, strict = TRUE) # from scripts/utils.R
+nrow(challenges)
+```
+
+
+```{r}
+# Shorten this one long job name
+challenges$job_category <- gsub(
+  "^Other.*",
+  "Other research staff",
+  challenges$job_category
+)
+head(challenges)
+```
+
+
+```{r}
+# For visual clarity, let's combine postdocs and other staff researchers.
+challenges <- challenges %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Post-Doc" = "Postdocs and\nStaff Researchers",
+      "Other research staff" = "Postdocs and\nStaff Researchers"
+    )
+  )
+
+head(challenges)
+```
+
+Let's reshape the data from wide to long format for easier counting and plotting.
+```{r}
+long_data <- challenges %>%
+  pivot_longer(
+    cols = -last_col(),
+    names_to = "challenge",
+    values_to = "challenge_level"
+  )
+
+long_data
+```
+
+Since it's overwhelming to look at the distribution of challenge levels for all groups, let's just look at the proportion of that group who said "frequently" or "always".
+```{r}
+# %in% creates a logical vector; taking the mean of a logical vector
+# gives you the proportion of TRUEs.
+to_plot <- long_data %>%
+  group_by(job_category, challenge) %>%
+  summarize(proportion = mean(challenge_level %in% c("Frequently", "Always"))) %>%
+  ungroup()
+to_plot
+```
+
+Calculate the standard deviation for each challenge: a lot of extra code just to reorder the factor levels by stdev in our plot.
+```{r}
+stdev_df <- to_plot %>%
+  group_by(challenge) %>%
+  summarise(
+    st_dev = sd(proportion, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Order by stdev
+stdev_df <- stdev_df %>%
+    arrange(desc(st_dev))
+
+```
+
+Reorder factor levels
+```{r}
+to_plot$challenge <- factor(to_plot$challenge, levels = stdev_df$challenge)
+```
+```{r}
+detailed_challenges_plot <- ggplot(to_plot, aes(x = challenge, y = proportion, group = job_category, color = job_category, shape = job_category)) +
+  geom_point(size = 3) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  labs(
+    x = "Challenge",
+    y = "Proportion saying 'Frequently' or 'Always'",
+    color = "Job Category",
+    shape = "Job Category",
+    title = "Proportion of respondents frequently facing challenges"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+detailed_challenges_plot
+```
+
+
+```{r}
+save_plot("detailed_challenges_by_job.tiff", 12, 10, p=detailed_challenges_plot)
+```
+
+That's a nice plot, but it may be too information-dense for a presentation, or even a paper. Let's just look at the top 3 challenges for each group.
+
+```{r}
+top3 <- to_plot %>%
+  group_by(job_category) %>%
+  slice_max(order_by = proportion, n = 3)
+```
+
+
+```{r}
+# Filter to include only challenges present in the top3 dataframe 
+filtered_plot <- to_plot %>%
+  semi_join(top3, by = c("job_category", "challenge"))
+```
+
+```{r}
+# Reorder fill factor levels so legend items are in order of appearance
+desired_levels <- top3 %>% 
+  pull(challenge) %>% 
+  unique()
+
+filtered_plot <- filtered_plot %>%
+  mutate(
+    challenge = factor(challenge, levels = desired_levels)
+  )
+```
+
+```{r}
+# Reorder x-axis factor levels to match academic advancement
+job_level_order <- c(
+  "Faculty",
+  "Postdocs and\nStaff Researchers",
+  "Grad Student",
+  "Undergraduate",
+  "Non-research Staff"
+)
+filtered_plot$job_category <- factor(
+  filtered_plot$job_category, 
+  levels = job_level_order
+  )
+```
+
+
+```{r}
+job_challenge_plot <- ggplot(filtered_plot, aes(x = job_category, y = proportion, fill = challenge)) +
+  geom_col(position = position_dodge()) +
+  scale_y_continuous(labels = scales::percent, limits = c(0,1)) +
+  scale_fill_manual(values = colors) +
+  labs(
+    x = "Job Category",
+    y = "Proportion saying\n'Frequently' or 'Always'",
+    fill = "Challenge",
+    title = "Top 3 Challenges by Job Category"
+  ) +
+  theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 24),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+      axis.text.y = element_text(size = 18),
+      axis.ticks.x = element_blank(),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 18),
+      panel.background = element_blank(),
+      panel.grid = element_line(linetype = "solid", color = "gray90"),
+      plot.title = element_text(hjust = 0.5, size = 24),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  )
+job_challenge_plot
+```
+
+
+```{r}
+save_plot("top3_challenges_by_job.tiff", 12, 10, p=job_challenge_plot)
+```

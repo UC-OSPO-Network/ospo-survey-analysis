@@ -286,7 +286,8 @@ compute_bar <- basic_bar_chart(
   df = compute_counts,
   x_var = "Var1",
   y_var = "Freq",
-  title = "Respondents who wanted\n'Access to free, feature-rich computing environments'",
+  title = "Respondents whose top choice was\n'Access to free, feature-rich computing environments'",
+  color_index = 4,
   show_bar_labels = TRUE
 )
 compute_bar
@@ -405,8 +406,10 @@ top3_plot <- grouped_bar_chart(
   df = job_fave_top3,
   x_var = "job_category",
   fill_var = "favorite_solution",
-  title = "Top three most popular solutions\nfor each job category"
+  title = "Top three most popular solutions\nfor each job category",
+  color_palette = rev(colors)
 )
+top3_plot
 ```
 
 ```{r}

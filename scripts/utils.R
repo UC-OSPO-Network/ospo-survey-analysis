@@ -234,14 +234,18 @@ grouped_bar_chart <- function(
   fill_var,
   title,
   ylabel = NULL,
+  color_palette = NULL,
   show_grid = TRUE
 ) {
+  if (is.null(color_palette)) {
+    color_palette <- colors
+  }
   ylabel <- ifelse(is.null(ylabel), "Number of Respondents", ylabel)
   ggplot(df, aes(x = .data[[x_var]], fill = .data[[fill_var]])) +
     geom_bar(position = "dodge") +
     ggtitle(title) +
     labs(y = ylabel) +
-    scale_fill_manual(values = colors) +
+    scale_fill_manual(values = color_palette) +
     theme(
       axis.title.x = element_blank(),
       axis.title.y = element_text(size = 24),
