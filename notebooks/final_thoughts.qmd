@@ -1,0 +1,105 @@
+---
+title: "Final Thoughts"
+---
+
+# Overview
+
+Plotting results of coding analysis of Q12: "Are there any other challenges you’ve encountered in open source, or types of support that you would find helpful?"
+
+## Import packages and utilities
+
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+I did this analysis in Taguette. Then I manually copied the number of comments associated with each tag from Taguette to this notebook. Each comment can have multiple tags. I'm creating the dataframe row-wise using tribble because that makes it a little easier to read and change, and I expect these fluid categories might change.
+```{r}
+results <- tribble(
+  ~theme,                                    ~category,       ~count,
+  "Maintenance",                                 "Resources",      9,
+  "Funding OS projects",                         "Resources",      8,
+  "High turnover",                               "Resources",      3,
+  "Skilled personnel",                           "Resources",      9,
+  "Lack of time or 'extra' work",                "Resources",      7,
+  "Security compliance",                         "Infrastructure", 2,
+  "Licensing",                                   "Infrastructure", 3,
+  "Computing environments",         "Infrastructure", 3,
+  "University leadership, norms, and priorities","Culture",       20,
+  "Code review and replication",                 "Culture",        3,
+  "OS education and careers",                    "Culture",        8,
+  "Value of OS tools",                           "Culture",        7
+)
+
+results$theme <- paste0(results$theme, " (", results$count, ")")
+```
+
+Now let's plot a treemap!
+```{r}
+my_treemap <- treemap(
+  results,
+  index = c("category", "theme"),  # first level “category”, then theme
+  vSize = "count",                     # area of each rectangle proportional to count
+  type  = "index",                     # color by index (i.e. category)
+  palette = c(colors[1], colors[8], colors[4]),                   # from utils.R
+
+  # Label styling
+  lowerbound.cex.labels = 0,                # multiplier between 0 and 1 that sets the lowerbound for the data label font sizes: 0 means draw all data labels, and 1 means only draw data labels if they fit (given fontsize.labels).
+  fontsize.labels     = c(16,  11),                # e.g. 14pt for categories, 8pt for themes
+  fontcolor.labels    = c("white", "white"),      # white for themes and categories
+  align.labels = list(
+    c("left", "top"),
+    c("center", "center")
+    ),
+
+  # aesthetics
+  border.col = "white",                # white borders for readability
+  fontsize.title = 14,
+  bg.labels = 0                        # transparent label backgrounds
+)
+
+my_treemap
+```
+
+Oof, that's unfortunate. The labels for the infrastructure category are really small. Try as I might, I don't see a good way of allowing them to extend outside the chart. So instead I will just produce a chart where the Infrastructure labels are absent, and I'll add them in later using PowerPoint.
+
+It looks like the lowerbound.cex.labels argument lets me control the plot's tolerance for ill-fitting labels. That's helpful. Also, I can hide the "category" labels by setting font size to 0. The way this plot looks is HIGHLY dependent on the size of the viewport, which in this case is controlled by the parameters of png().
+```{r}
+png(
+  filename = file.path(Sys.getenv("FIGURE_PATH"), "treemap.png"),
+  width = 1800,
+  height = 1200,
+  res = 300
+)
+
+treemap(
+  results,
+  index = c("category", "theme"),
+  vSize = "count",
+  type = "index",
+  palette = c(colors[1], colors[8], colors[4]), # from utils.R
+  title = "Comments from Free Response Box",
+
+  # Label styling
+  lowerbound.cex.labels = 0.5, # multiplier between 0 and 1 that sets the lowerbound for the data label font sizes: 0 means draw all data labels, and 1 means only draw data labels if they fit (given fontsize.labels).
+  fontsize.labels = c(0, 10), # first number is for categories, second is for themes
+  fontcolor.labels = c("white", "white"), # white for themes and categories
+  align.labels = list(
+    c("center", "top"),
+    c("center", "center")
+  ),
+  inflate.labels = FALSE, # does nothing?
+  force.print.labels = FALSE, # does nothing?
+
+  # aesthetics
+  border.col = "white", # white borders for readability
+  fontsize.title = 14,
+  bg.labels = 0 # transparent label backgrounds
+)
+
+dev.off()
+```

@@ -16,6 +16,10 @@ responses <- data.frame(
 
 final_clean <- exclude_empty_rows(responses, strict = TRUE)
 
+duds <- c(194, 309, 337) # people who wrote things like "N/A" or "<blank>"
+final_clean <- final_clean %>% filter(!(participantID %in% duds))
+
+
 write.table(
   final_clean,
   file.path(Sys.getenv("DATA_PATH"), "final_thoughts.tsv"),
@@ -23,3 +27,18 @@ write.table(
   row.names = FALSE,
   sep = "\t"
 )
+
+for (rownum in seq(nrow(final_clean))) {
+  write.table(
+    final_clean[rownum, "final_thoughts"],
+    file.path(
+      Sys.getenv("DATA_PATH"),
+      "final_thoughts_responses",
+      sprintf("%s.txt", final_clean[rownum, "participantID"])
+    ),
+    quote = FALSE,
+    row.names = FALSE,
+    col.names = FALSE,
+    sep = "\t"
+  )
+}
