@@ -9,11 +9,17 @@
 # DATA_PATH = "/Path/to/data/folder"
 # Otherwise, change the script below.
 
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 
-suppressWarnings(suppressMessages(source("utils.R")))
 
 write_subset_of_data <- function(df, filen) {
-  write.table(df,
+  write.table(
+    df,
     file.path(Sys.getenv("DATA_PATH"), filen),
     quote = FALSE,
     row.names = FALSE,

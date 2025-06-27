@@ -19,10 +19,12 @@ my local computer outside this repostiory.
 
 ## Publishing
 
-I'm currently in the process of transitioning from R scripts to .qmd notebooks.
-The plan is to eventually phase out the scripts, so that I can solely work in
-notebooks and periodically render my notebooks to readable reports. I will
-publish them in `reports/notebooks` (Quarto apparently insists on this spurious
-intermediate directory). I am only publishing them as PDFs here. I am not
-checking the html renders into version control because the web files make my
-`git status` and git diffs very noisy.
+I was originally doing my analysis with R scripts, but now that I am almost
+exclusively working in quarto notebooks, which I periodically render to PDF
+reports. I am publishing them in `reports/notebooks` (Quarto apparently insists
+on this spurious intermediate directory). I am only publishing them as PDFs
+here. I am not checking the html renders into version control because the web
+files make my `git status` and git diffs very noisy. The PDF reports are long,
+and not intended to be easy, approachable guides to the data. They are more like
+a lab notebook. They represents my stream of consciousness as I explore the
+dataset.
