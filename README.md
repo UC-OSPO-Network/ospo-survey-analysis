@@ -19,7 +19,7 @@ my local computer outside this repostiory.
 
 ## Publishing
 
-I was originally doing my analysis with R scripts, but now that I am almost
+I was originally doing my analysis with R scripts, but now I am almost
 exclusively working in quarto notebooks, which I periodically render to PDF
 reports. I am publishing them in `reports/notebooks` (Quarto apparently insists
 on this spurious intermediate directory). I am only publishing them as PDFs

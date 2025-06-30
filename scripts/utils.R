@@ -95,7 +95,10 @@ basic_bar_chart <- function(
     element_blank()
   }
   axis_title_y <- if (show_axis_title_y) {
-    element_text(size = axis_title_size_y)
+    element_text(
+      size = axis_title_size_y,
+      margin = margin(r = 15)
+    )
   } else {
     element_blank()
   }
@@ -127,7 +130,11 @@ basic_bar_chart <- function(
       } else {
         element_blank()
       },
-      plot.title = element_text(hjust = 0.5, size = title_size),
+      plot.title = element_text(
+        hjust = 0.5,
+        size = title_size,
+        margin = margin(b = 15)
+      ),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
 
@@ -142,7 +149,15 @@ basic_bar_chart <- function(
     if (horizontal) {
       p <- p +
         geom_text(
-          aes(label = .data[[y_var]]),
+          aes(
+            # if percent=TRUE, format the y‐var as a percent; otherwise just show the raw value
+            label = if (percent) {
+              scales::percent(.data[[y_var]], accuracy = 1)
+              # accuracy says use whole-number percentage, no decimal
+            } else {
+              .data[[y_var]]
+            }
+          ),
           color = label_color,
           size = 8,
           hjust = if (label_position == "inside") 1.2 else -0.1, # shift left of bar end
@@ -152,7 +167,15 @@ basic_bar_chart <- function(
       # vertical bars
       p <- p +
         geom_text(
-          aes(label = .data[[y_var]]),
+          aes(
+            # if percent=TRUE, format the y‐var as a percent; otherwise just show the raw value
+            label = if (percent) {
+              scales::percent(.data[[y_var]], accuracy = 1)
+              # accuracy says use whole-number percentage, no decimal
+            } else {
+              .data[[y_var]]
+            }
+          ),
           color = label_color,
           size = 8,
           vjust = if (label_position == "inside") 1.2 else -0.3, # above bar = negative vjust

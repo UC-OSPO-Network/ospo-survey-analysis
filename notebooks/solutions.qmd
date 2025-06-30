@@ -101,10 +101,11 @@ long_data
 
 
 Next, let's calculate some simple descriptive statistics. I will choose:
-* The total "score", that is, the total number of "points" a solution received (see scoring scheme in previous code chunk)
-* The mean (which might be misleading if 0s drag it down, and also, who's to say what a 1.5 really means? Are the distances between the Likert points equal? We don't know.)
-* The mode
-* The standard deviation
+
+- The total "score", that is, the total number of "points" a solution received (see scoring scheme in previous code chunk)
+- The mean (which might be misleading if 0s drag it down, and also, who's to say what a 1.5 really means? Are the distances between the Likert points equal? We don't know.)
+- The mode
+- The standard deviation
 ```{r}
 # Helper to compute the (numeric) mode
 get_mode <- function(x) {
@@ -159,7 +160,7 @@ long_data$solution <- factor(long_data$solution, levels = ordered_levels)
 ```
 
 Grouped bar chart showing the distributions of answers.
-```{r}
+```{r, fig.width=9, fig.height=6}
 grouped_plot <- grouped_bar_chart(
   df = long_data,
   x_var = "solution",
@@ -172,7 +173,7 @@ grouped_plot
 
 Save the plot if you wish.
 ```{r}
-save_plot("fave_solutions.tiff", 10, 6, p=grouped_plot)
+#save_plot("fave_solutions.tiff", 10, 6, p=grouped_plot)
 ```
 
 # Simple bar plot
@@ -208,7 +209,7 @@ fav_to_plot <- reorder_factor_by_column(
 )
 ```
 
-```{r}
+```{r, fig.width=9, fig.height=6}
 faves_plot <- basic_bar_chart(
   df = fav_to_plot,
   x_var = "Var1",
@@ -228,7 +229,7 @@ Interestingly, the top solutions are not exactly the same in this question compa
 
 Save the plot if you wish.
 ```{r}
-save_plot("fave_solutions_simple.tiff", 10, 6, p=faves_plot)
+#save_plot("fave_solutions_simple.tiff", 10, 6, p=faves_plot)
 ```
 
 # Incorporating demographics
@@ -237,7 +238,7 @@ save_plot("fave_solutions_simple.tiff", 10, 6, p=faves_plot)
 
 Who are these people who want access to computing environments? Don't all the UCs already offer this?
 
-Let's start with job category. 
+Let's focus on job category. 
 ```{r}
 campus_job_fave <- data %>%
   select(
@@ -272,20 +273,23 @@ head(campus_job_fave)
 ```
 
 Of the people who selected "Computing environments", what is the distribution of job categories?
-```{r}
-compute <- campus_job_fave %>% filter (favorite_solution == "Computing environments")
+```{r, fig.width=8, fig.height=6}
+compute <- campus_job_fave %>%
+  filter(favorite_solution == "Computing environments")
 compute_counts <- data.frame(table(compute$job_category))
+
+compute_counts <- compute_counts %>% rename(job_category = Var1, compute = Freq)
 
 compute_counts <- reorder_factor_by_column(
   df = compute_counts,
-  factor_col = Var1,
-  value_col = Freq
+  factor_col = job_category,
+  value_col = compute
 )
 
 compute_bar <- basic_bar_chart(
   df = compute_counts,
-  x_var = "Var1",
-  y_var = "Freq",
+  x_var = "job_category",
+  y_var = "compute",
   title = "Respondents whose top choice was\n'Access to free, feature-rich computing environments'",
   color_index = 4,
   show_bar_labels = TRUE
@@ -295,7 +299,40 @@ compute_bar
 
 Save the plot if you wish.
 ```{r}
-save_plot("compute_job.tiff", 10, 10, p=compute_bar)
+#save_plot("compute_job.tiff", 10, 10, p=compute_bar)
+```
+
+So those are the absolute numbers, but they don't normalize for the sample sizes of the different job categories. The number of non-research staff who voted for computing environments might be high because there are simply a lot of non-research staff in our survey.
+```{r}
+total_counts <- data.frame(table(campus_job_fave$job_category))
+
+total_counts <- total_counts %>% rename(job_category = Var1, total = Freq)
+
+proportion_df <- compute_counts %>%
+  left_join(total_counts, by = "job_category") %>%
+  mutate(proportion = round(compute / total, 2))
+
+proportion_df
+```
+
+The previous plot suggested the demand was mostly coming from non-research staff, but that was deceiving, because we do indeed have a lot of non-research staff in our sample. Let's make a plot that is, I think, more informative. This plot shows the percent of people in that job category who selected computing environments as their favorite solution.
+```{r, fig.width=8, fig.height=6}
+compute_bar_prop <- basic_bar_chart(
+  df = proportion_df,
+  x_var = "job_category",
+  y_var = "proportion",
+  ylabel = "Percent of Job Category who Selected this Option",
+  title = "Respondents whose top choice was\n'Access to free, feature-rich computing environments'",
+  color_index = 4,
+  show_bar_labels = TRUE,
+  percent = TRUE
+)
+compute_bar_prop
+```
+
+Save the plot if you wish.
+```{r}
+#save_plot("compute_job_prop.tiff", 10, 10, p=compute_bar_prop)
 ```
 
 Let's make the same plot, but this time with campus info.
@@ -311,11 +348,11 @@ compute_counts2 <- compute %>%
 
 compute_counts2$job_category <- factor(
   compute_counts2$job_category,
-  levels = levels(compute_counts$Var1)
+  levels = levels(compute_counts$job_category)
 )
 ```
 
-```{r}
+```{r, fig.width=9, fig.height=6}
 compute_campus_bar <- stacked_bar_chart(
   df = compute_counts2,
   x_var = "job_category",
@@ -325,11 +362,13 @@ compute_campus_bar <- stacked_bar_chart(
   ylabel = NULL,
   proportional = FALSE
 )
+
+compute_campus_bar
 ```
 
 Save the plot if you wish.
 ```{r}
-save_plot("compute_job_campus.tiff", 14, 14, p=compute_campus_bar)
+#save_plot("compute_job_campus.tiff", 14, 14, p=compute_campus_bar)
 ```
 
 
@@ -355,7 +394,7 @@ campus_totals <- exclude_empty_rows(campus_totals, strict=TRUE)
 campus_totals %>% mutate( compute_perc = 100*compute_n / campus_total)
 ```
 
-So, anywhere from 12% to 33% of respondents selected this as their favorite solution, when we break it down by campus. The numbers from UCSB (33%) and UC Merced (25%) should probably be taken with a grain of salt, since those campuses had really low participation rates.
+So, anywhere from 12% to 33% of respondents selected this as their favorite solution, when we break it down by campus. The numbers from UCSD (33%) and UC Merced (25%) should probably be taken with a grain of salt, since those campuses had really low participation rates.
 
 ## For each job category, what are the top 3 favorite solutions?
 
@@ -397,7 +436,7 @@ job_fave_top3 <- job_fave %>%
 
 head(job_fave_top3)
 ```
-```{r}
+```{r, fig.width=9, fig.height=6}
 # Reorder factor levels so legend items are in order of appearance
 job_fave_top3 <- job_fave_top3 %>%
   mutate(favorite_solution = fct_inorder(favorite_solution))
@@ -413,13 +452,19 @@ top3_plot
 ```
 
 ```{r}
-save_plot("top3_solutions_by_job.tiff", 12, 10, p=top3_plot)
+#save_plot("top3_solutions_by_job.tiff", 12, 10, p=top3_plot)
 ```
 
-So, I think these are the takeaways: 
-* Dedicated grants for OS project sustainability is the most popular solution. This solution was in the top3 for all but undergrads.
-* The other top solutions depend on how you look at the data. For non-research staff, the most popular solution is a learning community, though grants and access to free, feature-rich computing environments are close behind.
-* I was surprised that access to computing environments was in second place. Upon inspection, this seems to be because this choice is popular among non-research staff, and we had a lot of non-research staff in our participant pool. About 12-33% of respondents said this was their top choice, depending on the campus.
-* Undergraduates were the only group in which nobody selected grants as their top choice.
-* Grad students and undergraduates were the only groups for whom a mentoring program was in their top 3. 
-* Researchers and non-research staff have very distinct needs.
+So, I think these are the takeaways:
+
+- Dedicated grants for OS project sustainability is the most popular solution. This solution was in the top3 for all but undergrads.
+- The other top solutions depend on how you look at the data. For non-research staff, the most popular solution is a learning community, though grants and access to free, feature-rich computing environments are close behind.
+- I was surprised that access to computing environments was in second place. Upon inspection, this seems to be because this choice is popular among non-research staff, and we had a lot of non-research staff in our participant pool. About 12-33% of respondents said this was their top choice, depending on the campus.
+- Undergraduates were the only group in which nobody selected grants as their top choice.
+- Grad students and undergraduates were the only groups for whom a mentoring program was in their top 3. 
+- Researchers and non-research staff have very distinct needs.
+
+# Session Info
+```{r}
+sessionInfo()
+```
