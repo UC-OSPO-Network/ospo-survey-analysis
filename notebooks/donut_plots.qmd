@@ -360,17 +360,9 @@ p3 <- donut_chart(
 p3
 ```
 
-To save a smaller version (Canva has a file size limit of 50Mb), I'm reducing the resolution from 700 dpi to 450 dpi.
 ```{r}
 # Function from utils.R
 save_plot(sprintf("field_donut_%s.tiff", tolower(population)), 10, 6, p = p3)
-save_plot(
-  sprintf("field_donut_%s_small.tiff", tolower(population)),
-  10,
-  6,
-  res = 450,
-  p = p3
-)
 ```
 
 #### Central plot: job categories
@@ -382,7 +374,7 @@ p1 <- donut_chart(
   legend_top_margin = 20,
   white_labels = TRUE
 ) +
-  labs(title = sprintf("Job Category of %s", tolower(population))
+  labs(title = sprintf("Job category of %s", tolower(population))
   )
 p1
 ```
@@ -394,13 +386,6 @@ save_plot(
   sprintf("job_category_donut_%s.tiff", tolower(population)),
   10,
   6,
-  p = p1
-)
-save_plot(
-  sprintf("job_category_donut_%s_small.tiff", tolower(population)),
-  10,
-  6,
-  res = 450,
   p = p1
 )
 ```
@@ -428,13 +413,6 @@ save_plot(
   sprintf("nrstaff_category_donut_%s.tiff", tolower(population)),
   10,
   6,
-  p = p4
-)
-save_plot(
-  sprintf("nrstaff_category_donut_%s_small.tiff", tolower(population)),
-  10,
-  6,
-  res = 450,
   p = p4
 )
 ```

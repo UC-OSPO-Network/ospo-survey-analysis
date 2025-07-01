@@ -133,7 +133,7 @@ motivations_to_plot <- motivations_to_plot %>%
 ```
 
 And make a plot, using a function in utils.R.
-```{r}
+```{r, fig.width=9, fig.height=6}
 myplot <- basic_bar_chart(motivations_to_plot,
   x_var = "Motivation",
   y_var = "Count",
@@ -145,6 +145,8 @@ myplot <- basic_bar_chart(motivations_to_plot,
   show_axis_title_y = FALSE,
   show_grid = TRUE
 )
+
+myplot
 ```
 
 Save the plot if you wish.
@@ -185,15 +187,19 @@ composite_df <- rbind(faculty, nrstaff, grads, postdocs_other, undergrads)
 head(composite_df)
 ```
 
-Create one plot with the absolute number of responses on the y-axis, and another plot where all jobs are scaled to 1.
-```{r}
+Create a plot with the absolute number of responses on the y-axis.
+```{r, fig.width=9, fig.height=6}
 stacked_plot_raw <- stacked_bar_chart(composite_df,
   x_var = "Role",
   y_var = "Count",
   fill = "Motivation",
   title = "Reasons for Contributing to Open Source",
 )
+stacked_plot_raw
+```
 
+Create another plot where all jobs are scaled to 1.
+```{r, fig.width=9, fig.height=6}
 stacked_plot_proportional <- stacked_bar_chart(composite_df,
   x_var = "Role",
   y_var = "Count",
@@ -201,18 +207,15 @@ stacked_plot_proportional <- stacked_bar_chart(composite_df,
   title = "Reasons for Contributing to Open Source",
   proportional = TRUE
 )
+stacked_plot_proportional
 ```
 
-Visualize
+I like the proportional one better. I'll save it.
 ```{r}
-stacked_plot_raw + stacked_plot_proportional
+save_plot("motivations_stacks.tiff", 12, 9, p=stacked_plot_proportional)
 ```
 
-Save
-```{r}
-save_plot("motivations_stacks.tiff", 16, 8)
-```
-
+# IT vs. Academics
 Request from Greg: What about IT vs. academics? (Students, Teachers, and Researchers)
 ```{r}
 it <- data %>%
@@ -255,6 +258,7 @@ academics$Role <- "Academic"
 
 it_academics <- rbind(it, academics)
 ```
+
 Plot
 ```{r}
 stacked_plot_raw_it <- stacked_bar_chart(
@@ -264,7 +268,9 @@ stacked_plot_raw_it <- stacked_bar_chart(
   fill = "Motivation",
   title = "Reasons for Contributing to Open Source",
 )
+```
 
+```{r}
 stacked_plot_proportional_it <- stacked_bar_chart(
   it_academics,
   x_var = "Role",
@@ -276,13 +282,13 @@ stacked_plot_proportional_it <- stacked_bar_chart(
 ```
 
 Visualize
-```{r}
+```{r, fig.width=9, fig.height=6}
 stacked_plot_proportional_it
 ```
 
 Save
 ```{r}
-#save_plot("motivations_stacks_it_academics.tiff", 8, 8)
+save_plot("motivations_stacks_it_academics.tiff", 8, 8, p=stacked_plot_proportional_it)
 ```
 
 

@@ -1,0 +1,328 @@
+---
+title: "Data cleanup, part 2"
+---
+
+In this script, I create some cleaner data frames for the more complex questions in our quantitative data set, to minimize the data wrangling at the top of each analysis script.
+
+Input:
+  deidentified_no_qual.tsv (produced by data_cleanup.R)
+  pii.tsv (produced by data_cleanup.R)
+Output:
+  clean_data/
+    challenges_Q9.tsv
+    contributor_roles_Q4.tsv
+    future_contributors_Q15.tsv
+    hosting_services_Q8.tsv
+    importance_Q2.tsv
+    motivations_Q6.tsv
+    project_size_Q5.tsv
+    project_types_Q7.tsv
+    solutions_Q10.tsv
+    other_quant.tsv
+
+# Load packages
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Data-wrangling functions
+
+#### strip_descriptions
+- Arguments:
+  - `df`: A data frame. Presumably, all entries are strings, and at least one
+    column has entries that contain a colon. 
+- Details:
+  - For each entry in a data frame, strips all text following the colon, if
+    there is one.
+- Outputs:
+  - A new data frame with shortened entries.
+- Example:
+t <- data.frame(
+   col1 = c("A:1", "A:1", "", NA, "A:1"),
+   col2 = c("B:2", "", "B:2", NA, NA)
+)
+> t
+  col1 col2
+1  A:1  B:2
+2  A:1     
+3       B:2
+4 <NA> <NA>
+5  A:1 <NA>
+> strip_descriptions(t)
+     col1 col2
+[1,] "A"  "B" 
+[2,] "A"  NA  
+[3,] NA   "B" 
+[4,] NA   NA  
+[5,] "A"  NA  
+```{r}
+strip_descriptions <- function(df) {
+  new_df <- apply(df, MARGIN = c(1, 2), FUN = function(x) strsplit(x, ":")[[1]][1])
+  return(new_df)
+}
+```
+
+#### rename_cols_based_on_entries
+- Arguments:
+  - `df`: A data frame. Presumably, each column contains only one meaningful value. 
+- Details:
+  - Rename columns based on the meaningful value in that column. If a column is
+    entirely NA or empty strings, function returns "?".
+- Outputs:
+  - A new data frame with meaningful columns.
+- Example:
+t <- data.frame(
+   col1 = c("A", "A", "", NA, "A"),
+   col2 = c("B", "", "B", NA, NA)
+)
+> rename_cols_based_on_entries(t)
+     A    B
+1    A    B
+2    A     
+3         B
+4 <NA> <NA>
+5    A <NA>
+> get_unique_vals(t, 1)
+[1] "A"
+```{r}
+# Return a data frame with new column names, based on the entries in each column
+rename_cols_based_on_entries <- function(df) {
+  colnames(df) <- sapply(seq_len(ncol(df)), function(x) {
+    get_unique_vals(df, x)
+  })
+  as.data.frame(df)
+}
+# Propose a column name based on the entries in that column.
+get_unique_vals <- function(df, col_num) {
+  unique_vals <- unique(df[, col_num])
+  if (length(unique_vals) == 1 && (is.na(unique_vals) | unique_vals == "")) {
+    return("?")
+  }
+  unique_vals <- unique_vals[!(is.na(unique_vals) | unique_vals == "")]
+  stopifnot(length(unique_vals) == 1)
+  return(unique_vals)
+}
+```
+
+
+
+#### make_df_binary
+- Arguments:
+  - `df`: A data frame containing strings and/or NAs.
+  - cols: Optional. A character vector of column names, or numeric indices
+    of columns you want to modify.
+- Details:
+  - Takes a data frame where some entries are meaningful strings and others
+    are empty strings or NAs, and converts the meaningful strings to 1s and
+    the empty strings and NAs to 0s. Importantly, the string "Non-applicable"
+    is not considered a "meaningful string"; these entries are converted to 0s.
+- Outputs:
+  - A new data frame where all entries are 0s or 1s.
+- Example:
+$r> motivations
+   Job Improve Tools Customize Network Give back Skills Fun Other
+1
+2
+3      Improve Tools Customize         Give back Skills Fun Other
+4
+5
+6  Job Improve Tools Customize Network Give back Skills Fun Other
+7  Job Improve Tools                   Give back Skills
+8                                      Give back Skills Fun Other
+9
+10 Job Improve Tools                   Give back Skills
+
+Becomes:
+r$> motivations
+   Job Improve Tools Customize Network Give back Skills Fun Other
+1    0             0         0       0         0      0   0     0
+2    0             0         0       0         0      0   0     0
+3    0             1         1       0         1      1   1     1
+4    0             0         0       0         0      0   0     0
+5    0             0         0       0         0      0   0     0
+6    1             1         1       1         1      1   1     1
+7    1             1         0       0         1      1   0     0
+8    0             0         0       0         1      1   1     1
+9    0             0         0       0         0      0   0     0
+10   1             1         0       0         1      1   0     0
+```{r}
+make_df_binary <- function(df, cols = NULL) {
+  # Determine columns to modify
+  if (is.null(cols)) {
+    cols_to_modify <- names(df)
+  } else if (is.numeric(cols)) {
+    cols_to_modify <- names(df)[cols]
+  } else if (is.character(cols)) {
+    cols_to_modify <- cols
+  } else {
+    stop(
+      "`cols` must be NULL, a character vector of column names, or numeric indices."
+    )
+  }
+
+  df <- df %>%
+    # Convert "Non-applicable" to NA
+    mutate(across(
+      all_of(cols_to_modify),
+      ~ ifelse(.x == "Non-applicable", NA, .x)
+    )) %>%
+    # Turn empty strings into NAs, and turn non-empty strings into 1s
+    mutate(across(all_of(cols_to_modify), ~ ifelse(.x == "", NA, 1))) %>%
+    # Convert all NAs to 0s
+    mutate(across(all_of(cols_to_modify), ~ ifelse(is.na(.x), 0, .x)))
+
+  return(df)
+}
+```
+
+
+
+```{r}
+shorten_long_responses <- function(df, codes) {
+  new_df <- df
+  for (keyword in names(codes)) {
+    new_df <- shorten_long_response(new_df, keyword, codes[[keyword]])
+  }
+  return(new_df)
+}
+shorten_long_response <- function(df, keyword, replacement) {
+  pattern <- paste0("^", stringr::fixed(keyword))
+  df <- df %>%
+    mutate(across(
+      where(is.character),
+      ~ ifelse(str_starts(.x, keyword), replacement, .x)
+    ))
+  return(df)
+}
+```
+# Replace long responses with shorter strings.
+# Input: a list where keys are the beginning of
+# the long response and values are the short response.
+# The column you're trying to edit must be a character column, not a factor.
+
+
+
+# Load data
+data <- load_qualtrics_data("deidentified_no_qual.tsv")
+pii <- load_qualtrics_data("pii.tsv")
+
+###### Clean up challenges columns ######
+challenges <- data %>%
+  select(
+    starts_with("challenges")
+  )
+
+head(challenges)
+
+
+#**STOP!!** Presumably, "challenges_1" corresponds to the first option,
+# "challenges_2" corresponds to the second option, etc., but we still
+# need to check. I am manually comparing the answers in this data frame
+# to those in the Qualtrics interface, which shows the whole response,
+# i.e. "Limited time for writing new code", not just "challenges_1".
+# To be extra confident that I am comparing the same rows between the two
+# tables, I am looking at responses associated with a particular email.
+# After this code chunk, I go back to using the data frame that doesn't
+# contain the emails.
+
+# This needs to be run interactively, and it only needed to be done once,
+# so I've commented it out.
+
+# emails <- pii %>%
+#   select(starts_with("stay_in_touch_email"))
+
+# t <- cbind(emails, challenges)
+
+# I run this next line repeatedly with different emails,
+# to make sure that this person's response to "challenges_1"
+# matches their response to "Limited time for writing new code", etc.
+
+#subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
+
+# My assumption above was correct; the options are ordered as expected.
+# Let's rename the columns accordingly.
+
+challenge_codes <- c(
+  "Coding time" = "challenges_1",
+  "Documentation time" = "challenges_2",
+  "Managing issues" = "challenges_3",
+  "Attracting users" = "challenges_4",
+  "Recognition" = "challenges_5",
+  "Hiring" = "challenges_6",
+  "Security" = "challenges_7",
+  "Finding peers" = "challenges_8",
+  "Finding mentors" = "challenges_9",
+  "Education time" = "challenges_10",
+  "Educational resources" = "challenges_11",
+  "Legal" = "challenges_12",
+  "Finding funding" = "challenges_13",
+  "Securing funding" = "challenges_14"
+)
+challenges <- rename(challenges, any_of(challenge_codes))
+
+
+###### Clean up contributor roles columns ######
+
+roles <- data %>% select(starts_with("contributor_role"))
+
+roles <- strip_descriptions(roles)
+
+# Change the column names to more useful labels
+roles <- rename_cols_based_on_entries(roles)
+
+# Shorten this one long role
+names(roles) <- gsub(
+  "^Other.*",
+  "Other",
+  names(roles)
+)
+
+roles <- make_df_binary(roles)
+
+########## Clean up future_contributors columns ##########
+future <- data %>%
+  select(
+    starts_with("future_contributors")
+  )
+
+future_codes <- c(
+  "Accessible conferences" = "Conferences/hackathons",
+  "Access to free" = "Computing environments",
+  "Educational materials" = "Educational materials",
+  "An open source discussion group" = "Learning community",
+  "Dedicated grants" = "Dedicated grants",
+  "Networking opportunities" = "Industry networking",
+  "Job" = "Academic job opportunities",
+  "Other " = "Other",
+  "Assistance identifying" = "Help finding funding",
+  "Legal" = "Legal support",
+  "A mentor" = "Mentoring programs"
+)
+
+future <- shorten_long_responses(future, codenames)
+future <- rename_cols_based_on_entries(future)
+future <- make_df_binary(future)
+
+########## Clean up hosting_services columns ##########
+
+hosting <- data %>%
+  select(
+    starts_with("hosting_services")
+  )
+
+hosting_codes <- c(
+  "Other" = "Other",
+  "OSF" = "OSF",
+  "A custom website" = "Custom Website",
+  "In the supplementary" = "Article Supplement"
+)
+hosting <- shorten_long_responses(hosting, hosting_codes)
+
+hosting <- rename_cols_based_on_entries(hosting)
+# Manual inspection reveals no one selected Vivli
+names(hosting) <- gsub("\\?", "Vivli", names(hosting))
+hosting <- make_df_binary(hosting)

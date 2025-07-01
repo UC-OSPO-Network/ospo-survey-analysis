@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# Read in the raw data from Qualtrics
+# Reads in the raw data from Qualtrics
 # and splits the data into multiple files.
 # Assumes data were exported from Qualtrics using
 # 'More Options' > 'Split multi-value fields into columns'.
@@ -15,7 +15,6 @@ project_root <- here::here() # requires that you be somewhere in the
 suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 # functions and objects used across scripts
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
-
 
 write_subset_of_data <- function(df, filen) {
   write.table(
@@ -32,7 +31,8 @@ write_subset_of_data <- function(df, filen) {
 data <- load_qualtrics_data("raw_survey_data.tsv", fileEncoding = "utf-16")
 
 # Remove rows where the "Finished" column is not "True".
-# This has the added benefit of removing those first two rows
+# (Respondent did not finish the survey)
+# This has the added benefit of removing those first two junk rows
 # that Qualtrics generated and that we don't care about.
 data <- data %>% filter(Finished == "True")
 
@@ -42,7 +42,7 @@ data <- data %>% select(consent_form_2:last_col())
 # ^Not sure why qualtrics names this column "consent_form_2"
 # instead of just "consent_form" but whatever.
 
-# It also arranges columns in a sort of arbitrary order; let's reorder them.
+# Qualtrics also arranges columns in a sort of arbitrary order; let's reorder them.
 # This command sorts alphabetically so questions are no longer in survey order FYI
 data <- data %>% select(mixedsort(names(.)))
 
@@ -71,15 +71,8 @@ qual_cols <- c(
 )
 
 qual <- data %>% select(ends_with("_TEXT"), all_of(qual_cols))
+
 write_subset_of_data(qual, "qual_responses.tsv")
-
-# qual2 <- data %>% select("field_of_study_1", "subfield")
-# # Standardize capitalization
-# qual2[] <- lapply(qual2, function(x) if (is.character(x)) toTitleCase(x) else x)
-# write_subset_of_data(qual2, "fields_of_study.tsv")
-
-# qual3 <- data %>% select("staff_categories_13_TEXT")
-# write_subset_of_data(qual3, "staff_categories.tsv")
 
 data <- data %>% select(-ends_with("_TEXT"), -all_of(qual_cols))
 

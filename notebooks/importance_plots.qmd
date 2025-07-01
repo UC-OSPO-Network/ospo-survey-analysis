@@ -526,12 +526,18 @@ more_than_mod <- rbind(
 FINALLY, let's plot it! 
 
 ```{r}
+more_than_mod$job_category <- gsub(
+  "Non-research Staff",
+  "Non-research\nStaff",
+  more_than_mod$job_category
+)
+
 more_than_mod$job_category <- factor(
   more_than_mod$job_category,
   levels = c(
     "Teachers",
     "Researchers",
-    "Non-research Staff",
+    "Non-research\nStaff",
     "Students"
   )
 )
@@ -551,7 +557,8 @@ more_than_mod$importance_area <- factor(
 I'm not using my `grouped_bar_chart` function in `scripts/utils.R` because I have pre-computed the bar heights, and that function counts rows. Since I'm currently only creating this kind of bar chart once, I'm not bothering to create a new function (or incorporate this option into the `grouped_bar_chart` function).
 
 
-```{r fig.width=10, fig.height=5}
+```{r fig.width=16, fig.height=8}
+
 p <- ggplot(
   more_than_mod,
   aes(
@@ -565,18 +572,28 @@ p <- ggplot(
   labs(
     y = "Percent of Respondents Who Said OS\nIs More than Moderately Important"
   ) +
-  ylim(0, 100) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  coord_cartesian(ylim = c(50, 100)) +
   theme(
     axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 14),
-    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 12),
+    axis.title.y = element_text(size = 24),
+    axis.text.x = element_text(
+      angle = 60,
+      vjust = 0.6,
+      size = 22,
+      margin = margin(t = 8)
+    ),
+    axis.text.y = element_text(
+      size = 22,
+      margin = margin(l = 8)
+    ),
     axis.ticks.x = element_blank(),
     legend.title = element_blank(),
-    legend.text = element_text(size = 12),
+    legend.text = element_text(size = 20),
     panel.background = element_blank(),
-    plot.title = element_text(hjust = 0.5, size = 14),
+    plot.title = element_text(hjust = 0.5, size = 24),
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
-    panel.grid.major.y = element_line(color = "lightgray", linewidth = 0.2)
+    panel.grid = element_line(linetype = "solid", color = "gray90")
   ) +
   #https://sronpersonalpages.nl/~pault/
   scale_fill_manual(
@@ -590,10 +607,11 @@ p <- ggplot(
   )
 
 p
+
 ```
 
 ```{r}
-save_plot("importance_all_pct.tiff", 10, 5)
+save_plot("importance_all_pct.tiff", 12, 8, p=p)
 ```
 
 # Session Info

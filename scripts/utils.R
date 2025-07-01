@@ -226,7 +226,7 @@ stacked_bar_chart <- function(
     scale_fill_manual(values = colors) +
     theme(
       axis.title.x = element_blank(),
-      axis.title.y = element_text(size = 24),
+      axis.title.y = element_text(size = 24, margin = margin(r = 15)),
       axis.text.x = element_text(
         angle = 60,
         vjust = 0.9,
@@ -245,7 +245,7 @@ stacked_bar_chart <- function(
       legend.title = element_blank(),
       legend.text = element_text(size = 24),
       plot.title = element_text(hjust = 0.5, size = 24),
-      plot.margin = unit(c(0.4, 0.4, 0.4, 0.4), "cm")
+      plot.margin = unit(c(0.8, 0.8, 0.8, 0.8), "cm")
     )
   return(p)
 }
@@ -307,60 +307,6 @@ save_plot <- function(fname, w, h, p = NULL, ftype = "tiff", res = 700) {
 
 # Utils to clean data
 
-# For all entries in the data frame, strip text after the colon
-strip_descriptions <- function(df) {
-  apply(df, MARGIN = c(1, 2), FUN = function(x) strsplit(x, ":")[[1]][1])
-}
-
-
-# Replace long responses with shorter strings.
-# Input: a list where keys are the beginning of
-# the long response and values are the short response.
-# The column you're trying to edit must be a character column, not a factor.
-shorten_long_responses <- function(df, codes) {
-  new_df <- df
-  for (keyword in names(codes)) {
-    new_df <- shorten_long_response(new_df, keyword, codes[[keyword]])
-  }
-  return(new_df)
-}
-shorten_long_response <- function(df, keyword, replacement) {
-  pattern <- paste0("^", stringr::fixed(keyword))
-  df <- df %>%
-    mutate(across(
-      where(is.character),
-      ~ ifelse(str_starts(.x, keyword), replacement, .x)
-    ))
-  return(df)
-}
-
-## Functions for renaming columns
-
-# Return a data frame with new column names, based on the entries in each column
-rename_cols_based_on_entries <- function(df) {
-  colnames(df) <- sapply(seq_len(ncol(df)), function(x) {
-    get_unique_vals(df, x)
-  })
-  as.data.frame(df)
-}
-# Propose a column name based on the entries in that column.
-# Only works if all entries in a column are the same.
-# Ignores NA and empty strings.
-get_unique_vals <- function(df, col_num) {
-  unique_vals <- unique(df[, col_num])
-  unique_vals <- unique_vals[!(is.na(unique_vals) | unique_vals == "")]
-  stopifnot(length(unique_vals) == 1)
-  unique_vals
-}
-
-# Example usage:
-# r$> df <- data.frame(
-#     col1 = c("A", "A", "", NA, "A"),
-#     col2 = c("B", "", "B", NA, NA)
-# )
-# r$> get_unique_vals(df, 2)
-# [1] "B"
-
 rename_cols_based_on_codenames <- function(df, codes) {
   return(
     df %>%
@@ -381,61 +327,6 @@ recode_dataframe_likert <- function(df, codes, likert_cols) {
     )
 }
 
-
-make_df_binary <- function(df, cols = NULL) {
-  # Determine columns to modify
-  if (is.null(cols)) {
-    cols_to_modify <- names(df)
-  } else if (is.numeric(cols)) {
-    cols_to_modify <- names(df)[cols]
-  } else if (is.character(cols)) {
-    cols_to_modify <- cols
-  } else {
-    stop(
-      "`cols` must be NULL, a character vector of column names, or numeric indices."
-    )
-  }
-
-  df <- df %>%
-    # Convert "Non-applicable" to NA
-    mutate(across(
-      all_of(cols_to_modify),
-      ~ ifelse(.x == "Non-applicable", NA, .x)
-    )) %>%
-    # Turn empty strings into NAs, and turn non-empty strings into 1s
-    mutate(across(all_of(cols_to_modify), ~ ifelse(.x == "", NA, 1))) %>%
-    # Convert all NAs to 0s
-    mutate(across(all_of(cols_to_modify), ~ ifelse(is.na(.x), 0, .x)))
-
-  return(df)
-}
-# ^EXAMPLE:
-# r$> motivations
-#    Job Improve Tools Customize Network Give back Skills Fun Other
-# 1
-# 2
-# 3      Improve Tools Customize         Give back Skills Fun Other
-# 4
-# 5
-# 6  Job Improve Tools Customize Network Give back Skills Fun Other
-# 7  Job Improve Tools                   Give back Skills
-# 8                                      Give back Skills Fun Other
-# 9
-# 10 Job Improve Tools                   Give back Skills
-
-# Becomes:
-# r$> motivations
-#    Job Improve Tools Customize Network Give back Skills Fun Other
-# 1    0             0         0       0         0      0   0     0
-# 2    0             0         0       0         0      0   0     0
-# 3    0             1         1       0         1      1   1     1
-# 4    0             0         0       0         0      0   0     0
-# 5    0             0         0       0         0      0   0     0
-# 6    1             1         1       1         1      1   1     1
-# 7    1             1         0       0         1      1   0     0
-# 8    0             0         0       0         1      1   1     1
-# 9    0             0         0       0         0      0   0     0
-# 10   1             1         0       0         1      1   0     0
 
 # Function to drop rows that are entirely NA or empty strings.
 # Rows of all zeros will be retained.
