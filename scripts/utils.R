@@ -1,4 +1,4 @@
-# Utils for reading data
+# Utils for reading and writing data
 
 load_qualtrics_data <- function(filename, fileEncoding = NULL) {
   # In my ~/.Renviron file, I have DATA_PATH = "/Path/to/data/folder"
@@ -22,6 +22,16 @@ load_qualtrics_data <- function(filename, fileEncoding = NULL) {
   do.call(read.csv, args)
 }
 
+# This function is used by my data_cleanup scripts.
+write_df_to_file <- function(df, filen) {
+  write.table(
+    df,
+    file.path(Sys.getenv("DATA_PATH"), filen),
+    quote = FALSE,
+    row.names = FALSE,
+    sep = "\t"
+  )
+}
 
 # Utils for plotting
 
@@ -306,14 +316,6 @@ save_plot <- function(fname, w, h, p = NULL, ftype = "tiff", res = 700) {
 
 
 # Utils to clean data
-
-rename_cols_based_on_codenames <- function(df, codes) {
-  return(
-    df %>%
-      rename(any_of(codes))
-  )
-}
-
 
 # Replace values in a data frame with new values based on a list of codes.
 

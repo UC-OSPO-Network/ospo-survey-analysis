@@ -4,21 +4,25 @@ title: "Data cleanup, part 2"
 
 In this script, I create some cleaner data frames for the more complex questions in our quantitative data set, to minimize the data wrangling at the top of each analysis script.
 
-Input:
-  deidentified_no_qual.tsv (produced by data_cleanup.R)
-  pii.tsv (produced by data_cleanup.R)
-Output:
-  clean_data/
-    challenges_Q9.tsv
-    contributor_roles_Q4.tsv
-    future_contributors_Q15.tsv
-    hosting_services_Q8.tsv
-    importance_Q2.tsv
-    motivations_Q6.tsv
-    project_size_Q5.tsv
-    project_types_Q7.tsv
-    solutions_Q10.tsv
-    other_quant.tsv
+Input:\
+&nbsp;&nbsp;&nbsp;&nbsp;deidentified_no_qual.tsv (produced by data_cleanup.R)\
+&nbsp;&nbsp;&nbsp;&nbsp;pii.tsv (produced by data_cleanup.R)\
+
+Output: \
+&nbsp;&nbsp;&nbsp;&nbsp;clean_data/\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;challenges_Q9.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;contributor_roles_Q4.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;contributor_status_Q3.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;future_contributors_Q15.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hosting_services_Q8.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;importance_Q2.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;motivations_Q6.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;project_size_Q5.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;project_types_Q7.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;solutions_Q10.tsv\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;other_quant.tsv\
+
+There are certain patterns in the way Qualtrics displays questions, so I've organized this into groups of similarly formatted questions.
 
 # Load packages
 ```{r}
@@ -29,7 +33,7 @@ suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
-# Data-wrangling functions
+# Functions
 
 #### strip_descriptions
 - Arguments:
@@ -41,6 +45,7 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 - Outputs:
   - A new data frame with shortened entries.
 - Example:
+```
 t <- data.frame(
    col1 = c("A:1", "A:1", "", NA, "A:1"),
    col2 = c("B:2", "", "B:2", NA, NA)
@@ -58,10 +63,14 @@ t <- data.frame(
 [2,] "A"  NA  
 [3,] NA   "B" 
 [4,] NA   NA  
-[5,] "A"  NA  
+[5,] "A"  NA
+```
+
 ```{r}
 strip_descriptions <- function(df) {
-  new_df <- apply(df, MARGIN = c(1, 2), FUN = function(x) strsplit(x, ":")[[1]][1])
+  new_df <- apply(df, MARGIN = c(1, 2), FUN = function(x) {
+    strsplit(x, ":")[[1]][1]
+  })
   return(new_df)
 }
 ```
@@ -75,6 +84,7 @@ strip_descriptions <- function(df) {
 - Outputs:
   - A new data frame with meaningful columns.
 - Example:
+```
 t <- data.frame(
    col1 = c("A", "A", "", NA, "A"),
    col2 = c("B", "", "B", NA, NA)
@@ -88,8 +98,9 @@ t <- data.frame(
 5    A <NA>
 > get_unique_vals(t, 1)
 [1] "A"
+```
+
 ```{r}
-# Return a data frame with new column names, based on the entries in each column
 rename_cols_based_on_entries <- function(df) {
   colnames(df) <- sapply(seq_len(ncol(df)), function(x) {
     get_unique_vals(df, x)
@@ -113,7 +124,7 @@ get_unique_vals <- function(df, col_num) {
 #### make_df_binary
 - Arguments:
   - `df`: A data frame containing strings and/or NAs.
-  - cols: Optional. A character vector of column names, or numeric indices
+  - `cols`: Optional. A character vector of column names, or numeric indices
     of columns you want to modify.
 - Details:
   - Takes a data frame where some entries are meaningful strings and others
@@ -123,7 +134,7 @@ get_unique_vals <- function(df, col_num) {
 - Outputs:
   - A new data frame where all entries are 0s or 1s.
 - Example:
-$r> motivations
+```
    Job Improve Tools Customize Network Give back Skills Fun Other
 1
 2
@@ -135,9 +146,9 @@ $r> motivations
 8                                      Give back Skills Fun Other
 9
 10 Job Improve Tools                   Give back Skills
-
+```
 Becomes:
-r$> motivations
+```
    Job Improve Tools Customize Network Give back Skills Fun Other
 1    0             0         0       0         0      0   0     0
 2    0             0         0       0         0      0   0     0
@@ -149,6 +160,8 @@ r$> motivations
 8    0             0         0       0         1      1   1     1
 9    0             0         0       0         0      0   0     0
 10   1             1         0       0         1      1   0     0
+```
+
 ```{r}
 make_df_binary <- function(df, cols = NULL) {
   # Determine columns to modify
@@ -179,7 +192,36 @@ make_df_binary <- function(df, cols = NULL) {
 }
 ```
 
+#### shorten_long_responses
+- Arguments:
+  - `df`: A data frame with at least one column containing (presumably long)
+     strings. Any column with strings to be replaced must be a character column,
+     not a factor.
+  - `codes`: A list where keys are the beginning of the long string to be
+    replaced, and values are the short string to replace it with.
+- Details:
+  - Takes a data frame where some entries are long strings, and replaces these
+    with pre-specified shorter strings. You don't need to specify the entire
+    long string to be replaced; just specify the first part of it, and the function
+    will identify matches.
+- Outputs:
+  - A new data frame where your pre-specified string substitutions have been made.
+- Example:
+```
+hosting_services_18 hosting_services_19 hosting_services_20
+A custom website (e.g. a lab website)    In the supplementary components of a journal article                
+A custom website (e.g. a lab website)         
+                                                                             
+A custom website (e.g. a lab website)    In the supplementary components of a journal article
+```
+Becomes:
+```
+hosting_services_18 hosting_services_19 hosting_services_20
+Custom Website                      Article Supplement
+Custom Website
 
+Custom Website                      Article Supplement
+```
 
 ```{r}
 shorten_long_responses <- function(df, codes) {
@@ -199,53 +241,45 @@ shorten_long_response <- function(df, keyword, replacement) {
   return(df)
 }
 ```
-# Replace long responses with shorter strings.
-# Input: a list where keys are the beginning of
-# the long response and values are the short response.
-# The column you're trying to edit must be a character column, not a factor.
-
-
 
 # Load data
+```{r}
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
 pii <- load_qualtrics_data("pii.tsv")
+```
 
-###### Clean up challenges columns ######
+# Question type 1: No way to tell what columns mean
+These are the more annoying Qualtrics outputs. The column names are e.g. `challenges_1`, `challenges_2`, etc., and the entries are not informative, e.g. `Never`, `Infrequently`, etc. Presumably, `challenges_1` corresponds to the first option, `challenges_2` corresponds to the second option, etc., but we still need to check, especially since the column numbering from Qualtrics can be strange. I am manually comparing the answers in this data frame to those in the Qualtrics interface, which shows the whole response, i.e. "Limited time for writing new code", not just "challenges_1". (Data table, under the Data & Analysis tab.)
+
+To be extra confident that I am comparing the same rows between the two tables, I am looking at responses associated with a particular email. After I have visually confirmed the correspondences between the column names and the survey options, I go back to the data frame that does not contain PII. This part must be done manually and interactively, and it only needs to be done once for each question, just to get the corresponding codes. Therefore, I have commented this code out, since I've already done it.
+
+## Clean up challenges columns
+```{r}
 challenges <- data %>%
   select(
     starts_with("challenges")
   )
 
 head(challenges)
+```
 
-
-#**STOP!!** Presumably, "challenges_1" corresponds to the first option,
-# "challenges_2" corresponds to the second option, etc., but we still
-# need to check. I am manually comparing the answers in this data frame
-# to those in the Qualtrics interface, which shows the whole response,
-# i.e. "Limited time for writing new code", not just "challenges_1".
-# To be extra confident that I am comparing the same rows between the two
-# tables, I am looking at responses associated with a particular email.
-# After this code chunk, I go back to using the data frame that doesn't
-# contain the emails.
-
-# This needs to be run interactively, and it only needed to be done once,
-# so I've commented it out.
-
+**STOP!!!** Manually compare this data frame to the Data table in Qualtrics.
+```{r}
 # emails <- pii %>%
 #   select(starts_with("stay_in_touch_email"))
 
 # t <- cbind(emails, challenges)
 
-# I run this next line repeatedly with different emails,
-# to make sure that this person's response to "challenges_1"
-# matches their response to "Limited time for writing new code", etc.
+#I run this next line repeatedly with different emails,
+#to make sure that this person's response to "challenges_1"
+#matches their response to "Limited time for writing new code", etc.
 
-#subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
+# subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
+```
 
-# My assumption above was correct; the options are ordered as expected.
-# Let's rename the columns accordingly.
+My assumption above was correct; the options are ordered as expected. Let's rename the columns accordingly.
 
+```{r}
 challenge_codes <- c(
   "Coding time" = "challenges_1",
   "Documentation time" = "challenges_2",
@@ -264,9 +298,123 @@ challenge_codes <- c(
 )
 challenges <- rename(challenges, any_of(challenge_codes))
 
+head(challenges)
+```
 
-###### Clean up contributor roles columns ######
 
+## Clean up importance columns
+```{r}
+importance <- data %>%
+  select(
+    starts_with("importance_opensrc")
+  )
+head(importance)
+```
+
+**STOP!!!** Manually compare this data frame to the Data table in Qualtrics.
+```{r}
+# t <- cbind(emails, importance)
+# subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
+```
+
+```{r}
+importance_codes <- c(
+  "Research" = "importance_opensrc_1",
+  "Teaching" = "importance_opensrc_2",
+  "Learning" = "importance_opensrc_3",
+  "Professional Development" = "importance_opensrc_4",
+  "Job" = "importance_opensrc_5"
+)
+importance <- rename(importance, any_of(importance_codes))
+head(importance)
+```
+
+## Clean up project size columns
+```{r}
+size <- data %>%
+  select(
+    starts_with("project_size")
+  )
+```
+
+**STOP!!!** Manually compare this data frame to the Data table in Qualtrics.
+```{r}
+# t <- cbind(emails, size)
+# subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
+```
+```{r}
+size_codes <- c(
+    "Small" = "project_size_1",
+    "Medium" = "project_size_2",
+    "Large" = "project_size_3"
+)
+size <- rename(size, any_of(size_codes))
+head(size)
+```
+
+## Clean up solutions columns
+```{r}
+solutions <- data %>%
+  select(
+    starts_with("solution_offerings")
+  )
+```
+
+**STOP!!!** Manually compare this data frame to the Data table in Qualtrics.
+```{r}
+# t <- cbind(emails, solutions)
+# subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
+```
+
+```{r}
+solution_codes <- c(
+  "Computing environments" = "solution_offerings_1",
+  "Publicity" = "solution_offerings_2",
+  "Containerization" = "solution_offerings_3",
+  "Documentation help" = "solution_offerings_4",
+  "A learning community" = "solution_offerings_5",
+  "Event planning" = "solution_offerings_6",
+  "Mentoring programs" = "solution_offerings_7",
+  "Education" = "solution_offerings_8",
+  "Legal support" = "solution_offerings_9",
+  "Industry partnerships" = "solution_offerings_10",
+  "Sustainability grants" = "solution_offerings_11",
+  "Help finding funding" = "solution_offerings_12"
+)
+solutions <- rename(solutions, any_of(solution_codes))
+head(solutions)
+```
+
+## Clean up contributor status columns
+
+```{r}
+status <- data %>% select(
+  starts_with("contributor_status")
+)
+```
+
+**STOP!!!** Manually compare this data frame to the Data table in Qualtrics.
+```{r}
+# t <- cbind(emails, status)
+# subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
+```
+```{r}
+status_codes <- c(
+  "Past" = "contributor_status_1",
+  "Future" = "contributor_status_2"
+)
+status <- rename(status, any_of(status_codes))
+head(status)
+```
+
+
+# Question type 2: Rename columns based on entries
+In these cases, we can tell what the column means because the entries are either the response itself or an empty string. These are essentially dummy variables with yes/no outcomes. We don't need to manually match the data frame to the responses in the Qualtrics interface. Even better, we don't need a list of codes.
+
+For contributor_roles_Q4 and project_types_Q7, we included a colon in the survey response, so I am using my strip_descriptions function to strip everything after the colon because that seems easier than typing out a list of codes.
+
+## Clean up contributor roles columns
+```{r}
 roles <- data %>% select(starts_with("contributor_role"))
 
 roles <- strip_descriptions(roles)
@@ -282,8 +430,34 @@ names(roles) <- gsub(
 )
 
 roles <- make_df_binary(roles)
+head(roles)
+```
 
-########## Clean up future_contributors columns ##########
+
+## Clean up project types columns
+```{r}
+types <- data %>% select(starts_with("project_types"))
+
+types <- strip_descriptions(types)
+
+# Change the column names to more useful labels
+types <- rename_cols_based_on_entries(types)
+
+# Shorten this one long role
+names(types) <- gsub(
+  "^Other.*",
+  "Other",
+  names(types)
+)
+
+types <- make_df_binary(types)
+head(types)
+```
+
+For these next questions, the responses were often rather long and complex, so I am shortening their names with shorten_long_responses.
+
+## Clean up future_contributors columns
+```{r}
 future <- data %>%
   select(
     starts_with("future_contributors")
@@ -303,12 +477,15 @@ future_codes <- c(
   "A mentor" = "Mentoring programs"
 )
 
-future <- shorten_long_responses(future, codenames)
+future <- shorten_long_responses(future, future_codes)
 future <- rename_cols_based_on_entries(future)
 future <- make_df_binary(future)
 
-########## Clean up hosting_services columns ##########
+head(future)
+```
 
+## Clean up hosting_services columns
+```{r}
 hosting <- data %>%
   select(
     starts_with("hosting_services")
@@ -326,3 +503,136 @@ hosting <- rename_cols_based_on_entries(hosting)
 # Manual inspection reveals no one selected Vivli
 names(hosting) <- gsub("\\?", "Vivli", names(hosting))
 hosting <- make_df_binary(hosting)
+head(hosting)
+```
+
+## Clean up motivations columns
+```{r}
+motivations <- data %>%
+  select(
+    starts_with("motivations")
+  )
+
+codenames <- c(
+  "Developing open-source" = "Job",
+  "To improve the tools" = "Improve Tools",
+  "To customize existing" = "Customize",
+  "To build a network" = "Network",
+  "To give back to" = "Give back",
+  "To improve my skills" = "Skills",
+  "Because it's fun" = "Fun",
+  "Other " = "Other"
+)
+
+
+motivations <- shorten_long_responses(motivations, codenames)
+motivations <- rename_cols_based_on_entries(motivations)
+motivations <- make_df_binary(motivations)
+head(motivations)
+```
+
+# Question type 3: Simple multiple choice
+
+These are questions with just a single column, where the entries indicate which choice the respondent selected. I could just save them as-is, but I think it will make my analysis scripts tidier to replace the longer responses with codes here.
+
+```{r}
+other_quant <- data %>%
+  select(
+    starts_with(
+      c(
+        "campus",
+        "favorite_solution",
+        "field_of_study",
+        "job_category",
+        "staff_categories"
+      )
+    )
+  )
+  head(other_quant)
+```
+
+```{r}
+solution_codes2 <- c(
+  "Access to free" = "Computing environments",
+  "Assistance promoting your" = "Publicity",
+  "Assistance creating" = "Containerization",
+  "Assistance writing" = "Documentation help",
+  "An open source discussion" = "A learning community",
+  "Assistance with event" = "Event planning",
+  "A mentor" = "Mentoring programs",
+  "Educational materials" = "Education",
+  "Legal and licensing" = "Legal support",
+  "Assistance building industry" = "Industry partnerships",
+  "Dedicated grants" = "Sustainability grants",
+  "Assistance identifying potential" = "Help finding funding"
+)
+other_quant <- shorten_long_responses(other_quant, solution_codes2)
+```
+
+```{r}
+field_codes <- c(
+  "Mathematical and computational sciences" = "Math and CS"
+)
+other_quant <- shorten_long_responses(other_quant, field_codes)
+```
+
+```{r}
+job_codes <- c(
+  "Other research staff" = "Other research staff"
+)
+other_quant <- shorten_long_responses(other_quant, job_codes)
+```
+
+```{r}
+staff_codes <- c(
+  "Academic and Research Support" = "Academic and Research Support",
+  "Other \\(Please specify" = "Other",
+  "Finance" = "Finance"
+)
+other_quant <- shorten_long_responses(other_quant, staff_codes)
+head(other_quant)
+```
+
+# Check row numbers and save
+We want to make sure that all data frames have the same number of rows. Because each row corresponds to a participant, it's critical that the row numbers match, so that we can compare responses from the same participant on different questions. I'm putting all my data frames in one list, and then applying functions to each data frame in the list.
+
+```{r}
+dfs <- list(
+  "challenges_Q9.tsv" = challenges,
+  "contributor_roles_Q4.tsv" = roles,
+  "contributor_status_Q3.tsv" = status,
+  "future_contributors_Q15.tsv" = future,
+  "hosting_services_Q8.tsv" = hosting,
+  "importance_Q2.tsv" = importance,
+  "motivations_Q6.tsv" = motivations,
+  "project_size_Q5.tsv" = size,
+  "project_types_Q7.tsv" = types,
+  "solutions_Q10.tsv" = solutions,
+  "other_quant.tsv" = other_quant
+)
+sapply(dfs, function(current_df) nrow(current_df))
+```
+
+Good! Same number of rows. Now let's save them to files in a folder. We will use the `write_df_to_file` function, which is in `scripts/utils.R`.
+```{r}
+output_dir <- file.path(Sys.getenv("DATA_PATH"), "clean_data")
+
+if (!dir.exists(output_dir)) {
+  dir.create(output_dir)
+}
+
+# invisible() suppresses noisy output text to the terminal
+invisible(
+  sapply(seq(length(dfs)), function(i) {
+    write_df_to_file(
+      dfs[[i]],
+      file.path("clean_data", names(dfs[i]))
+    )
+  })
+)
+```
+
+
+```{r}
+sessionInfo()
+```
