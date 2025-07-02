@@ -1,12 +1,38 @@
-# Utils for reading and writing data
+# This script is not meant to be executed directly.
+# It contains various functions and variables that are re-used
+# by other scripts and notebooks.
+
+################ EDIT ME, IF DESIRED ################
+DATA_PATH <- Sys.getenv("DATA_PATH")
+FIGURE_PATH <- Sys.getenv("FIGURE_PATH")
+COLORS <- c(
+  # modified from https://sronpersonalpages.nl/~pault/
+  "#332288",
+  "#88CCEE",
+  "#44AA99",
+  "#117733",
+  "#999933",
+  "#DDCC77",
+  "#CC6677",
+  "#882255",
+  "#AA4499",
+  "#BBBBBB"
+)
+####################################################
+# I keep all my data in one folder, and all my figures
+# in another. I am so paranoid about accidentally releasing
+# sensitive data that I don't even keep it in my git repo
+# with a gitignore file. I keep it somewhere completely separate
+# on my machine.
+# I also keep my figures in a separate location, since I
+# don't really benefit from checking those into version control.
+
+################ Utils for reading and writing data ################
 
 load_qualtrics_data <- function(filename, fileEncoding = NULL) {
-  # In my ~/.Renviron file, I have DATA_PATH = "/Path/to/data/folder"
-  data_path <- file.path(Sys.getenv("DATA_PATH"), filename)
-
   # Base arguments to pass to read.csv
   args <- list(
-    file = data_path,
+    file = file.path(DATA_PATH, filename),
     header = TRUE,
     sep = "\t",
     check.names = FALSE,
@@ -23,32 +49,17 @@ load_qualtrics_data <- function(filename, fileEncoding = NULL) {
 }
 
 # This function is used by my data_cleanup scripts.
-write_df_to_file <- function(df, filen) {
+write_df_to_file <- function(df, filename) {
   write.table(
     df,
-    file.path(Sys.getenv("DATA_PATH"), filen),
+    file.path(DATA_PATH, filename),
     quote = FALSE,
     row.names = FALSE,
     sep = "\t"
   )
 }
 
-# Utils for plotting
-
-colors <- c(
-  # modified from https://sronpersonalpages.nl/~pault/
-  "#332288",
-  "#88CCEE",
-  "#44AA99",
-  "#117733",
-  "#999933",
-  "#DDCC77",
-  "#CC6677",
-  "#882255",
-  "#AA4499",
-  "#BBBBBB"
-)
-
+################ Utils for plotting ################
 
 # Re-order factor levels in one column by values in another.
 # Returns the original data frame with factor_col re-ordered based on value_col.
@@ -301,7 +312,6 @@ grouped_bar_chart <- function(
 
 # Save a plot
 # Path is in my ~/.Renviron file
-figure_path <- Sys.getenv("FIGURE_PATH")
 save_plot <- function(fname, w, h, p = NULL, ftype = "tiff", res = 700) {
   ggsave(
     filename = fname,
@@ -310,12 +320,12 @@ save_plot <- function(fname, w, h, p = NULL, ftype = "tiff", res = 700) {
     plot = p, # if NULL, ggsave() will use the last‐drawn plot
     device = ftype,
     dpi = res,
-    path = figure_path
+    path = FIGURE_PATH
   )
 }
 
 
-# Utils to clean data
+################ Utils to clean data ################
 
 # Replace values in a data frame with new values based on a list of codes.
 

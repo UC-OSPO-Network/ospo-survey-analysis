@@ -1,0 +1,92 @@
+---
+title: "Data cleanup, part 1"
+---
+
+In this script, I take the raw survey data downloaded from Qualtrics, and break it up into smaller tables that will be easier to work with. This script writes three data files. One of them, deidentified_no_qual.tsv, will need further cleanup (see data_cleanup_part2.qmd).
+
+This script assumes that when the raw data were downloaded from Qualtrics, tsv format was selected, as was 'More Options' > 'Split multi-value fields into columns'.
+
+Make sure your data path is set in ~/.Renviron like so:\
+```DATA_PATH = "/Path/to/data/folder"```\
+If you don't want to do edit your global .Renviron file, you can edit the paths in `scripts/utils.R`.
+
+Input:\
+&nbsp;&nbsp;&nbsp;&nbsp;raw_survey_data.tsv (downloaded from Qualtrics)\
+
+Output: \
+&nbsp;&nbsp;&nbsp;&nbsp;pii.tsv (contains emails, GitHub usernames, and contact preferences)\
+&nbsp;&nbsp;&nbsp;&nbsp;qual_responses.tsv (contains responses to free text boxes)\
+&nbsp;&nbsp;&nbsp;&nbsp;deidentified_no_qual.tsv (contains responses to matrix and multiple-choice Qs)\
+
+# Load packages
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Functions
+See `scripts/utils.R` for the `write_df_to_file` function.
+
+# Load raw data
+```{r}
+# N.B. Qualtrics exports in UTF-16
+data <- load_qualtrics_data("raw_survey_data.tsv", fileEncoding = "utf-16")
+```
+
+# Drop unnecessary rows and columns
+Drop rows where the "Finished" column is not "True". This excludes unfinished survey responses and has the added benefit of removing those first two junk rows that Qualtrics generated and that we don't care about.
+```{r}
+data <- data %>% filter(Finished == "True")
+```
+
+Qualtrics also adds a bunch of junk columns at the beginning that we don't care about, e.g. StartDate, EndDate, Duration. Drop these.
+```{r}
+data <- data %>% select(consent_form_2:last_col())
+# ^Not sure why qualtrics names this column "consent_form_2"
+# instead of just "consent_form" but whatever.
+```
+
+Qualtrics also arranges columns in a sort of arbitrary order; let's reorder them. Note, this command sorts alphabetically so questions are no longer in survey order.
+```{r}
+data <- data %>% select(mixedsort(names(.)))
+```
+
+# Write personally identifiable information (PII) to a file
+```{r}
+pii_cols <- c(
+  "usernames",
+  "orb_followup_yes_1",
+  "orb_followup_email",
+  "stay_in_touch_boxes_1",
+  "stay_in_touch_boxes_2",
+  "stay_in_touch_email"
+)
+
+pii <- data %>% select(all_of(pii_cols))
+
+write_df_to_file(pii, "pii.tsv")
+
+data <- data %>% select(-all_of(pii_cols))
+```
+
+# Write qualitative responses to a file
+```{r}
+qual_cols <- c(
+  "final_thoughts",
+  "subfield"
+)
+
+qual <- data %>% select(ends_with("_TEXT"), all_of(qual_cols))
+
+write_df_to_file(qual, "qual_responses.tsv")
+
+data <- data %>% select(-ends_with("_TEXT"), -all_of(qual_cols))
+```
+
+# Save deidentified quantitative data
+```{r}
+write_df_to_file(data, "deidentified_no_qual.tsv")
+```
