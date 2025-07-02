@@ -1,6 +1,6 @@
 # This script is not meant to be executed directly.
 # It contains various functions and variables that are re-used
-# by other scripts and notebooks.
+# by other scripts in this project.
 
 ################ EDIT ME, IF DESIRED ################
 DATA_PATH <- Sys.getenv("DATA_PATH")
@@ -21,13 +21,13 @@ COLORS <- c(
 ####################################################
 # I keep all my data in one folder, and all my figures
 # in another. I am so paranoid about accidentally releasing
-# sensitive data that I don't even keep it in my git repo
-# with a gitignore file. I keep it somewhere completely separate
+# sensitive data that I don't even keep the data in my git repo
+# with a gitignore file. I keep them somewhere completely separate
 # on my machine.
 # I also keep my figures in a separate location, since I
 # don't really benefit from checking those into version control.
 
-################ Utils for reading and writing data ################
+################ Functions for reading and writing tabular data ################
 
 load_qualtrics_data <- function(filename, fileEncoding = NULL) {
   # Base arguments to pass to read.csv
@@ -58,6 +58,75 @@ write_df_to_file <- function(df, filename) {
     sep = "\t"
   )
 }
+
+
+################ Functions for data wrangling ################
+
+# Function to drop rows that are entirely NA or empty strings.
+# Inputs:
+#    df: a data frame
+#    strict: optional; a boolean, FALSE by default. Indicates
+#    whether you wish to discard all rows that are entirely NA or ""
+#    (FALSE, default), or discard all rows that contain ANY NA or ""
+#    (TRUE).
+# Outputs:
+#    A new data frame where incomplete rows have been removed.
+#    Rows of all zeros will be retained.
+# Example:
+# t <- data.frame(
+#   col1 = c("A", "", "", NA, "A", 0, "A"),
+#   col2 = c("B", "", "B", NA, NA, 0, 0)
+# )
+#
+# > t
+#   col1 col2
+# 1    A    B
+# 2
+# 3         B
+# 4 <NA> <NA>
+# 5    A <NA>
+# 6    0    0
+# 7    A    0
+#
+# > exclude_empty_rows(t)
+#   col1 col2
+# 1    A    B
+# 3         B
+# 5    A <NA>
+# 6    0    0
+# 7    A    0
+#
+# > exclude_empty_rows(t, strict = TRUE)
+#   col1 col2
+# 1    A    B
+# 6    0    0
+# 7    A    0
+
+exclude_empty_rows <- function(df, strict = FALSE) {
+  # Create a logical matrix indicating where values are NA or ""
+  missing_mat <- is.na(df) | df == ""
+
+  # Count per-row how many “missing” entries there are
+  missing_per_row <- rowSums(missing_mat)
+  n_cols <- ncol(df)
+
+  if (strict) {
+    # Keep only rows with zero missing entries
+    keep <- missing_per_row == 0
+  } else {
+    # Keep rows that are not entirely missing
+    keep <- missing_per_row < n_cols
+  }
+
+  # Subset, preserving data.frame structure even if one column
+  return(df[keep, , drop = FALSE])
+}
+
+
+exclude_empty_columns <- function(df) {
+  df[, colSums(is.na(df) | df == "") < nrow(df)]
+} # Drop columns that are entirely NA or empty strings.
+# Columns of all zeros will be retained.
 
 ################ Utils for plotting ################
 
@@ -311,7 +380,6 @@ grouped_bar_chart <- function(
 
 
 # Save a plot
-# Path is in my ~/.Renviron file
 save_plot <- function(fname, w, h, p = NULL, ftype = "tiff", res = 700) {
   ggsave(
     filename = fname,
@@ -322,73 +390,4 @@ save_plot <- function(fname, w, h, p = NULL, ftype = "tiff", res = 700) {
     dpi = res,
     path = FIGURE_PATH
   )
-}
-
-
-################ Utils to clean data ################
-
-# Replace values in a data frame with new values based on a list of codes.
-
-recode_dataframe_likert <- function(df, codes, likert_cols) {
-  df %>%
-    mutate(
-      across(
-        all_of(likert_cols),
-        ~ codes[as.character(.x)] # convert factor to character first
-      )
-    )
-}
-
-
-# Function to drop rows that are entirely NA or empty strings.
-# Rows of all zeros will be retained.
-# strict mode: drop rows containing even one NA or empty string.
-exclude_empty_rows <- function(df, strict = FALSE) {
-  # Create a logical matrix indicating where values are NA or ""
-  missing_mat <- is.na(df) | df == ""
-
-  # Count per-row how many “missing” entries there are
-  missing_per_row <- rowSums(missing_mat)
-  n_cols <- ncol(df)
-
-  if (strict) {
-    # Keep only rows with zero missing entries
-    keep <- missing_per_row == 0
-  } else {
-    # Keep rows that are not entirely missing
-    keep <- missing_per_row < n_cols
-  }
-
-  # Subset, preserving data.frame structure even if one column
-  df[keep, , drop = FALSE]
-}
-
-
-exclude_empty_columns <- function(df) {
-  df[, colSums(is.na(df) | df == "") < nrow(df)]
-} # Drop columns that are entirely NA or empty strings.
-# Columns of all zeros will be retained.
-
-# Functions to calculate summary statistics
-
-# Create a summary dataframe (an alternative to summary(importance))
-custom_summary <- function(df) {
-  mean_row <- round(colMeans(df, na.rm = TRUE), 2)
-  median_row <- apply(df, 2, function(x) round(median(x, na.rm = TRUE), 2))
-  mode_row <- sapply(df, function(x) round(calculate_mode(x), 2))
-  total_value <- apply(df, 2, function(x) round(sum(x, na.rm = TRUE), 2))
-  summary_df <- rbind(mean_row, median_row, mode_row, total_value)
-  rownames(summary_df) <- c("Mean", "Median", "Mode", "Sum")
-  return(summary_df)
-}
-
-calculate_mode <- function(x) {
-  x <- na.omit(x) # Remove NAs
-  if (length(x) == 0) {
-    return(NA)
-  } # Return NA if no values
-  uniq_vals <- unique(x)
-  freq <- tabulate(match(x, uniq_vals))
-  mode_val <- uniq_vals[which.max(freq)]
-  return(mode_val)
 }
