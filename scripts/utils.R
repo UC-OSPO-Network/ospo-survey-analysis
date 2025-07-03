@@ -199,7 +199,7 @@ basic_bar_chart <- function(
 
   # Build the plot
   p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
-    geom_bar(stat = "identity", fill = colors[[color_index]]) +
+    geom_bar(stat = "identity", fill = COLORS[[color_index]]) +
     ggtitle(title) +
     labs(y = ifelse(is.null(ylabel), "Number of Respondents", ylabel)) +
     theme(
@@ -313,7 +313,7 @@ stacked_bar_chart <- function(
     geom_bar(stat = "identity", position = position_type) +
     ggtitle(title) +
     labs(y = ylabel_final) +
-    scale_fill_manual(values = colors) +
+    scale_fill_manual(values = COLORS) +
     theme(
       axis.title.x = element_blank(),
       axis.title.y = element_text(size = 24, margin = margin(r = 15)),
@@ -351,7 +351,7 @@ grouped_bar_chart <- function(
   show_grid = TRUE
 ) {
   if (is.null(color_palette)) {
-    color_palette <- colors
+    color_palette <- COLORS
   }
   ylabel <- ifelse(is.null(ylabel), "Number of Respondents", ylabel)
   ggplot(df, aes(x = .data[[x_var]], fill = .data[[fill_var]])) +

@@ -16,40 +16,6 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
 # Define functions
-#### get_df_for_job_category
-- Arguments:
-  - `job`: A string. 
-  - `raw_data`: The Qualtrics data, unmodified. Don't mess with this. I
-    only made this an argument just to clarify that there's another data
-    structure going into this function besides `job`.
-- Details:
-  - A function that takes a particular job category of interest and produces
-    a data frame with counts for all motivation categories. By 'count', I
-    mean the number of people who selected that motivation.
-- Outputs:
-  - A data frame with two columns: `Motivation` and `Count`. Count is the
-    number of 'yes' responses for that motivation for the given job category.
-```{r}
-get_df_for_job_category <- function(job, raw_data = data) {
-  df <- raw_data %>%
-    filter(job_category == job) %>%
-    select(
-      starts_with("motivations")
-    )
-  df <- shorten_long_responses(df, codenames)
-  # Remove any columns that are all NA or empty strings
-  df <- df[, colSums(is.na(df) | df == "") < nrow(df)]
-  df <- rename_cols_based_on_entries(df)
-  # Remove any rows where they didn't answer the question about motivations
-  df <- make_df_binary(df)
-  df <- data.frame(
-    Motivation = names(df),
-    Count = unname(apply(df, 2, function(x) round(sum(x, na.rm = TRUE))))
-  )
-  return(df)
-}
-```
-
 ```{r}
 line_plot <- function(df, x_var, y_var, title) {
   p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
@@ -80,44 +46,21 @@ line_plot <- function(df, x_var, y_var, title) {
 # Load data
 ```{r}
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
+motivations <- load_qualtrics_data("clean_data/motivations_Q6.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
 
-# Define codes
+Wrangle into a data frame we'll use later
 ```{r}
-codenames <- c(
-  "Developing open-source" = "Job",
-  "To improve the tools" = "Improve Tools",
-  "To customize existing" = "Customize",
-  "To build a network" = "Network",
-  "To give back to" = "Give back",
-  "To improve my skills" = "Skills",
-  "Because it's fun" = "Fun",
-  "Other " = "Other"
-)
+motivations_job_staff <- cbind(motivations, other_quant$job_category)
+names(motivations_job_staff)[length(names(motivations_job_staff))] <- "job_category"
+motivations_job_staff <- cbind(motivations_job_staff, other_quant$staff_categories)
+names(motivations_job_staff)[length(names(motivations_job_staff))] <- "staff_category"
+head(motivations_job_staff)
 ```
 
 # Basic bar plot of contributor motivations
-First we wrangle the data using several functions from my utilities script `scripts/utils.R`.
-```{r}
-motivations <- data %>% select(
-  starts_with("motivations")
-)
-motivations <- shorten_long_responses(motivations, codenames)
-
-# Remove any columns that are all NA or empty strings
-# (Which means nobody selected that response)
-motivations <- exclude_empty_columns(motivations)
-# Remove any rows that are all NA or empty strings
-# (The participant did not answer the question
-# (because they're not UC or not a contributor))
-motivations <- exclude_empty_rows(motivations)
-
-motivations <- rename_cols_based_on_entries(motivations)
-motivations <- make_df_binary(motivations)
-head(motivations)
-```
-
-Now we sum up counts for each motivation.
+Sum up counts for each motivation.
 ```{r}
 motivations_to_plot <- data.frame(
   Motivation = names(motivations),
@@ -151,46 +94,50 @@ myplot
 
 Save the plot if you wish.
 ```{r}
-#save_plot("motivations_overall.tiff", 10, 6, p=myplot)
+save_plot("motivations_overall.tiff", 10, 6, p=myplot)
 ```
 
 # Stacked bar plots of motivations by role
 Now let's make some stacked bar plots of motivations by role (job category). We'll make two: one with the absolute number of responses, and one where all roles are normalized to 1, so we can see the relative proportions of each motivation.
-```{r}
-faculty <- get_df_for_job_category("Faculty")
-nrstaff <- get_df_for_job_category("Non-research Staff")
-postdocs <- get_df_for_job_category("Post-Doc")
-other_researchers <- get_df_for_job_category(
-  "Other research staff (e.g., research scientist, research software engineer)"
-)
-grads <- get_df_for_job_category("Grad Student")
-undergrads <- get_df_for_job_category("Undergraduate")
-# Example
-faculty
-```
 
 For visual clarity, let's combine post-docs and other research staff into one category.
 ```{r}
-postdocs_other <- bind_rows(postdocs, other_researchers) %>%
-  group_by(Motivation) %>%
-  summarise(Count = sum(Count, na.rm = TRUE), .groups = "drop")
+counts_long <- motivations_job_staff %>%
+  pivot_longer(
+    cols      = -c(job_category, staff_category),
+    names_to  = "Motivation",
+    values_to = "Value"
+  ) %>%
+  group_by(job_category, Motivation) %>%
+    summarise(
+      Count = sum(Value, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+big_counts_df <- counts_long %>%
+  # lump Post-Doc & Other research staff together
+  mutate(
+    job_category = case_when(
+      job_category %in% c("Post-Doc", "Other research staff") ~
+        "Post-Docs and\nStaff Researchers",
+      TRUE ~ job_category
+    )
+  ) %>%
+  # re-group and sum up counts
+  group_by(job_category, Motivation) %>%
+  summarise(
+    Count = sum(Count),
+    .groups = "drop"
+  )
+
+big_counts_df
 ```
 
-Add a `Role` column and combine these little data frames into one long-format data frame.
-```{r}
-faculty$Role <- "Faculty"
-nrstaff$Role <- "Non-research Staff"
-grads$Role <- "Grad Students"
-postdocs_other$Role <- "Postdocs and\nStaff Researchers"
-undergrads$Role <- "Undergraduates"
-composite_df <- rbind(faculty, nrstaff, grads, postdocs_other, undergrads)
-head(composite_df)
-```
 
 Create a plot with the absolute number of responses on the y-axis.
 ```{r, fig.width=9, fig.height=6}
-stacked_plot_raw <- stacked_bar_chart(composite_df,
-  x_var = "Role",
+stacked_plot_raw <- stacked_bar_chart(big_counts_df,
+  x_var = "job_category",
   y_var = "Count",
   fill = "Motivation",
   title = "Reasons for Contributing to Open Source",
@@ -200,8 +147,8 @@ stacked_plot_raw
 
 Create another plot where all jobs are scaled to 1.
 ```{r, fig.width=9, fig.height=6}
-stacked_plot_proportional <- stacked_bar_chart(composite_df,
-  x_var = "Role",
+stacked_plot_proportional <- stacked_bar_chart(big_counts_df,
+  x_var = "job_category",
   y_var = "Count",
   fill = "Motivation",
   title = "Reasons for Contributing to Open Source",
@@ -218,45 +165,38 @@ save_plot("motivations_stacks.tiff", 12, 9, p=stacked_plot_proportional)
 # IT vs. Academics
 Request from Greg: What about IT vs. academics? (Students, Teachers, and Researchers)
 ```{r}
-it <- data %>%
-  filter(staff_categories == "Information Technology (IT)") %>%
-  select(
-    starts_with("motivations")
+it <- motivations_job_staff %>% filter(staff_category == "Information Technology (IT)")
+
+it_counts <- it %>%
+  pivot_longer(
+    cols      = -c(job_category, staff_category),
+    names_to  = "Motivation",
+    values_to = "Value"
+  ) %>%
+  select(Motivation, Value) %>%
+  group_by(Motivation) %>%
+    summarise(
+    Count = sum(Value, na.rm = TRUE),
+    .groups = "drop"
   )
+it_counts$Role <- "IT"
 
-it <- shorten_long_responses(it, codenames)
-
-# Remove any columns that are all NA or empty strings
-# (Which means nobody selected that response)
-it <- exclude_empty_columns(it)
-# Remove any rows that are all NA or empty strings
-# (The participant did not answer the question
-# (because they're not UC or not a contributor))
-it <- exclude_empty_rows(it)
-
-it <- rename_cols_based_on_entries(it)
-it <- make_df_binary(it)
-head(it)
-dim(it)
-```
-```{r}
-it <- data.frame(
-  Motivation = names(it),
-  Count = unname(apply(it, 2, function(x) round(sum(x, na.rm = TRUE))))
-)
-it$Role <- "IT"
-it
-
-academics <- composite_df %>%
-  filter(
-    Role == "Faculty" |
-      Role == "Grad Students" |
-      Role == "Postdocs and Staff Researchers" |
-      Role == "Undergraduates"
+academics <- motivations_job_staff %>% filter(job_category %in% c("Faculty", "Post-Doc", "Other research staff", "Grad Student", "Undergraduate"))
+acad_counts <- academics %>%
+  pivot_longer(
+    cols      = -c(job_category, staff_category),
+    names_to  = "Motivation",
+    values_to = "Value"
+  ) %>%
+  select(Motivation, Value) %>%
+  group_by(Motivation) %>%
+    summarise(
+    Count = sum(Value, na.rm = TRUE),
+    .groups = "drop"
   )
-academics$Role <- "Academic"
+acad_counts$Role <- "Academic"
 
-it_academics <- rbind(it, academics)
+it_academics <- rbind(it_counts, acad_counts)
 ```
 
 Plot

@@ -60,81 +60,32 @@ get_percent_more_than_moderate <- function(df) {
 
 # Load data
 ```{r}
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
+importance <- load_qualtrics_data("clean_data/importance_Q2.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
 
 # Wrangle data
 Let's extract the columns we care about.
 ```{r}
-importance_and_job <- data %>%
-  select(
-    starts_with("importance_opensrc") | starts_with("job_category")
-  )
-head(importance_and_job)
+importance_and_job <- cbind(importance, other_quant$job)
+names(importance_and_job)[length(names(importance_and_job))] <- "job_category"
+```
+
+Remove all rows that contain an empty string in any column. Since both
+questions were mandatory, I'm actually only removing people who never saw the
+demographic questions.
+```{r}
+importance_and_job <- exclude_empty_rows(importance_and_job, strict = TRUE)
 ```
 
 Let's reshape the data from wide to long format.
 ```{r}
 long_data <- importance_and_job %>%
   pivot_longer(
-    cols = starts_with("importance_opensrc"),
+    cols = -job_category,
     names_to = "importance_area",
     values_to = "importance_level"
   )
-
-long_data <- long_data %>%
-  mutate(
-    importance_area = recode(
-      importance_area,
-      "importance_opensrc_1" = "Research",
-      "importance_opensrc_2" = "Teaching",
-      "importance_opensrc_3" = "Learning",
-      "importance_opensrc_4" = "Professional Development",
-      "importance_opensrc_5" = "Job"
-    )
-  )
-long_data
-```
-
-**STOP!!!** At this point, I manually compared this data frame to the results
-table in Qualtrics to make sure the columns (e.g. `importance_opensrc_1`)
-correspond to the options I expect (e.g. "Research"). I had to use peoples'
-email addresses to make sure I was comparing the same rows in each table. I
-assumed that the variables were ordered by their order on the survey, but you
-never know. In this case, my assumption was correct. I've commented out the
-code for this because it only needed to be done once.
-```{r}
-# pii <- load_qualtrics_data("pii.tsv")
-# emails <- pii %>%
-#   select(starts_with("stay_in_touch_email"))
-
-# t <- cbind(emails, importance_and_job)
-# subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
-```
-
-Back to data wrangling.
-
-Here, I removed all rows that contain an empty string in any column. Since both
-questions were mandatory, I'm actually only removing people who never saw the
-demographic questions: people who are not affiliated with UC (2) + people who
-are neither past nor future open source contributors (36). (2+36)\*5 importance
-areas = 190 rows removed.
-```{r}
-dim(long_data)
-
-long_data <- long_data %>%
-  filter(!if_any(everything(), ~ . == ""))
-
-dim(long_data)
-```
-
-Shorten this one long category name. `Other research staff (e.g., research scientist, research software engineer)` becomes simply `Other`.
-```{r}
-long_data$job_category <- gsub(
-  "^Other.*",
-  "Research Staff",
-  long_data$job_category
-)
 ```
 
 Reorder factor levels for plotting.
@@ -182,7 +133,7 @@ teaching_to_plot
 ```
 
 Now let's make that bar chart using a function that lives in my utilities script (`scripts/utils.R`).
-```{r}
+```{r, fig.width=18, fig.height=12}
 basic_bar_chart(
   teaching_to_plot,
   x_var = "importance_level",
@@ -332,26 +283,26 @@ Next, I want to look at two importance areas, Learning and Professional Developm
 
 We will have to go back to an earlier data frame and redo some of the data wrangling. (We want to filter for people who answered e.g. teaching, but look at their answers for the other questions. This information was lost when we rearranged from wide to long format.)
 ```{r}
-# Rename this one long job category
-importance_and_job$job_category <- gsub(
-  "^Other.*",
-  "Research Staff",
-  importance_and_job$job_category
-)
+# # Rename this one long job category
+# importance_and_job$job_category <- gsub(
+#   "^Other.*",
+#   "Research Staff",
+#   importance_and_job$job_category
+# )
 
-#Rename columns for readability
-importance_and_job <- importance_and_job %>%
-  rename(
-    Research = importance_opensrc_1,
-    Teaching = importance_opensrc_2,
-    Learning = importance_opensrc_3,
-    `Professional Development` = importance_opensrc_4,
-    Job = importance_opensrc_5
-  )
+# #Rename columns for readability
+# importance_and_job <- importance_and_job %>%
+#   rename(
+#     Research = importance_opensrc_1,
+#     Teaching = importance_opensrc_2,
+#     Learning = importance_opensrc_3,
+#     `Professional Development` = importance_opensrc_4,
+#     Job = importance_opensrc_5
+#   )
 
-# Remove rows that contain any empty strings
-importance_and_job <- importance_and_job %>%
-  filter(!if_any(everything(), ~ . == ""))
+# # Remove rows that contain any empty strings
+# importance_and_job <- importance_and_job %>%
+#   filter(!if_any(everything(), ~ . == ""))
 ```
 
 Let's keep rows from teachers, but keep columns for Learning and Professional Development. Then we change the job_category column to "Teacher".

@@ -19,76 +19,24 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 
 # Load data
 ```{r}
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
-```
-
-# Wrangle data
-```{r}
-future <- data %>%
-  select(
-    starts_with("future_contributors")
-  )
-```
-
-This is one of those questions where the column value is either an empty string, indicating that the person did not select that option, or it is the option itself, e.g. "Accessible conferences or hackathons", indicating that they did select it. The numbering system is weird--each column starts with the prefix "future_contributors" (since that's what I named the question in Qualtrics), but the column numbers don't make much sense. They are:
-future_contributors_1
-future_contributors_4
-future_contributors_7
-future_contributors_8
-future_contributors_9
-future_contributors_10
-future_contributors_11
-future_contributors_12
-future_contributors_22
-future_contributors_23
-future_contributors_24
-There were only ten options (+ "Other"), so I don't know why the numbers go up to 24. Whatever. It doesn't really matter, since we will rename the columns based on the entries.
-
-## Define codes
-```{r}
-codenames <- c(
-  "Accessible conferences" = "Conferences/hackathons",
-  "Access to free" = "Computing environments",
-  "Educational materials" = "Educational materials",
-  "An open source discussion group" = "Learning community",
-  "Dedicated grants" = "Dedicated grants",
-  "Networking opportunities" = "Industry networking",
-  "Job" = "Academic job opportunities",
-  "Other " = "Other",
-  "Assistance identifying" = "Help finding funding",
-  "Legal" = "Legal support",
-  "A mentor" = "Mentoring programs"
-)
-```
-
-Wrangle the data using several functions from my utilities script `scripts/utils.R`.
-```{r}
-future <- shorten_long_responses(future, codenames)
-
-# Remove any columns that are all NA or empty strings
-# (Which means nobody selected that response)
-future <- exclude_empty_columns(future)
-# Remove any rows that are all NA or empty strings
-# (The participant did not answer the question
-# (because they're not eligible))
-future <- exclude_empty_rows(future)
-
-future <- rename_cols_based_on_entries(future)
-future <- make_df_binary(future)
+future <- load_qualtrics_data("clean_data/future_contributors_Q15.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 head(future)
 ```
 
-Now we sum up counts for each solution.
+At this point, we COULD remove rows from participants who never saw this question, but since we're just tallying up the 1s, not the 0s, there's really no need.
+
+# Prepare data for plotting
+Sum up counts for each solution.
 ```{r}
 to_plot <- data.frame(
   Solution = names(future),
   Count = unname(apply(future, 2, function(x) round(sum(x, na.rm = TRUE))))
 )
-head(to_plot)
+to_plot
 ```
 
 # Plot
-
 For visual clarity, let's remove the "Other" row.
 ```{r}
 to_plot <- to_plot %>% filter(Solution != "Other")
@@ -101,7 +49,7 @@ to_plot <- to_plot %>%
 ```
 
 And make a plot, using a function in utils.R.
-```{r}
+```{r, fig.width=9, fig.height=6}
 myplot <- basic_bar_chart(to_plot,
   x_var = "Solution",
   y_var = "Count",
@@ -118,26 +66,26 @@ myplot
 
 Save the plot if you wish.
 ```{r}
-save_plot("future_contributors.tiff", 12, 8, p=myplot)
+#save_plot("future_contributors.tiff", 12, 8, p=myplot)
 ```
 
 # Look at jobs of respondents
-
+NOW let's remove rows where the participant never saw the question. Also, remove rows where we have no data on the participant's job.
 ```{r}
-future_and_job <- data %>%
-  select(
-    starts_with("future_contributors") |
-    starts_with("job_category")
-  )
+future_and_job <- future
+future_and_job$job_category <- other_quant$job_category
 
-future_and_job <- shorten_long_responses(
-  future_and_job,
-  c("Other research staff" = "Other research staff")
-)
+n <- ncol(future)
+future_cols <- names(future_and_job)[1:n]
+last_col   <- names(future_and_job)[ncol(future_and_job)]
 
-# Remove rows where they didn't answer the question
 future_and_job <- future_and_job %>%
-  filter(if_any(future_contributors_1:future_contributors_24, ~ .x != ""))
+  filter(
+    # drop rows where all of the future columns are 0
+    !if_all(all_of(future_cols), ~ . == 0),
+    # drop rows where the job column is ""
+    .data[[last_col]] != ""
+  )
 ```
 
 Combine postdocs and other research staff for better visual clarity.
@@ -165,7 +113,7 @@ jobs <- jobs %>%
 ```
 
 And make a plot, using a function in utils.R.
-```{r}
+```{r, fig.width=9, fig.height=6}
 jobs_plot <- basic_bar_chart(jobs,
   x_var = "Job",
   y_var = "Count",

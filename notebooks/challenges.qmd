@@ -7,7 +7,6 @@ title: "Challenges"
 Initial analysis of survey Q9: "How frequently have you encountered the following challenges while working on open-source projects?"
 
 ## Import packages and utilities
-
 ```{r}
 project_root <- here::here() # requires that you be somewhere in the
 # project directory (not above it)
@@ -18,7 +17,6 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
 ## Set seed
-
 ```{r}
 set.seed(42)
 ```
@@ -31,8 +29,8 @@ set.seed(42)
     Must contain (at least) three columns: `challenge`, `challenge_level`
     (a character column), and `total`.
   - `title_codes`: In this script, this will always be the `titles` list.
-    Keys correspond to shorthand codes for each challenge, and values are
-    the full challenge from the survey.
+    Keys are shorthand codes for each challenge, and values are the full
+    challenge from the survey.
   - `challenges_of_interest`: A character vector of the challenges you
     want to plot.
 - Details:
@@ -59,64 +57,18 @@ multiple_plots <- function(df, title_codes, challenges_of_interest) {
 
 ## Load data
 ```{r}
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
+challenges <- load_qualtrics_data("clean_data/challenges_Q9.tsv")
 ```
 
 ## Wrangle data
-```{r}
-challenges <- data %>%
-  select(
-    starts_with("challenges")
-  )
-
-head(challenges)
-```
-
-**STOP!!** Presumably, "challenges_1" corresponds to the first option, "challenges_2" corresponds to the second option, etc., but we still need to check. I am manually comparing the answers in this data frame to those in the Qualtrics interface, which shows the whole response, i.e. "Limited time for writing new code", not just "challenges_1". To be extra confident that I am comparing the same rows between the two tables, I am looking at responses associated with a particular email. After this code chunk, I go back to using the data frame that doesn't contain the emails.
-
-Since this code only needed to be run once, I've commented it out.
-```{r}
-# pii <- load_qualtrics_data("pii.tsv")
-# emails <- pii %>%
-#     select(starts_with("stay_in_touch_email"))
-
-# t <- cbind(emails, challenges)
-
-# # Next, I run this line repeatedly with different emails,
-# # to make sure that this person's response to "challenges_1"
-# # matches their response to "Limited time for writing new code", etc.
-# subset(t, startsWith(stay_in_touch_email, "PERSON_EMAIL_HERE"))
-```
-
-My assumption above was correct; the options are ordered as expected. Let's rename the columns accordingly.
-```{r}
-challenge_codes <- c(
-  "Coding time" = "challenges_1",
-  "Documentation time" = "challenges_2",
-  "Managing issues" = "challenges_3",
-  "Attracting users" = "challenges_4",
-  "Recognition" = "challenges_5",
-  "Hiring" = "challenges_6",
-  "Security" = "challenges_7",
-  "Finding peers" = "challenges_8",
-  "Finding mentors" = "challenges_9",
-  "Education time" = "challenges_10",
-  "Educational resources" = "challenges_11",
-  "Legal" = "challenges_12",
-  "Finding funding" = "challenges_13",
-  "Securing funding" = "challenges_14"
-)
-challenges <- rename(challenges, any_of(challenge_codes))
-```
-
-Next, remove empty rows, i.e. rows from respondents who didn't receive this question. As with many questions in this survey, we can cut some corners in the code because the question was mandatory. For example, no need to worry about incomplete answers.
+Remove empty rows, i.e. rows from respondents who didn't receive this question. As with many questions in this survey, we can cut some corners in the code because the question was mandatory. For example, no need to worry about incomplete answers.
 ```{r}
 nrow(challenges)
 challenges <- exclude_empty_rows(challenges) # from scripts/utils.R
 nrow(challenges)
 ```
 
-Let's reshape the data from wide to long format for easier plotting later.
+Let's reshape the data from wide to long format for easier plotting later. We'll also recode the Likert values to integers, so we can get descriptive statistics of the responses. ("Never" = 0, "Non-applicable"  = 0,"Rarely" = 1, "Occasionally" = 2, "Frequently" = 3, "Always" = 4)
 ```{r}
 long_data <- challenges %>%
   pivot_longer(
@@ -143,9 +95,9 @@ long_data <- long_data %>%
 long_data
 ```
 
-Next, let's calculate some simple descriptive statistics. I will choose:
-* The total "score", that is, the total number of "points" a challenge received ("Never" = 0, "Non-applicable"  = 0,"Rarely" = 1, "Occasionally" = 2, "Frequently" = 3, "Always" = 4)
-* The mean (which might be misleading if 0s drag it down, and also, who's to say what a 2.5 really means? Are the distances between the Likert points equal? We don't know.)
+Next, let's calculate some simple descriptive statistics. I will choose:\
+* The total "score", that is, the total number of "points" a challenge received
+* The mean (which might be misleading if 0s drag it down, and also, who's to say what a 2.5 really means? Are the distances between the Likert points equal? We assume so, but this is hand-wavy.)
 * The mode
 * The standard deviation
 ```{r}
@@ -197,7 +149,12 @@ ordered_levels <- c(
 )
 
 to_plot <- long_data %>%
-  mutate(challenge_level = factor(challenge_level, levels = ordered_levels)) %>%
+  mutate(
+    challenge_level = factor(
+      challenge_level,
+      levels = ordered_levels
+    )
+  ) %>%
   count(
     challenge,
     challenge_level,
@@ -208,7 +165,7 @@ to_plot <- long_data %>%
 to_plot
 ```
 
-Create a plot for each "challenge". After inspecting the plots, I attempted to order them into groups based on the shape of their distribution. These are the shapes I observed (this is extremely subjective):
+Create a plot for each "challenge". After inspecting the plots, I attempted to order them into groups based on the shape of their distribution. These are the shapes I observed (this is extremely subjective):\
 * Right-skewed: Documentation time, coding time, education time
   * Interpretation: Common tasks that are frequently challenging
 * Highly bimodal: Securing funding, identifying funding, hiring
@@ -265,34 +222,34 @@ left_skewed <- c(
 ```
 
 ### "right-skewed"
-```{r}
+```{r, fig.width=9, fig.height=6}
 multiple_plots(to_plot, titles, right_skewed)
 ```
 
 ### "highly bimodal"
-```{r}
+```{r, fig.width=9, fig.height=6}
 multiple_plots(to_plot, titles, bimodal)
 ```
 
 ### "normal"
-```{r}
+```{r, fig.width=9, fig.height=6}
 multiple_plots(to_plot, titles, normal)
 ```
 
 ### "na-skewed"
-```{r}
+```{r, fig.width=9, fig.height=6}
 multiple_plots(to_plot, titles, na_skewed)
 ```
 
 ### "left-skewed"
-```{r}
+```{r, fig.width=9, fig.height=6}
 multiple_plots(to_plot, titles, left_skewed)
 ```
 
 # K-means clustering of distributions
 This seems like an interesting line of inquiry. Let's make it a little more rigorous by clustering the challenges based on the response rates (actually, the absolute response numbers).
 
-Wrangle data
+## Wrangle data
 ```{r}
 wide_counts <- to_plot %>%
   pivot_wider(
@@ -315,18 +272,19 @@ scaled
 ```
 
 Plot an elbow plot to find the point of diminishing returns.
-```{r}
+```{r, fig.width=9, fig.height=6}
 factoextra::fviz_nbclust(scaled, kmeans, method = "wss")
 ```
 
 I seem to get diminishing returns around k=4.
-```{r}
+```{r, fig.width=9, fig.height=6}
 factoextra::fviz_nbclust(scaled, kmeans, method = "silhouette")
 ```
+
 Hm. The silhouette plot indicates I should use k=3.
 
 I think I'll try k=4 first, since it's closer to the number I got from eyeballing. Let's look at a different type of silhouette plot, which shows us the silhouette width of each cluster and on average across the clusters.
-```{r}
+```{r, fig.width=9, fig.height=6}
 km <- kmeans(scaled, centers = 4, nstart = 25)
 dist_mat <- dist(scaled)
 sil <- cluster::silhouette(km$cluster, dist_mat)
@@ -334,7 +292,7 @@ plot(sil)
 ```
 
 Hm. Looks... acceptable. From Wikipedia: "A clustering with an average silhouette width of over 0.7 is considered to be "strong", a value over 0.5 "reasonable" and over 0.25 "weak"." Let's try unscaled data.
-```{r}
+```{r, fig.width=9, fig.height=6}
 km <- kmeans(wide_counts, centers = 4, nstart = 25)
 dist_mat <- dist(wide_counts)
 sil <- cluster::silhouette(km$cluster, dist_mat)
@@ -342,14 +300,14 @@ plot(sil)
 ```
 
 Looks slightly worse. Still, I think we should probably stick with unscaled data because it's simpler, and I don't think we should add extra unnecessary procedures. What if we try 3 clusters?
-```{r}
+```{r, fig.width=9, fig.height=6}
 km <- kmeans(wide_counts, centers = 3, nstart = 25)
 dist_mat <- dist(wide_counts)
 sil <- cluster::silhouette(km$cluster, dist_mat)
 plot(sil)
 ```
 
-With an average silhouette width of 0.43-0.47, our clusters aren't looking amazing. Still, the average silhouette score is 0.47 with unscaled data and k=3. This is not terrible. I think it's consistent with my hunch that the data for the challenges are not all drawn from the same distribution. These are the cluster assignments:
+With an average silhouette width of 0.43-0.47, our clusters aren't looking amazing. But they're not terrible, either. I prefer to use unscaled data with k=3, which results in an average silhouette score of 0.47. I think these results are consistent with my hunch that the data for the challenges are not all drawn from the same distribution. These are the cluster assignments:
 ```{r}
 # A little extra code to achieve prettier printing
 cluster_df <- data.frame(sort(km$cluster))
@@ -362,9 +320,10 @@ for (cl in clusters) {
 ```
 
 Let's look at a silhouette plot for the PAM method, too.
-```{r}
+```{r, fig.width=9, fig.height=6}
 factoextra::fviz_nbclust(wide_counts, FUNcluster = pam, method = "silhouette")
 ```
+
 This also says that 3 clusters is ideal.
 
 Let's try PAM clustering on the unscaled data with k=3.
@@ -382,12 +341,17 @@ for (cl in clusters) {
   cat("\n")
 }
 ```
+
 We see the same groups we saw with k-means clustering. Good! 
 
 One last check: what about a stability assessment by bootstrap resampling?
 ```{r results="hide"}
 # Note I'm hiding the printed status update from each iteration
-boot_res <- fpc::clusterboot(wide_counts, clustermethod = fpc::kmeansCBI, krange = 3)
+boot_res <- fpc::clusterboot(
+  wide_counts,
+  clustermethod = fpc::kmeansCBI,
+  krange = 3
+)
 # Annoyingly, the documentation doesn't explain 'krange',
 # but I'm pretty sure that this argument lets you specify
 # a desired k or range of k values (e.g. 5:7)
@@ -397,13 +361,13 @@ boot_res <- fpc::clusterboot(wide_counts, clustermethod = fpc::kmeansCBI, krange
 boot_res
 mean(boot_res$bootmean)
 ```
-The "Clusterwise" Jaccard bootstrap means are around 0.8-0.9, which is pretty respectable.
+The clusterwise Jaccard bootstrap means are around 0.8-0.9, which is pretty respectable.
 Although this analysis was brief, I think we can conclude that these three clusters are reasonably stable and meaningful.
 
 # PCA (Abandoned)
 In the above sections, I was clustering challenges into groups. Here, I started clustering people into groups. However, this didn't seem too promising, and I don't know if I care enough to pursue it.
 NOTE THE DIFFERENT CODING SCHEME
-```{r}
+```{r, fig.width=6, fig.height=6}
 challnumeric <- challenges %>%
   mutate(
     across(
