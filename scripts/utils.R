@@ -180,7 +180,10 @@ basic_bar_chart <- function(
 
   # Axis title settings
   axis_title_x <- if (show_axis_title_x) {
-    element_text(size = axis_title_size_x)
+    element_text(
+      size = axis_title_size_x,
+      margin = margin(t = 15)
+    )
   } else {
     element_blank()
   }
