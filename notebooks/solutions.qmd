@@ -18,56 +18,12 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 # Load data
 ```{r}
 data <- load_qualtrics_data("deidentified_no_qual.tsv")
+solutions <- load_qualtrics_data("clean_data/solutions_Q10.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
 
 ## Wrangle data
-```{r}
-solutions <- data %>%
-  select(
-    starts_with("solution_offerings")
-  )
-
-head(solutions)
-```
-
-**STOP!!** Presumably, "solution_offerings_1" corresponds to the first option, "solution_offerings_2" corresponds to the second option, etc., but we still need to check. I am manually comparing the answers in this data frame to those in the Qualtrics interface, which shows the whole response, i.e. "Access to free, feature-rich computing environments", not just "solution_offerings_1". To be extra confident that I am comparing the same rows between the two tables, I am looking at responses associated with a particular email. After this code chunk, I go back to using the data frame that doesn't contain the emails.
-
-Since this code only needed to be run once, I've commented it out.
-```{r}
-# pii <- load_qualtrics_data("pii.tsv")
-# emails <- pii %>%
-#     select(starts_with("stay_in_touch_email"))
-
-# t <- cbind(emails, solutions)
-
-# # Next, I run this line repeatedly with different emails,
-# # to make sure that this person's response to "solution_offerings_1"
-# # matches their response to "Access to free, feature-rich computing environments", etc.
-# subset(t, startsWith(stay_in_touch_email, "PERSON_NAME_HERE"))
-```
-
-
-
-My assumption above was correct; the options are ordered as expected. Let's rename the columns accordingly.
-```{r}
-codes <- c(
-  "Computing environments" = "solution_offerings_1",
-  "Publicity" = "solution_offerings_2",
-  "Containerization" = "solution_offerings_3",
-  "Documentation help" = "solution_offerings_4",
-  "A learning community" = "solution_offerings_5",
-  "Event planning" = "solution_offerings_6",
-  "Mentoring programs" = "solution_offerings_7",
-  "Education" = "solution_offerings_8",
-  "Legal support" = "solution_offerings_9",
-  "Industry partnerships" = "solution_offerings_10",
-  "Sustainability grants" = "solution_offerings_11",
-  "Help finding funding" = "solution_offerings_12"
-)
-solutions <- rename(solutions, any_of(codes))
-```
-
-Next, remove empty rows, i.e. rows from respondents who didn't receive this question. As with many questions in this survey, we can cut some corners in the code because the question was mandatory. For example, no need to worry about incomplete answers.
+First, remove empty rows, i.e. rows from respondents who didn't receive this question. As with many questions in this survey, we can cut some corners in the code because the question was mandatory. For example, no need to worry about incomplete answers.
 ```{r}
 nrow(solutions)
 solutions <- exclude_empty_rows(solutions) # from scripts/utils.R
@@ -99,7 +55,7 @@ long_data <- long_data %>%
 long_data
 ```
 
-
+# Descriptive statistics
 Next, let's calculate some simple descriptive statistics. I will choose:
 
 - The total "score", that is, the total number of "points" a solution received (see scoring scheme in previous code chunk)
@@ -173,40 +129,24 @@ grouped_plot
 
 Save the plot if you wish.
 ```{r}
-#save_plot("fave_solutions.tiff", 10, 6, p=grouped_plot)
+save_plot("fave_solutions.tiff", 10, 6, p=grouped_plot)
 ```
 
 # Simple bar plot
 Now let's make a simpler bar plot from the next question, which asked participants to choose their favorite solution.
 ```{r}
-favorites <- data.frame(data$favorite_solution)
+favorites <- data.frame(other_quant$favorite_solution)
 favorites <- exclude_empty_rows(favorites) # from scripts/utils.R
 
-codes2 <- c(
-  "Access to free" = "Computing environments",
-  "Assistance promoting your" = "Publicity",
-  "Assistance creating" = "Containerization",
-  "Assistance writing" = "Documentation help",
-  "An open source discussion" = "A learning community",
-  "Assistance with event" = "Event planning",
-  "A mentor" = "Mentoring programs",
-  "Educational materials" = "Education",
-  "Legal and licensing" = "Legal support",
-  "Assistance building industry" = "Industry partnerships",
-  "Dedicated grants" = "Sustainability grants",
-  "Assistance identifying potential" = "Help finding funding"
-)
-
-favorites <- shorten_long_responses(favorites, codes2)
-
-fav_to_plot <- data.frame(table(favorites[,1]))
+fav_to_plot <- data.frame(table(favorites[, 1]))
 # from scripts/utils.R
-fav_to_plot <- reorder_factor_by_column( 
+fav_to_plot <- reorder_factor_by_column(
   df = fav_to_plot,
   factor_col = Var1,
   value_col = Freq,
   descending = FALSE
 )
+head(fav_to_plot)
 ```
 
 ```{r, fig.width=9, fig.height=6}
@@ -225,11 +165,11 @@ faves_plot <- basic_bar_chart(
 faves_plot
 ```
 
-Interestingly, the top solutions are not exactly the same in this question compared to tallying up the totals from the previous one.
+The top solutions are not exactly the same in this question compared to tallying up the totals from the previous one, though they are close.
 
 Save the plot if you wish.
 ```{r}
-#save_plot("fave_solutions_simple.tiff", 10, 6, p=faves_plot)
+save_plot("fave_solutions_simple.tiff", 10, 6, p=faves_plot)
 ```
 
 # Incorporating demographics
@@ -240,24 +180,9 @@ Who are these people who want access to computing environments? Don't all the UC
 
 Let's focus on job category. 
 ```{r}
-campus_job_fave <- data %>%
-  select(
-    starts_with("campus") | starts_with("job_category"), favorite_solution
-  )
-
-campus_job_fave <- exclude_empty_rows(campus_job_fave)
-
-# Clean up this one long job name:
-# "Other research staff (e.g., research scientist, research software engineer)"
-campus_job_fave$job_category <- gsub(
-  "^Other.*",
-  "Other research staff",
-  campus_job_fave$job_category
-)
-
+campus_job_fave <- other_quant %>%
+  select(campus, job_category, favorite_solution)
 campus_job_fave <- exclude_empty_rows(campus_job_fave, strict = TRUE)
-campus_job_fave <- shorten_long_responses(campus_job_fave, codes2)
-
 
 # For visual clarity, let's combine postdocs and other staff researchers.
 campus_job_fave <- campus_job_fave %>%
@@ -273,7 +198,7 @@ head(campus_job_fave)
 ```
 
 Of the people who selected "Computing environments", what is the distribution of job categories?
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=10, fig.height=8}
 compute <- campus_job_fave %>%
   filter(favorite_solution == "Computing environments")
 compute_counts <- data.frame(table(compute$job_category))
@@ -299,7 +224,7 @@ compute_bar
 
 Save the plot if you wish.
 ```{r}
-#save_plot("compute_job.tiff", 10, 10, p=compute_bar)
+save_plot("compute_job.tiff", 10, 10, p=compute_bar)
 ```
 
 So those are the absolute numbers, but they don't normalize for the sample sizes of the different job categories. The number of non-research staff who voted for computing environments might be high because there are simply a lot of non-research staff in our survey.
@@ -316,7 +241,7 @@ proportion_df
 ```
 
 The previous plot suggested the demand was mostly coming from non-research staff, but that was deceiving, because we do indeed have a lot of non-research staff in our sample. Let's make a plot that is, I think, more informative. This plot shows the percent of people in that job category who selected computing environments as their favorite solution.
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=10, fig.height=8}
 compute_bar_prop <- basic_bar_chart(
   df = proportion_df,
   x_var = "job_category",
@@ -332,7 +257,7 @@ compute_bar_prop
 
 Save the plot if you wish.
 ```{r}
-#save_plot("compute_job_prop.tiff", 10, 10, p=compute_bar_prop)
+save_plot("compute_job_prop.tiff", 10, 10, p=compute_bar_prop)
 ```
 
 Let's make the same plot, but this time with campus info.
@@ -352,7 +277,7 @@ compute_counts2$job_category <- factor(
 )
 ```
 
-```{r, fig.width=9, fig.height=6}
+```{r, fig.width=11, fig.height=11}
 compute_campus_bar <- stacked_bar_chart(
   df = compute_counts2,
   x_var = "job_category",
@@ -366,9 +291,9 @@ compute_campus_bar <- stacked_bar_chart(
 compute_campus_bar
 ```
 
-Save the plot if you wish.
+This one is a bit harder to interpret, because it's a busy plot and the sample sizes are small. Anyway, save the plot if you wish.
 ```{r}
-#save_plot("compute_job_campus.tiff", 14, 14, p=compute_campus_bar)
+save_plot("compute_job_campus.tiff", 14, 14, p=compute_campus_bar)
 ```
 
 
@@ -436,23 +361,26 @@ job_fave_top3 <- job_fave %>%
 
 head(job_fave_top3)
 ```
-```{r, fig.width=9, fig.height=6}
+
+```{r}
 # Reorder factor levels so legend items are in order of appearance
 job_fave_top3 <- job_fave_top3 %>%
   mutate(favorite_solution = fct_inorder(favorite_solution))
+```
 
+```{r, fig.width=9, fig.height=6}
 top3_plot <- grouped_bar_chart(
   df = job_fave_top3,
   x_var = "job_category",
   fill_var = "favorite_solution",
   title = "Top three most popular solutions\nfor each job category",
-  color_palette = rev(colors)
+  color_palette = rev(COLORS) #from utils.R
 )
 top3_plot
 ```
 
 ```{r}
-#save_plot("top3_solutions_by_job.tiff", 12, 10, p=top3_plot)
+save_plot("top3_solutions_by_job.tiff", 12, 10, p=top3_plot)
 ```
 
 So, I think these are the takeaways:

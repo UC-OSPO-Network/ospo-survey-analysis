@@ -72,7 +72,6 @@ pairwise_z_test_lessthan <- function(
 
 # Load data
 ```{r}
-#data <- load_qualtrics_data("deidentified_no_qual.tsv")
 motivations <- load_qualtrics_data("clean_data/motivations_Q6.tsv")
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
@@ -516,4 +515,9 @@ basic_bar_chart(to_plot,
 Save the plot if desired.
 ```{r}
 save_plot("acad_it_simple.tiff", 9, 9)
+```
+
+# Session Info
+```{r}
+sessionInfo()
 ```
