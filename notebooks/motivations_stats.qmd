@@ -15,16 +15,22 @@ suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
+# Set seed
+```{r}
+set.seed(42)
+```
 
-## Function definition
+# Function definition
 #### pairwise_z_test_lessthan
 - Arguments:
-  - `df`: A data frame where rows are participants, and columns are `Role`
-    plus at least one response variable, e.g. `Skills`, `Give back`, etc.
-    Extra columns are okay. The response variable of interest should be a
-    column of 0s and 1s.
+  - `df`: A data frame where rows are participants, and columns are a
+    predictor, either `job_category` or `Role`, plus at least one response 
+    variable, e.g. `Skills`, `Give back`, etc. Extra columns are okay. 
+    The response variable of interest should be a column of 0s and 1s.
   - `outcome_col`: A string. `Skills` by default, but could be any of the
     7 response variables, e.g. `Improve tools`, `Job`, etc.
+  - `predictor_col`: A string. The name of a factor column containing 2 groups
+    to compare. Currently, should be either `Role` or `job_category` (default).
   - `group1`: A string. The job category that you suspect has a lower
     "success rate", of the two.
   - `group2`: A string. The job category that you suspect has a higher
@@ -40,16 +46,17 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 pairwise_z_test_lessthan <- function(
   df,
   outcome_col = "Skills",
+  predictor_col = "job_category",
   group1,
   group2,
   alternative = "less"
 ) {
   # Count total and 'yes' outcomes for each group
-  n1 <- sum(df[["Role"]] == group1)
-  y1 <- sum(df[["Role"]] == group1 & df[[outcome_col]] == 1)
+  n1 <- sum(df[[predictor_col]] == group1)
+  y1 <- sum(df[[predictor_col]] == group1 & df[[outcome_col]] == 1)
 
-  n2 <- sum(df[["Role"]] == group2)
-  y2 <- sum(df[["Role"]] == group2 & df[[outcome_col]] == 1)
+  n2 <- sum(df[[predictor_col]] == group2)
+  y2 <- sum(df[[predictor_col]] == group2 & df[[outcome_col]] == 1)
 
   # Perform the one-sided prop test (testing if group1 < group2)
   result <- prop.test(
@@ -62,54 +69,54 @@ pairwise_z_test_lessthan <- function(
 }
 ```
 
+
 # Load data
 ```{r}
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
+#data <- load_qualtrics_data("deidentified_no_qual.tsv")
+motivations <- load_qualtrics_data("clean_data/motivations_Q6.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
 
 # Wrangle data
-Here, we use some functions in my utility script (scripts/utilities.R) to clean up the data for Q6. We'll call the resulting data frame `motivations_raw`. This data frame also has a `Role` column indicating the participant's job category.
+
 ```{r}
-codenames <- c(
-  "Developing open-source" = "Job",
-  "To improve the tools" = "Improve Tools",
-  "To customize existing" = "Customize",
-  "To build a network" = "Network",
-  "To give back to" = "Give back",
-  "To improve my skills" = "Skills",
-  "Because it's fun" = "Fun",
-  "Other " = "Other"
-)
+motivations_job_staff <- cbind(motivations, other_quant$job_category)
+# Rename columns
+names(motivations_job_staff)[length(names(motivations_job_staff))] <- "job_category"
+motivations_job_staff <- cbind(motivations_job_staff, other_quant$staff_categories)
+names(motivations_job_staff)[length(names(motivations_job_staff))] <- "staff_category"
+# Remove any rows where the job_category or staff_category are missing
+motivations_job_staff_clean <- exclude_empty_rows(motivations_job_staff, strict=TRUE)
+# Remove rows of all 0s
+motivations_job_staff_clean <- motivations_job_staff_clean %>%
+  filter(!if_all(Job:Other, ~ .x == 0))
+head(motivations_job_staff_clean)
 
-motivations_raw <- data %>%
-  select(
-    starts_with("motivations")
-  )
-motivations_raw <- shorten_long_responses(motivations_raw, codenames)
-motivations_raw <- rename_cols_based_on_entries(motivations_raw)
-motivations_raw$Role <- data$job_category # Let's also include job category
-motivations_raw <- shorten_long_responses(
-  motivations_raw,
-  c("Other research staff" = "Other research staff")
-)
+# Do the same, but dropping staff categories (e.g. IT)
+motivations_job <- subset(motivations_job_staff, select=-staff_category)
+# Remove any rows where the job_category is missing
+motivations_job_clean <- exclude_empty_rows(motivations_job, strict=TRUE)
+# Remove rows of all 0s
+motivations_job_clean <- motivations_job_clean %>%
+  filter(!if_all(Job:Other, ~ .x == 0))
+head(motivations_job_clean)
 
-# Remove any rows where they didn't answer the question
-motivations_raw <- motivations_raw %>%
-  filter(if_any(Job:Other, ~ .x != ""))
-
-motivation_cols <- as.vector(codenames) # Names of all columns except Role
-motivations_raw <- make_df_binary(motivations_raw, cols = motivation_cols)
-head(motivations_raw)
+# This will also come in handy later.
+motivation_cols <- names(motivations_job_clean)[-length(names(motivations_job_clean))]
+motivation_cols
 ```
 
+Here, we use some functions in my utility script (scripts/utilities.R) to clean up the data for Q6. We'll call the resulting data frame `motivations_raw`. This data frame also has a `Role` column indicating the participant's job category.
+
 Here, we combine postdocs and other research staff into one category. We'll call the resulting data frame `motivations_processed`. We will use this for most of our statistical analysis. It gives us more statistical power, and I think it is reasonable in terms of interpretability.
+
 ```{r}
-motivations_processed <- motivations_raw %>%
+motivations_job_clean_streamlined <- motivations_job_clean %>%
   mutate(
-    Role = recode(
-      Role,
-      "Post-Doc" = "Postdocs and Staff Researchers",
-      "Other research staff" = "Postdocs and Staff Researchers"
+    job_category = case_when(
+      job_category %in% c("Post-Doc", "Other research staff") ~ 
+        "Postdocs and Staff Researchers",
+      TRUE ~ job_category
     )
   )
 ```
@@ -119,8 +126,8 @@ I'm interested in the whether a person's job category affects how they will answ
 
 First, we just split our data frame into two. For each observation, X is a single categorical outcome, and we have seven Ys which are binary outcomes.
 ```{r}
-Y <- as.matrix(motivations_processed[, motivation_cols])
-X <- motivations_processed$Role
+Y <- as.matrix(motivations_job_clean_streamlined[, motivation_cols])
+X <- motivations_job_clean_streamlined$job_category
 head(Y)
 head(X)
 ```
@@ -140,7 +147,7 @@ This is a really dumb way to assess goodness of fit, but I also like to look at 
 # Assess goodness of fit
 Next, I'm eyeballing some plots to assess goodness of fit.
 
-The distribution of the residuals seems normal-ish. Note I'm just picking one of the categories that had a weird coefficient, to make sure the data in that category aren't too weird.
+The distribution of the residuals seems normal-ish (shape varies with my chosen random seed). Note I'm just picking one of the categories that had a weird coefficient, to make sure the data in that category aren't too weird.
 ```{r}
 pit_resids <- residuals(fit, type = "pit.trap")
 hist(pit_resids[, "Skills"], main = "PIT Residuals: Skills")
@@ -203,27 +210,29 @@ In my other script, motivations_plots, we have one plot where we apparently see 
 Full disclosure: I'm being a little p-hacky here, because I'm only trying this after I tried a series of pairwise z-tests to see whether the proportion of "yes" for "skills" was significantly different from undergrads vs. grads, grads vs. postdocs, etc. That analysis is after this section. In all seriousness, I don't actually feel that I am p-hacking because I'm not just using a new test to try and make the same claim; this is a different test and we will interpret it appropriately. I'm not claiming that undergrads are more likely than grads to select skills; I'm just claiming that there is a trend across the 4 categories. 
 
 ```{r}
-# Recall "raw" just means I haven't combined post-docs and other research staff
-n_postdoc <- sum(motivations_raw$Role == "Post-Doc")
+# Here, I haven't combined post-docs and other research staff
+n_postdoc <- sum(motivations_job_clean$job_category == "Post-Doc")
 n_postdoc_yes <- sum(
-  motivations_raw$Role == "Post-Doc" & motivations_raw$Skills == 1
+  motivations_job_clean$job_category == "Post-Doc" &
+    motivations_job_clean$Skills == 1
 )
 # For the other groups, it doesn't matter if we use the raw or processed data
-n_faculty <- sum(motivations_processed$Role == "Faculty")
+n_faculty <- sum(motivations_job_clean$job_category == "Faculty")
 n_faculty_yes <- sum(
-  motivations_processed$Role == "Faculty" & motivations_processed$Skills == 1
+  motivations_job_clean$job_category == "Faculty" &
+    motivations_job_clean$Skills == 1
 )
 
-n_grad <- sum(motivations_processed$Role == "Grad Student")
+n_grad <- sum(motivations_job_clean$job_category == "Grad Student")
 n_grad_yes <- sum(
-  motivations_processed$Role == "Grad Student" &
-    motivations_processed$Skills == 1
+  motivations_job_clean$job_category == "Grad Student" &
+    motivations_job_clean$Skills == 1
 )
 
-n_undergrad <- sum(motivations_processed$Role == "Undergraduate")
+n_undergrad <- sum(motivations_job_clean$job_category == "Undergraduate")
 n_undergrad_yes <- sum(
-  motivations_processed$Role == "Undergraduate" &
-    motivations_processed$Skills == 1
+  motivations_job_clean$job_category == "Undergraduate" &
+    motivations_job_clean$Skills == 1
 )
 
 n_yes <- c(
@@ -250,6 +259,7 @@ stats::prop.trend.test(
   score = scores
 )
 ```
+
 I'm honestly not sure whether this is a one-tailed or two-tailed test... I would assume one-tailed, but the documentation is terse. Anyway, even if we divide that p-value by two it's still well under p=0.05.
 
 # Negative/abandoned analysis: Pairwise z-tests
@@ -314,7 +324,6 @@ tryCatch(
   ),
   error = function(e) e
 )
-
 ```
 
 This test fails to give an answer. I think the problem is that the difference in proportions is so small (81% vs. 73%), and the number of grad students is also so small (26), that we will never have enough postdocs to achieve 80% power. With a Cohen's h of 0.5 or greater, it says we would need at least 500 postdocs. With h less than 0.5, the function breaks. So if the absolute value of the effect size were larger, we would have more power, which makes sense. I could plot this function for various h values, but honestly I don't care.
@@ -349,11 +358,12 @@ We have 15 postdocs, and we need 15.6 postdocs for a one-sided test. Good enough
 
 ```{r}
 pairwise_z_test_lessthan(
-  motivations_raw, # Note we are just looking at post docs
+  motivations_job_clean, # Note we are just looking at post docs
   group1 = "Faculty",
   group2 = "Post-Doc"
 )
 ```
+
 It appears that faculty are significantly less likely than postdocs to select "Skills" as a motivator.
 
 # By popular demand: IT vs. Academics
@@ -364,37 +374,33 @@ I plotted the data (see motivations_plots.qmd), and it appears that these groups
 
 ## Data Wrangling
 ```{r}
-it <- data %>%
-  filter(staff_categories == "Information Technology (IT)") %>%
-  select(
-    starts_with("motivations")
-  )
-
-it <- shorten_long_responses(it, codenames)
-it <- exclude_empty_columns(it)
-it <- exclude_empty_rows(it)
-it <- rename_cols_based_on_entries(it)
-it <- make_df_binary(it)
+it <- motivations_job_staff_clean %>%
+  filter(staff_category == "Information Technology (IT)") %>%
+  select(-c(job_category, staff_category))
 it$Role <- "IT"
 head(it)
 dim(it)
 ```
 
 ```{r}
-# Exclude non-research staff
-academics <- motivations_processed %>% 
+# Everyone except non-research staff
+academics <- motivations_job_clean_streamlined %>%
   filter(
-    Role == "Faculty" |
-      Role == "Grad Students" |
-      Role == "Postdocs and Staff Researchers" |
-      Role == "Undergraduates"
-  )
+    job_category == "Faculty" |
+    job_category == "Grad Students" |
+    job_category == "Postdocs and Staff Researchers" |
+    job_category == "Undergraduates"
+  ) %>%
+    select(-job_category)
 academics$Role <- "Academic"
+head(academics)
+dim(academics)
 ```
 
 ```{r}
 it_acad <- rbind(it, academics)
 it_acad$Role <- as.factor(it_acad$Role)
+dim(it_acad)
 ```
 
 ## Regression
@@ -411,14 +417,14 @@ fit
 plot(fit)
 ```
 
-
 ```{r}
 anova_result <- anova(fit, resamp = "pit.trap", test = "LR", p.uni = "adjusted")
 anova_result
 ```
+
 ANOVA/LR test shows the groups are significant. They help explain the data.
 
-We can also look at the Pr(>Dev) for each univariate test, which I'm assuming are p-values. These show that the only motivation that is predicted on its own by these two groups is "Job", with a p-value of 0.023.
+We can also look at the Pr(>Dev) for each univariate test, which I'm assuming are p-values. These show that the only motivation that is predicted on its own by these two groups is "Job", with a p-value of 0.02.
 
 ```{r}
 tryCatch(
@@ -432,7 +438,8 @@ tryCatch(
   error = function(e) e
 )
 ```
-Uh-oh. The pairwise comparison fails. Well, that makes sense. The two groups must be different from each other, or else the global model fit wouldn't be significant. So we actually don't need this test.
+
+Uh-oh. The pairwise comparison fails. Well, actually, that makes sense. The two groups must be different from each other, or else the global model fit wouldn't be significant. So we actually don't need this test.
 
 ## Power analysis
 So, we already know that the IT/Academic distinction is a pretty good predictor of the "Job" motivation. But since I already have the code for the z-test of proportions, I kind of want to do that test, too, just out of curiosity. I feel pretty confident that the regression is working well, but I will feel even better if the z-test is significant, too.
@@ -473,6 +480,7 @@ pwr::pwr.2p2n.test(
   alternative = "less"
 )
 ```
+
 Great. We only need 19 IT people, but we have 33.
 
 Now let's proceed with our hypothesis test.
@@ -480,15 +488,16 @@ Now let's proceed with our hypothesis test.
 pairwise_z_test_lessthan(
   it_acad,
   outcome_col = "Job",
+  predictor_col = "Role",
   group1 = "IT",
   group2 = "Academic"
 )
 ```
+
 Good! A pairwise z-test for proportions says the difference in "success rates" (proportion of yes answers) for IT (21% said yes) and academics (50% said yes) for the "Job" motivation is indeed significant.
 
 I know this notebook should be for stats, and the other should be for plots, but it's just easier right now to make a plot here using the data structures I already have, instead of reconstructing them again in the other script.
-
-```{r}
+```{r, fig.width=9, fig.height=9}
 to_plot <- data.frame(proportion_yes=c(p_acad_yes, p_it_yes), role=c("Academic", "IT"))
 
 basic_bar_chart(to_plot,
@@ -506,5 +515,5 @@ basic_bar_chart(to_plot,
 
 Save the plot if desired.
 ```{r}
-#save_plot("acad_it_simple.tiff", 9, 9)
+save_plot("acad_it_simple.tiff", 9, 9)
 ```
