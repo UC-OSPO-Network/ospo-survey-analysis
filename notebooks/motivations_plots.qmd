@@ -22,7 +22,6 @@ line_plot <- function(df, x_var, y_var, title) {
     geom_point(size = 4) + # Adjust dot size
     scale_y_continuous(labels=scales::percent) +
     labs(
-      y = "Proportion of Participants Motivated by\nDesire to Learn New Skills",
       title = title
     ) +
     theme(
@@ -45,18 +44,32 @@ line_plot <- function(df, x_var, y_var, title) {
 
 # Load data
 ```{r}
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
 motivations <- load_qualtrics_data("clean_data/motivations_Q6.tsv")
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
 
-Wrangle into a data frame we'll use later
+Wrangle into some handy data frames we'll use later. I'm pretty sure that all these cleaning steps are unnecessary, but they make me feel better.
 ```{r}
 motivations_job_staff <- cbind(motivations, other_quant$job_category)
+# Rename columns
 names(motivations_job_staff)[length(names(motivations_job_staff))] <- "job_category"
 motivations_job_staff <- cbind(motivations_job_staff, other_quant$staff_categories)
 names(motivations_job_staff)[length(names(motivations_job_staff))] <- "staff_category"
 head(motivations_job_staff)
+# Remove any rows where the job_category or staff_category are missing
+motivations_job_staff_clean <- exclude_empty_rows(motivations_job_staff, strict=TRUE)
+# Remove rows of all 0s
+motivations_job_staff_clean <- motivations_job_staff_clean %>%
+  filter(!if_all(Job:Other, ~ .x == 0))
+head(motivations_job_staff_clean)
+
+# Do the same, but dropping staff categories (e.g. IT)
+motivations_job <- subset(motivations_job_staff, select=-staff_category)
+# Remove any rows where the job_category is missing
+motivations_job_clean <- exclude_empty_rows(motivations_job, strict=TRUE)
+# Remove rows of all 0s
+motivations_job_clean <- motivations_job_clean %>%
+  filter(!if_all(Job:Other, ~ .x == 0))
 ```
 
 # Basic bar plot of contributor motivations
@@ -102,9 +115,9 @@ Now let's make some stacked bar plots of motivations by role (job category). We'
 
 For visual clarity, let's combine post-docs and other research staff into one category.
 ```{r}
-counts_long <- motivations_job_staff %>%
+counts_long <- motivations_job_clean %>%
   pivot_longer(
-    cols      = -c(job_category, staff_category),
+    cols      = -c(job_category),
     names_to  = "Motivation",
     values_to = "Value"
   ) %>%
@@ -113,6 +126,8 @@ counts_long <- motivations_job_staff %>%
       Count = sum(Value, na.rm = TRUE),
       .groups = "drop"
     )
+counts_long
+unique(counts_long$job_category)
 
 big_counts_df <- counts_long %>%
   # lump Post-Doc & Other research staff together
@@ -129,13 +144,13 @@ big_counts_df <- counts_long %>%
     Count = sum(Count),
     .groups = "drop"
   )
-
 big_counts_df
+unique(big_counts_df$job_category)
 ```
 
 
 Create a plot with the absolute number of responses on the y-axis.
-```{r, fig.width=9, fig.height=6}
+```{r, fig.width=9, fig.height=8}
 stacked_plot_raw <- stacked_bar_chart(big_counts_df,
   x_var = "job_category",
   y_var = "Count",
@@ -146,7 +161,7 @@ stacked_plot_raw
 ```
 
 Create another plot where all jobs are scaled to 1.
-```{r, fig.width=9, fig.height=6}
+```{r, fig.width=9, fig.height=8}
 stacked_plot_proportional <- stacked_bar_chart(big_counts_df,
   x_var = "job_category",
   y_var = "Count",
@@ -165,38 +180,50 @@ save_plot("motivations_stacks.tiff", 12, 9, p=stacked_plot_proportional)
 # IT vs. Academics
 Request from Greg: What about IT vs. academics? (Students, Teachers, and Researchers)
 ```{r}
-it <- motivations_job_staff %>% filter(staff_category == "Information Technology (IT)")
+it <- motivations_job_staff_clean %>%
+  filter(staff_category == "Information Technology (IT)")
 
 it_counts <- it %>%
   pivot_longer(
-    cols      = -c(job_category, staff_category),
-    names_to  = "Motivation",
+    cols = -c(job_category, staff_category),
+    names_to = "Motivation",
     values_to = "Value"
   ) %>%
   select(Motivation, Value) %>%
   group_by(Motivation) %>%
-    summarise(
+  summarise(
     Count = sum(Value, na.rm = TRUE),
     .groups = "drop"
   )
 it_counts$Role <- "IT"
 
-academics <- motivations_job_staff %>% filter(job_category %in% c("Faculty", "Post-Doc", "Other research staff", "Grad Student", "Undergraduate"))
+academics <- motivations_job_clean %>%
+  filter(
+    job_category %in%
+      c(
+        "Faculty",
+        "Post-Doc",
+        "Other research staff",
+        "Grad Student",
+        "Undergraduate"
+      )
+  )
 acad_counts <- academics %>%
   pivot_longer(
-    cols      = -c(job_category, staff_category),
-    names_to  = "Motivation",
+    cols = -job_category,
+    names_to = "Motivation",
     values_to = "Value"
   ) %>%
   select(Motivation, Value) %>%
   group_by(Motivation) %>%
-    summarise(
+  summarise(
     Count = sum(Value, na.rm = TRUE),
     .groups = "drop"
   )
 acad_counts$Role <- "Academic"
 
 it_academics <- rbind(it_counts, acad_counts)
+it_academics
 ```
 
 Plot
@@ -222,7 +249,7 @@ stacked_plot_proportional_it <- stacked_bar_chart(
 ```
 
 Visualize
-```{r, fig.width=9, fig.height=6}
+```{r, fig.width=9, fig.height=8}
 stacked_plot_proportional_it
 ```
 
@@ -236,37 +263,29 @@ save_plot("motivations_stacks_it_academics.tiff", 8, 8, p=stacked_plot_proportio
 
 All 7 undergraduates selected "Skills" and "Give back" as motivations. This made me curious about whether these motivations decrease as we get older and advance in our careers. Let's make some line plots to investigate.
 ```{r}
-motivations_raw <- data %>% select(
-  starts_with("motivations")
-)
-motivations_raw <- shorten_long_responses(motivations_raw, codenames)
-motivations_raw <- rename_cols_based_on_entries(motivations_raw)
-motivations_raw$Role <- data$job_category
-motivations_raw <- shorten_long_responses(motivations_raw, c("Other research staff" = "Other research staff"))
+# Drop staff categories (e.g. IT)
+motivations_job <- subset(motivations_job_staff, select=-staff_category)
+# Remove any rows where the job_category is missing
+motivations_job_clean <- exclude_empty_rows(motivations_job, strict=TRUE)
+# Remove rows of all 0s
+motivations_job_clean <- motivations_job_clean %>%
+  filter(!if_all(Job:Other, ~ .x == 0))
 
-# Remove any rows where they didn't answer the question about motivations
-motivations_raw <- motivations_raw %>%
-  filter(if_any(Job:Other, ~ .x != ""))
-
-motivation_cols <- as.vector(codenames)
-motivations_raw <- make_df_binary(motivations_raw, cols = motivation_cols)
-
-
-skills_by_role <- motivations_raw %>%
-  group_by(Role) %>%
+skills_by_role_grouped <- motivations_job_clean %>%
+  group_by(job_category) %>%
   summarise(
     n_yes = sum(Skills == 1), # number of 1s
     n_tot = n(), # total rows
     Proportion = n_yes / n_tot
   )
 
-skills_by_role_clean <- skills_by_role %>%
-  # drop the staff categories
-  filter(!Role %in% c("Non-research Staff", "Other research staff")) %>%
-  # drop the unnecessary columns
-  select(Role, Proportion) %>%
-  # order the factor levels
-  mutate(Role = factor(Role,
+skills_by_role_grouped <- skills_by_role_grouped %>%
+  # Remove staff categories
+  filter(!job_category %in% c("Non-research Staff", "Other research staff")) %>%
+  # Keep only the relevant columns
+  select(job_category, Proportion) %>%
+  # Order the factor levels
+  mutate(job_category = factor(job_category,
     levels = c(
       "Undergraduate",
       "Grad Student",
@@ -275,18 +294,19 @@ skills_by_role_clean <- skills_by_role %>%
     ),
     ordered = TRUE
   )) %>%
-  arrange(Role)
+  arrange(job_category)
 ```
 
 Plot and visualize
-```{r}
-skills_plot <- line_plot(skills_by_role_clean,
-  x_var = "Role",
-  y_var = "Proportion",
-  title = "Percent of Participants Motivated by\nDesire to Improve Their Skills"
+```{r fig.width=9, fig.height=8}
+skills_plot <- line_plot(skills_by_role_grouped,
+x_var = "job_category",
+y_var = "Proportion",
+title = "Percent of Participants Motivated by\nDesire to Improve Their Skills"
 )
 skills_plot
 ```
+
 Save
 ```{r}
 save_plot("motivations_skill_by_role.tiff", 10, 8, p=skills_plot)
@@ -294,21 +314,21 @@ save_plot("motivations_skill_by_role.tiff", 10, 8, p=skills_plot)
 
 What about giving back?
 ```{r}
-give_by_role <- motivations_raw %>%
-  group_by(Role) %>%
+give_by_role_grouped <- motivations_job_clean %>%
+  group_by(job_category) %>%
   summarise(
     n_yes = sum(`Give back` == 1), # number of 1s
     n_tot = n(), # total rows
     Proportion = n_yes / n_tot
   )
 
-give_by_role_clean <- give_by_role %>%
-  # drop the staff categories
-  filter(!Role %in% c("Non-research Staff", "Other research staff")) %>%
-  # drop the unnecessary columns
-  select(Role, Proportion) %>%
-  # order the factor levels
-  mutate(Role = factor(Role,
+give_by_role_grouped <- give_by_role_grouped %>%
+  # Remove staff categories
+  filter(!job_category %in% c("Non-research Staff", "Other research staff")) %>%
+  # Keep only the relevant columns
+  select(job_category, Proportion) %>%
+  # Order the factor levels
+  mutate(job_category = factor(job_category,
     levels = c(
       "Undergraduate",
       "Grad Student",
@@ -317,20 +337,21 @@ give_by_role_clean <- give_by_role %>%
     ),
     ordered = TRUE
   )) %>%
-  arrange(Role)
+  arrange(job_category)
 ```
 
 Plot and visualize
-```{r}
-line_plot(give_by_role_clean,
-  x_var = "Role",
+```{r fig.width=9, fig.height=8}
+give_plot <- line_plot(give_by_role_grouped,
+  x_var = "job_category",
   y_var = "Proportion",
   title = "Proportion of Participants Motivated by\nDesire to Give Back"
 )
+give_plot
 ```
 Save
 ```{r}
-#save_plot("motivations_giveback_by_role.tiff", 8, 6)
+save_plot("motivations_giveback_by_role.tiff", 8, 6, p=give_plot)
 ```
 
 # Session Info
