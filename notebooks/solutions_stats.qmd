@@ -1,0 +1,215 @@
+---
+title: "Solutions Stats"
+---
+
+Some questions raised by my plots for Q10, about solutions (solutions_plots.qmd):
+- Are solution scores by job category the same for all possible pairs of job groups?
+    - Filter out NAs first
+    - Ordinal logistic regression?
+    - Since this is pretty complicated, maybe just plot the data and run simpler tests on trends that stand out.
+- Are aspiring contributors significantly more likely than experienced contributors to select solutions related to learning and professional development?
+- Are experienced contributors significantly more likely than aspiring contributors to select solutions related to funding?
+- 
+
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+```{r}
+solutions <- load_qualtrics_data("clean_data/solutions_Q10.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+```
+
+# Wrangle data
+First, let's add a participant ID. To proceed with an ordinal regression model, we'll need to use a mixed model formula, since our observations are not independent: the individual participants are a random effect.
+```{r}
+solutions$participantID <- seq(1, nrow(solutions))
+```
+
+Next, remove empty rows, i.e. rows from respondents who didn't receive this question. As with many questions in this survey, we can cut some corners in the code because the question was mandatory. For example, no need to worry about incomplete answers.
+```{r}
+solutions_and_job <- solutions
+solutions_and_job$job_category <- other_quant$job_category
+names(solutions_and_job)[length(names(solutions_and_job))] <- "job_category"
+
+nrow(solutions_and_job)
+solutions_and_job <- exclude_empty_rows(solutions_and_job, strict=TRUE) # from scripts/utils.R
+nrow(solutions_and_job)
+
+head(solutions_and_job)
+```
+
+
+Convert to long data, since this makes it easier to remove NAs and is necessary for the statistics.
+```{r}
+long_data <- solutions_and_job %>%
+  pivot_longer(
+    cols = -c(participantID, job_category),
+    names_to = "solution",
+    values_to = "utility"
+  )
+dim(long_data)
+head(long_data)
+```
+
+Remove NAs.
+```{r}
+long_data <- long_data %>%
+    filter(!(utility == "Non-applicable"))
+dim(long_data)
+```
+
+That removed about 200 rows, out of more than 2000. So less than 10% of the responses were "non-applicable"s.
+
+Make utility an ordered factor.
+```{r}
+long_data$utility <- factor(long_data$utility,
+      levels = c("Not very useful", "Useful", "Very useful"),
+      ordered = TRUE
+    )
+```
+
+# Create candidate models
+I'd like to fit a cumulative-logit mixed model, a.k.a. an ordinal regression model, using the clmm function from the ordinal package. (I am not using polr from the MASS package because it does not allow random effects.) I know we want to include participantID as a random effect, but I'm not 100% sure how to model solution. I think it would be best to compare different models.
+
+Note that the next few cells take several minutes to run.
+
+## Model 1: job_category * solution interaction
+Here, I'm modeling job_category and solution as independent fixed effects, and assuming that there is also an effect from the interaction of the two. This way, we get a global slope (/coefficient/effect) for job_category, a global slope (/coefficient/effect) for solution, a global slope (/coefficient/effect) for the interaction (I think), and a global intercept. Adding participant as a random effect allows each participant to have their own deviation from the global intercept.
+```{r}
+fit1 <- clmm(utility ~ job_category * solution +      
+              (1 | participantID),                 
+            data = long_data, link = "logit", Hess = TRUE)
+```
+Hm. I get a warning that "Hessian is numerically singular: parameters are not uniquely determined" and "Absolute convergence criterion was met, but relative criterion was not met". The internet suggests that this might mean that some job-category × solution combinations have few or zero responses in one of the utility levels, so the full job_category * solution interaction is over-parameterised.
+
+## Model 2: solution as a random effect, no correlation between participant intercept and job effect
+Here's another formulation. In this case, solution is another random effect, so we only get one global slope/coefficient/effect from job_category, but each solution intercept is allowed to deviate from the global intercept. We assume that across solutions, the deviations in job_category from the global effect of job_category are not correlated with that solution's intercept's deviation from the global intercept.
+```{r}
+fit2 <- clmm(utility ~ job_category +       
+              (1 | solution) +
+              (1 | participantID) +
+              (0 + job_category | solution),                
+            data = long_data, link = "logit", Hess = TRUE)
+```
+
+Here, we again have 4 terms, like we did in the first model: a global intercept, slopes for job_category and solution, and a slope for the interaction. Now, we also estimate the deviance of each of these terms from the global baseline for each participant, and we also estimate the correlations between the deviations for each possible combination of the 4 terms, for each participant. Er, I think. (Helpful cheat sheet: https://stats.stackexchange.com/questions/13166/rs-lmer-cheat-sheet)
+
+This one measures a ton of parameters... ABANDONED; NEVER CONVERGED
+```{r}
+# fit3 <- clmm(utility ~ job_category * solution +       # fixed effects
+#               (0 + job_category*solution | participantID),
+#             data = long_data, link = "logit", Hess = TRUE)
+```
+
+All the models seem to be struggling a bit. Let's explore the data for a moment.
+```{r}
+# three way cross tabs (xtabs) and flatten the table
+# code from: https://ladal.edu.au/tutorials/regression/regression.html
+ftable(xtabs(~ job_category + solution + utility, data = long_data))
+```
+Hm. Indeed, the data are sparse in places, particularly for undergraduates. Perhaps we should combine postdocs + staff researchers, as well as undergrads + grad students.
+
+```{r}
+combined <- long_data %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
+    )
+  )
+
+combined <- combined %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Student",
+      "Undergraduate" = "Student"
+    )
+  )
+```
+
+Now let's run models 1 and 2 again, but with this consolidated dataset, bringing us up to 4 models.
+
+## Model 3: Model 1, but with consolidated data
+```{r}
+fit3 <- clmm(utility ~ job_category * solution +      
+              (1 | participantID),                 
+            data = combined, link = "logit", Hess = TRUE)
+```
+
+## Model 4: Model 2, but with consolidated data
+```{r}
+fit4 <- clmm(utility ~ job_category +       
+              (1 | solution) +
+              (1 | participantID) +
+              (0 + job_category | solution),                
+            data = combined, link = "logit", Hess = TRUE)
+```
+
+## Model 5: Null model
+Sanity check: should we perhaps include a null model, where job category doesn't matter? (Using consolidated data)
+```{r}
+fit5 <- clmm(utility ~ solution +      
+              (1 | participantID),                 
+            data = combined, link = "logit", Hess = TRUE)
+```
+
+Why not also make a model where solution doesn't matter?
+
+```{r}
+fit6 <- clmm(utility ~ job_category +      
+              (1 | participantID),                 
+            data = combined, link = "logit", Hess = TRUE)
+```
+
+```{r}
+models <- list(
+  "fit1"=fit1,
+  "fit2"=fit2,
+  "fit3"=fit3,
+  "fit4"=fit4,
+  "fit5"=fit5,
+  "fit6" = fit6
+)
+```
+
+Let's check the AICs.
+```{r}
+sapply(models, function(x) round(AIC(x)))
+```
+The AICs for all the models are fairly similar, except #6, which is good, because that's the null model where solution doesn't matter. fit3 looks slightly better than the others. Surprisingly, the fit5, our other null model is in the middle, though maybe that's because I used the consolidated data, which should be easier to fit.
+
+Let's check the condition number of the Hessian. I don't really understand what this is, but the clmm2 tutorial says that high numbers, say larger than say 10^4 or 10^6, indicate poor fit.
+```{r}
+sapply(models, function(x) 
+summary(x)$info["cond.H"]
+)
+```
+By this metric, only fit1 is really bad.
+
+This was a really limited examination of goodness-of-fit, but I'm not sure what other metrics to use. The ordinal package provides g-o-f functions nominal_test and scale_test, but these only work on clm objects, not clmm objects. I don't think an anova would really be interpretable, because these are not neatly nested models. So I'm basically just going with AIC and nothing else.
+
+Let's use fit3 because it had the lowest AIC. I also find it easier to understand than the more complicated formula.
+
+
+
+
+
+
+
+
+
+
+
+
+
