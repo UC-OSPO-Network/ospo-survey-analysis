@@ -123,7 +123,7 @@ jobs_plot <- basic_bar_chart(jobs,
   show_bar_labels = TRUE,
   show_ticks_y = FALSE,
   color_index = 2,
-  show_axis_title_y = FALSE,
+  show_axis_title_y = TRUE,
   show_grid = TRUE
 )
 jobs_plot
