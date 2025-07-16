@@ -321,16 +321,16 @@ combined_donuts
 
 I'm envisioning a figure where I'd like to have some variety in the color palettes and the legend position. I'll put three donuts onto one canvas in Powerpoint, and then make some additional tweaks: I'll add some lines to illustrate which slices of the donut I'm focusing on, and also I will need to fix this bug where the legend keys stretch to multiple lines. (https://github.com/tidyverse/ggplot2/issues/3669) (A fix has been merged, but it's not yet available in the latest release of ggplot2.)
 
-#### Left plot: fields of study
+#### Plot: fields of study
 ```{r, fig.width=9, fig.height=6}
 p3 <- donut_chart(
   field_data,
   cpalette = c(
     '#BBBBBB',
-    '#EE7733',
+    '#CCBB44',
     '#EE3377',
     '#33BBEE',
-    '#CC3311'
+    '#228833'
   ),
   legendpos="left"
 ) +
@@ -343,7 +343,7 @@ p3
 save_plot(sprintf("field_donut_%s.tiff", tolower(population)), 10, 6, p = p3)
 ```
 
-#### Central plot: job categories
+#### Plot: job categories
 ```{r, fig.width=9, fig.height=6}
 p1 <- donut_chart(
   job_data,
@@ -368,7 +368,7 @@ save_plot(
 )
 ```
 
-#### Right plot: non-research staff categories
+#### Plot: non-research staff categories
 ```{r, fig.width=9, fig.height=6}
 p4 <- donut_chart(
   staff_long_data,

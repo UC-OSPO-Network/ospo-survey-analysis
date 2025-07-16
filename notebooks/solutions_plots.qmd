@@ -17,7 +17,6 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 
 # Load data
 ```{r}
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
 solutions <- load_qualtrics_data("clean_data/solutions_Q10.tsv")
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
@@ -198,7 +197,7 @@ head(campus_job_fave)
 ```
 
 Of the people who selected "Computing environments", what is the distribution of job categories?
-```{r, fig.width=10, fig.height=8}
+```{r}
 compute <- campus_job_fave %>%
   filter(favorite_solution == "Computing environments")
 compute_counts <- data.frame(table(compute$job_category))
@@ -210,7 +209,9 @@ compute_counts <- reorder_factor_by_column(
   factor_col = job_category,
   value_col = compute
 )
+```
 
+```{r, fig.width=10, fig.height=8}
 compute_bar <- basic_bar_chart(
   df = compute_counts,
   x_var = "job_category",

@@ -98,6 +98,7 @@ myplot <- basic_bar_chart(motivations_to_plot,
   show_bar_labels = TRUE,
   show_ticks_y = FALSE,
   color_index = 3,
+  show_axis_title_x = TRUE,
   show_axis_title_y = FALSE,
   show_grid = TRUE
 )
