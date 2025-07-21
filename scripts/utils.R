@@ -292,20 +292,54 @@ stacked_bar_chart <- function(
   y_var,
   fill,
   title,
-  ylabel = NULL,
+  cpalette = COLORS,
+  horizontal = FALSE,
+  legend_left_margin = 0,
+  proportional = FALSE,
+  show_axis_title_y = TRUE,
+  show_x_axis_text = TRUE,
   show_grid = TRUE,
-  proportional = FALSE
+  show_legend = TRUE,
+  ylabel = NULL
 ) {
+  # Add padding to left side of legend
+  legend_margin <- margin(l = legend_left_margin)
+
+  # Hide legend
+  legend_pos <- if_else(isTRUE(show_legend), "right", "none")
+
   # Set position for geom_bar
   position_type <- if (proportional) "fill" else "stack"
 
-  # Determine y-axis label if not provided
+  # Determine y-axis label
   ylabel_final <- if (!is.null(ylabel)) {
     ylabel
   } else if (proportional) {
     "Proportion of Responses"
   } else {
     "Number of Responses"
+  }
+
+  # Hide y-axis title
+  axis_title_y <- if (show_axis_title_y) {
+    element_text(
+      size = 24,
+      margin = margin(r = 15)
+    )
+  } else {
+    element_blank()
+  }
+
+  # Hide x-axis text
+  x_text <- if (show_x_axis_text) {
+    element_text(
+      angle = 60,
+      vjust = 0.9,
+      hjust = 0.98,
+      size = 24
+    )
+  } else {
+    element_blank()
   }
 
   # Build the plot
@@ -316,30 +350,33 @@ stacked_bar_chart <- function(
     geom_bar(stat = "identity", position = position_type) +
     ggtitle(title) +
     labs(y = ylabel_final) +
-    scale_fill_manual(values = COLORS) +
+    scale_fill_manual(values = cpalette) +
     theme(
       axis.title.x = element_blank(),
-      axis.title.y = element_text(size = 24, margin = margin(r = 15)),
-      axis.text.x = element_text(
-        angle = 60,
-        vjust = 0.9,
-        hjust = 0.98,
-        size = 24
-      ),
+      axis.title.y = axis_title_y,
+      axis.text.x = x_text,
       axis.text.y = element_text(size = 24),
       axis.ticks.x = element_blank(),
       axis.ticks.y = element_blank(),
+      legend.position = legend_pos,
+      legend.margin = legend_margin,
+      legend.title = element_blank(),
+      legend.text = element_text(size = 24),
       panel.background = element_blank(),
       panel.grid = if (show_grid) {
         element_line(linetype = "solid", color = "gray90")
       } else {
         element_blank()
       },
-      legend.title = element_blank(),
-      legend.text = element_text(size = 24),
       plot.title = element_text(hjust = 0.5, size = 24),
       plot.margin = unit(c(0.8, 0.8, 0.8, 0.8), "cm")
     )
+
+  # Flip coordinates if horizontal
+  if (horizontal) {
+    p <- p + coord_flip()
+  }
+
   return(p)
 }
 

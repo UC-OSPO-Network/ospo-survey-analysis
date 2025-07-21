@@ -155,7 +155,8 @@ to_plot <- long_data %>%
       levels = ordered_levels
     )
   ) %>%
-  count(
+  count( # Count number of occurrences, 
+  #i.e. number of people who selected that challenge level
     challenge,
     challenge_level,
     name = "total"
@@ -363,6 +364,122 @@ mean(boot_res$bootmean)
 ```
 The clusterwise Jaccard bootstrap means are around 0.8-0.9, which is pretty respectable.
 Although this analysis was brief, I think we can conclude that these three clusters are reasonably stable and meaningful.
+
+# Stacked bar plots
+A request from Amber: how about color-coded stacked bar plots, instead of the bar charts I made above?
+
+```{r}
+
+# Rename this column, poorly named by the cluster package
+# From `sort.km.cluster.` to sort_km_cluster
+names(cluster_df)[1] <- "sort_km_cluster"
+
+temp <- to_plot
+temp$challenge_level <- factor(temp$challenge_level, levels = rev(ordered_levels))
+
+data_cluster1 <- temp %>%
+  filter(
+      challenge %in% rownames(subset(cluster_df, sort_km_cluster == 1)
+    )
+  )
+
+data_cluster2 <- temp %>%
+  filter(
+      challenge %in% rownames(subset(cluster_df, sort_km_cluster == 2)
+    )
+  )
+
+data_cluster3 <- temp %>%
+  filter(
+      challenge %in% rownames(subset(cluster_df, sort_km_cluster == 3)
+    )
+  )
+```
+
+WARNING! I am changing the cluster names ONLY on the plot, not in the rest of the code. The plot looks better when the two small clusters--clusters 1 and 3--are next to each other (we want to visually compare them, and it's easier to do so when they're adjacent). However, the plot looks dumb when I have them in order 1, 3, 2. It looks like I made a mistake. So I am renaming the plot panel titles ONLY.
+
+```{r}
+# Paul Tol's sunset theme
+#https://sronpersonalpages.nl/~pault/
+sunset <- c(
+  "#A50026",
+  "#F67E4B",
+  "#FEDA8B",
+  "#C2E4EF",
+  "#6EA6CD",
+  "#364B9A"
+)
+
+p1 <- stacked_bar_chart(
+  df = data_cluster2,
+  x_var = "challenge",
+  y_var = "total",
+  fill = "challenge_level",
+  title = "Cluster 1", # NAME CHANGE, SEE TEXT ABOVE
+  ylabel = NULL,
+  show_axis_title_y = FALSE,
+  show_x_axis_text = FALSE,
+  show_grid = TRUE,
+  show_legend = FALSE, # don't show legend
+  horizontal = TRUE,
+  proportional = TRUE,
+  cpalette = sunset
+)
+
+p2 <- stacked_bar_chart(
+  df = data_cluster3,
+  x_var = "challenge",
+  y_var = "total",
+  fill = "challenge_level",
+  title = "Cluster 2", # NAME CHANGE, SEE TEXT ABOVE
+  ylabel = NULL,
+  legend_left_margin = 45, # show legend, with a wide margin
+  show_axis_title_y = FALSE,
+  show_x_axis_text = FALSE,
+  show_grid = TRUE,
+  horizontal = TRUE,
+  proportional = TRUE,
+  cpalette = sunset
+)
+
+p3 <- stacked_bar_chart(
+  df = data_cluster1,
+  x_var = "challenge",
+  y_var = "total",
+  fill = "challenge_level",
+  title = "Cluster 3", # NAME CHANGE, SEE TEXT ABOVE
+  ylabel = NULL,
+  show_axis_title_y = FALSE,
+  show_x_axis_text = FALSE,
+  show_grid = TRUE,
+  show_legend = FALSE, # don't show legend
+  horizontal = TRUE,
+  proportional = TRUE,
+  cpalette = sunset
+)
+```
+
+
+```{r, fig.width=14, fig.height=12}
+combined <- patchwork::wrap_plots(p1, p2, p3, ncol = 1) +
+  patchwork::plot_layout(heights = c(1, 1, 2)) +
+  patchwork::plot_annotation(
+    title = "Frequency of Open Source Challenges",
+    theme = theme(plot.title = element_text(
+      size = 24,
+      margin = margin(t = 15),
+      hjust = 0.5)
+      )
+  )
+combined
+```
+
+Actually, I think the cluster assignments might be stochastic? I.e., they are labeled randomly each time I run this script? I am too lazy to make sure that e.g. the cluster that contains "Documentation time" is always cluster #1. In fact, I think it would be poor practice to rename an intermediate data structure for the sake of the plot. I'd rather just change the plot titles. My solution is, I am just going to save the plot that I like, and not re-create it every time I run this script. Yes, this is less reproducible, but I'm not going to spend my time fixing it because it's a purely cosmetic problem that will only come up if someone tries to recreate my figures, and doesn't affect the underlying data.
+
+```{r}
+#save_plot("challenge_stacks.tiff", 14, 12, p=combined)
+```
+
 
 # PCA (Abandoned)
 In the above sections, I was clustering challenges into groups. Here, I started clustering people into groups. However, this didn't seem too promising, and I don't know if I care enough to pursue it.
