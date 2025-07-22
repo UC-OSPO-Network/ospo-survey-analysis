@@ -3,6 +3,7 @@
 library(cluster)
 library(corrplot)
 library(dplyr)
+library(emmeans)
 library(factoextra)
 library(forcats)
 library(fpc)
