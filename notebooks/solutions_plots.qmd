@@ -59,6 +59,7 @@ Next, let's calculate some simple descriptive statistics. I will choose:
 
 - The total "score", that is, the total number of "points" a solution received (see scoring scheme in previous code chunk)
 - The mean (which might be misleading if 0s drag it down, and also, who's to say what a 1.5 really means? Are the distances between the Likert points equal? We don't know.)
+- The median
 - The mode
 - The standard deviation
 ```{r}
@@ -73,6 +74,7 @@ summary_df <- long_data %>%
   summarise(
     total  = sum(utility_score),
     mean   = mean(utility_score, na.rm = TRUE),
+    median = median(utility_score),
     mode   = get_mode(utility_score),
     st_dev = sd(utility_score, na.rm = TRUE)
   ) %>%
@@ -93,7 +95,15 @@ summary_df %>%
   arrange(desc(st_dev))
 ```
 
-This analysis doesn't seem as interesting as it was for the challenges. Industy partnerships, Containerization, and Publicity all show high variance/stdev. These were also somewhat less popular.
+This analysis doesn't seem as interesting as it was for the challenges. Industy partnerships, Containerization, and Publicity all show high variance/stdev. These were also somewhat less popular. Come to think of it, the std devs don't vary much.
+
+```{r}
+max(summary_df$st_dev)
+min(summary_df$st_dev)
+max(summary_df$st_dev)-min(summary_df$st_dev)
+```
+
+Yeah, the std devs only range from 0.73 to 0.84 (~0.11)--substantially less than the differences in std devs between challenges (~0.66). We could probably demonstrate this with a significance test later if it feels interesting.
 
 Out of curiosity, how many people said they would all be very useful?
 ```{r}

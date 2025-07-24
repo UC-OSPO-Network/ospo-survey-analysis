@@ -106,7 +106,7 @@ Note that the next few cells take several minutes to run.
 ## Model 1: job_category * solution interaction
 Here, I'm modeling job_category and solution as independent fixed effects, and assuming that there is also an effect from the interaction of the two. This way, we get a global slope for job_category, a global slope for solution, a global slope for the interaction (I think), and a global intercept. Adding participant as a random effect allows each participant to have their own deviation from the global intercept.
 ```{r}
-fit1 <- clmm(utility ~ job_category * solution +      
+fit1 <- ordinal::clmm(utility ~ job_category * solution +      
               (1 | participantID),                 
             data = long_data, link = "logit", Hess = TRUE)
 ```
@@ -115,7 +115,7 @@ Hm. I get a warning that "Hessian is numerically singular: parameters are not un
 ## Model 2: solution as a random effect, no correlation between participant intercept and job effect
 Here's another formulation. In this case, solution is another random effect, so we only get one global slope from job_category, but each solution intercept (as well as each participant intercept) is allowed to deviate from the global intercept. We assume that across solutions, the deviations in job_cateogry effect from the global effect of job_category are not correlated with that solution's intercept's deviation from the global intercept.
 ```{r}
-fit2 <- clmm(utility ~ job_category +       
+fit2 <- ordinal::clmm(utility ~ job_category +       
               (1 | solution) +
               (1 | participantID) +
               (0 + job_category | solution),                
@@ -126,7 +126,7 @@ Next, we again have 4 terms, like we did in the first model: a global intercept,
 
 This one measures a ton of parameters... ABANDONED; NEVER CONVERGED
 ```{r}
-# fit3 <- clmm(utility ~ job_category * solution +       # fixed effects
+# fit3 <- ordinal::clmm(utility ~ job_category * solution +       # fixed effects
 #               (0 + job_category*solution | participantID),
 #             data = long_data, link = "logit", Hess = TRUE)
 ```
@@ -163,7 +163,7 @@ Now let's run models 1 and 2 again, but with this consolidated dataset.
 
 ## Model 1b: Model 1, but with consolidated data
 ```{r}
-fit1b <- clmm(utility ~ job_category * solution +      
+fit1b <- ordinal::clmm(utility ~ job_category * solution +      
               (1 | participantID),                 
             data = combined, link = "logit", Hess = TRUE)
 ```
@@ -172,7 +172,7 @@ No warning this time, and I feel like it finished faster. My hunch is that this 
 
 ## Model 2b: Model 2, but with consolidated data
 ```{r}
-fit2b <- clmm(utility ~ job_category +       
+fit2b <- ordinal::clmm(utility ~ job_category +       
               (1 | solution) +
               (1 | participantID) +
               (0 + job_category | solution),                
@@ -184,7 +184,7 @@ So, those are two fairly complex models that I think capture the important varia
 ## Model 3: No job category
 Let's make a null model where job category doesn't matter. (Using the consolidated data)
 ```{r}
-fit3 <- clmm(utility ~ solution +      
+fit3 <- ordinal::clmm(utility ~ solution +      
               (1 | participantID),                 
             data = combined, link = "logit", Hess = TRUE)
 ```
@@ -192,7 +192,7 @@ fit3 <- clmm(utility ~ solution +
 ## Model 4: No solution category
 How about a model where solution doesn't matter?
 ```{r}
-fit4 <- clmm(utility ~ job_category +      
+fit4 <- ordinal::clmm(utility ~ job_category +      
               (1 | participantID),                 
             data = combined, link = "logit", Hess = TRUE)
 ```
@@ -200,12 +200,20 @@ fit4 <- clmm(utility ~ job_category +
 ## Model 5: job_category + solution
 In this minimal model, we include job_category + solution, but without any interaction. This model says that we can predict the rating by simply adding the effect of job category and the effect of solution, with no additional effect from combining a particular job category with a particular solution.
 ```{r}
-fit5 <- clmm(utility ~ job_category + solution +
+fit5 <- ordinal::clmm(utility ~ job_category + solution +
               (1 | participantID),                 
             data = combined, link = "logit", Hess = TRUE)
 ```
 
-# Compare model AICs
+## Model 6: no random effects
+Do we really need to account for participants' individual baselines?
+```{r}
+# note clm function bc clmm is for mixed models
+fit6 <- ordinal::clm(utility ~ job_category * solution,                 
+            data = combined, link = "logit", Hess = TRUE)
+```
+
+# Compare models
 ```{r}
 models <- list(
   "fit1"=fit1, # job_category * solution, sparser data
@@ -214,16 +222,17 @@ models <- list(
   "fit2b"=fit2b, # solution as random effect, denser data
   "fit3"=fit3, # Null model: no job
   "fit4"=fit4, # Null model: no solution
-  "fit5"=fit5 # Null model: no interaction
+  "fit5"=fit5, # Null model: no interaction
+  "fit6"=fit6 # Null model: no participants
 )
 ```
 
-Let's check the AICs. You're not supposed to compare AICs for models fit to different data sets (models 1 and 2 are using the sparser data), but since I've only changed the job_category labels, but not the observations or the number of observations, I think this is ok.
+First, let's get a general sense of goodness-of-fit by looking at the AICs. You're not supposed to compare AICs for models fit to different data sets (models 1 and 2 are using the sparser data), but since I've only changed the job_category labels, but not the observations or the number of observations, I think this is ok.
 ```{r}
-sapply(models, function(x) round(AIC(x)))
+sapply(models, function(x) round(stats::AIC(x)))
 ```
 
-The AICs for all the models are fairly similar, except #4, where solution isn't doesn't matter, and job_category alone influences the response. This makes sense. Model 5, where job category and solution have no interaction, does fairly well. Maybe job-solution interactions are subtle.
+The AICs for all the models are fairly similar, except in two cases: #4, where solution isn't doesn't matter, and job_category alone influences the response, and #6, where participant ID doesn't matter. Both of these make sense. Model 5, where job category and solution have no interaction, does fairly well. Maybe job-solution interactions are subtle.
 
 Model 1b looks the best. According to the internet, a delta AIC of more than ten is pretty substantial, and here we have a difference of 20 between the best and second-best.
 
@@ -235,14 +244,32 @@ summary(x)$info["cond.H"]
 ```
 Okay, depending on my random seed, fit1 either gives a NaN or a high value here. All the other models look decent.
 
-How else to evaluate the models? The `ordinal` package provides goodness-of-fit functions nominal_test and scale_test, but these only work on clm objects, not clmm objects. Bummer.
+## Complex models vs null models
 
-Let's use an anova to compare the two models that scored the best. Since they also happen to be nested, an anova works here.
+Let's use an anova to compare the two models that scored the best in terms of AIC. Since they also happen to be nested, an anova works here.
 ```{r}
-anova(fit1b, fit5)
+stats::anova(fit1b, fit5)
 ```
 
-That's a very significant p-value. It looks like the interaction term is worth including.
+That's a significant p-value. It looks like the interaction term is worth including.
+
+Let's also double-check that participants are worth including.
+```{r}
+stats::anova(fit1b, fit6)
+```
+
+Yep, definitely want to include those.
+
+Does it matter whether we include job as a variable? Let's compare it to the model with job + solution, without an interaction term.
+```{r}
+stats::anova(fit3, fit5)
+```
+
+It appears that job is also significant in explaining the variation in the data.
+
+## More goodness of fit evaluation
+
+How else to evaluate the models? The `ordinal` package provides goodness-of-fit functions nominal_test and scale_test, but as far as I can tell, these only work on clm objects, not clmm objects. (mixed models)
 
 Model 2b had a similar AIC as model 5. While I can't compare model 1b and model 2b with anova, since they're not nested, I can at least glance at the standard errors of the coefficients, which give me a sense of the precision of the coefficient estimates.
 ```{r}
@@ -250,10 +277,19 @@ summary(fit1b$coefficients)
 summary(fit2b$coefficients)
 ```
 
-Hm. So fit1b had the lowest AIC of all the models and is significantly better at explaining the variation than the equivalent minimal model without an interaction term. However, fit2b has smaller SEs than fit1b, where solution is a random effect. So I find myself in the annoying situation of having two g-o-f tests that don't agree.
+Hm. So fit1b had the lowest AIC of all the models and is significantly better at explaining the variation than the equivalent minimal model without an interaction term. However, the coefficients of fit2b have smaller SEs than those of fit1b. 
 
-Ehh, I guess I'll go with fit1b? The AIC was much better, and I think this model also intuitively makes the most sense. The SEs are a little concerning, but I think these are a less reliable indicator of g-o-f than the AIC. 
+How about the log likelihoods?
+```{r}
+LL <- sapply(models, function(x) x$logLik)
+# These are a bit hard to read to I am reordering them
+LL[order(LL)]
+```
+In this case, surprisingly, fit1 looks best. But only #4 and #6 look really bad. The rest are sort of close together, and fit1b is second best, not too far behind fit1.
 
+So, I find myself in the annoying situation of having several g-o-f tests that don't quite agree. However, I think I'll go with fit1b. It had the best AIC and the second-best log-likelihood. The SEs are a little concerning, but I don't think the SEs are a super reliable indicator of g-o-f anyway. This model consistently had pretty good g-o-f metrics, and I think it also intuitively makes the most sense.  
+
+# Interpreting the model results
 ```{r}
 summary(fit1b)
 ```
@@ -279,6 +315,8 @@ So, painting this with a really broad brush, we might say that responses vary ac
 
 Since coefficients are hard to interpret, let's get contrasts using the emmeans package. The contrast essentially indicates the difference between two factor's effect sizes. So instead of comparing the coefficients by eye, we can just calculate contrasts that tell us how big the difference is, for each pair of coefficients.
 
+## Estimated marginal means
+TODO: CHANGE TO THIS: emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
 ```{r}
 # In the future, we may want to get results on a different scale from the
 # log odds scale. By default, "mode" is "latent", but we can change this
@@ -296,6 +334,11 @@ by_job <- summary(
 by_job
 ```
 
+Let's glance at the significant differences.
+```{r}
+sig_by_job <- subset(by_job, p.value < 0.05)
+sig_by_job
+```
 
 Okay, so here, the "estimate" column shows the difference in estimated marginal means for the two levels of interest, holding the other factor level constant (of my two factors, job and solution). So when the contrast is Computing environments vs. A learning community, the job_category is Faculty, and the estimate is 1.57, this indicates that faculty have a e^1.57 = 4.8 higher odds of rating Computing environments at least one category higher than A learning community. In other words, the odds of a faculty rating Computing environments at least one category higher than A learning community are 4.8:1.
 
@@ -310,6 +353,7 @@ nr2 <- data.frame(
   soln1 = soln1,
   soln2 = soln2,
   value = nr$estimate,
+  pval = nr$p.value,
   significant = ifelse(nr$p.value < 0.05, "*", "")
 )
 head(nr2)
@@ -381,7 +425,6 @@ save_plot("solns_heatmap_nrstaff.tiff", 12, 10, p=nr_heatmap)
 
 I'd like to "validate" this result by eyeballing a plot of the number of "Not very useful", "Useful", and "Very useful" results for non-research staff for a couple of solutions, say, sustainability grants and a learning community. The "favorite" solution question suggested that a learning community was more popular than grants among research staff, so the result here, which suggests grants are the most popular solution, is somewhat surprising.
 
-
 ```{r}
 t <- long_data %>%
   filter(job_category == "Non-research Staff") %>%
@@ -391,7 +434,6 @@ t <- long_data %>%
         solution == "Publicity")
 
 ```
-
 
 ```{r, fig.width=12, fig.height=10}
 gbc <- grouped_bar_chart(
@@ -405,4 +447,77 @@ gbc
 
 ```{r}
 save_plot("solns_sanity_check_nrstaff.tiff", 12, 10, p=gbc)
+```
+
+This looks reasonably consistent with the model. It appears that even though "A learning community" was the number 1 solution from non-research staff when we asked them to choose their top solution (see solutions_plots.qmd), when they were allowed to rate solutions on a Likert scale, sustainability grants were a bit more popular.
+
+Can we say which solutions were generally popular overall? Here we get the expected rating for each solution, averaging over levels of job_category and participants. By default, each job contributes in proportion to its sample size. The mean.class value indicates the estimated rating, which is the sum of the probabilities of each of the likert levels.
+```{r}
+global_soln_ratings <- emmeans(fit1b, ~ solution, mode = "mean.class")
+# equal weights because we're just looking at solutions
+```
+We get a warning, but this makes sense. Of course, when we are asking for a global mean, we are ignoring the effects of job.
+
+```{r}
+global_sum <- summary(global_soln_ratings)
+global_sum <- global_sum %>% arrange(desc(mean.class))
+global_sum
+```
+
+Hmm. That's not quite what I expected. "A learning community" did well when we looked at the total "points" earned from the Likert scale question (see solutions_plots.qmd), and from the "choose your favorite" question, but here it didn't do so well. Maybe that's because we are ignoring job as a factor? But we were also ignoring it with our simple descriptive statistics... Hm.
+
+Let's make some more heat maps to continue getting a sense of the data.
+TODO: Plot global solution ratings, and ratings for each job
+```{r}
+pairs(global_soln_ratings)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+job_categories <- unique(long_data$job_category)
+by_job_dfs <- sapply(job_categories, function(x){
+  df <- subset(by_job, job_category == x)
+  df$contrast <- as.character(nr$contrast)
+})
+nr <- subset(by_job, job_category == "Non-research Staff")
+nr$contrast <- as.character(nr$contrast)
+soln1 <- unname(sapply(nr$contrast, function(x) strsplit(x, " - ")[[1]][1]))
+soln2 <- unname(sapply(nr$contrast, function(x) strsplit(x, " - ")[[1]][2]))
+nr2 <- data.frame(
+  soln1 = soln1,
+  soln2 = soln2,
+  value = nr$estimate,
+  pval = nr$p.value,
+  significant = ifelse(nr$p.value < 0.05, "*", "")
+)
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+emm_soln <- emmeans(fit1b, ~ job_category * solution)
+by_soln <- summary(
+  pairs(emm_soln, by = "solution"),
+  infer = TRUE # infer CIs
+) 
+
+by_soln
 ```
