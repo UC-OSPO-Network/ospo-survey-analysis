@@ -316,20 +316,17 @@ So, painting this with a really broad brush, we might say that responses vary ac
 Since coefficients are hard to interpret, let's get contrasts using the emmeans package. The contrast essentially indicates the difference between two factor's effect sizes. So instead of comparing the coefficients by eye, we can just calculate contrasts that tell us how big the difference is, for each pair of coefficients.
 
 ## Estimated marginal means
-TODO: CHANGE TO THIS: emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
+So, here's my attempt to make sense of a complicated post-hoc exploration of a complicated model. Ordinal regression with the ordinal package--and ordinal regression in general, I think--assumes that there is a continuous random variable--a "Latent" variable--underlying the categorical outcomes. The category boundaries are then thresholds on the continuous function. The emmeans package is a package for getting estimated marginal means from your model: mean outcomes for certain variables while holding other variables constant. The emmeans function can be run in various modes that will change the reported means from the default "latent" scale (whose bounds are arbitrary) to something else. mode = "prob" will report descriptive statistics on the probability distribution of each rating. mode = "mean.class" will report the means of these distributions as probabilities on a scale of 1 to n, where n is the number of outcome categories in your data set. So if you have three outcomes, e.g. not very useful, useful, very useful, and you obtain an average rating of 2.1 for a particular solution with mode="mean.class", this means that the average rating for that solution was a teensy bit above "useful". 
+
 ```{r}
-# In the future, we may want to get results on a different scale from the
-# log odds scale. By default, "mode" is "latent", but we can change this
-# to e.g. mode="prob", which will give the probabilities of each class of
-# ordinal response. I haven't implemented this because I don't fully 
-# understand it--need to read more. See, for example, the "gotcha" with
-# mode="prob" described here:
+# A warning to keep in mind when using mode="prob",
+# and I assume it also applies to mode="mean.class":
 # https://stats.stackexchange.com/questions/615711/why-are-emmip-response-y-axis-numbers-not-probabilities-for-ordinal-regressi#:~:text=There%20are%20several%20ways%20to,emmeans()%20or%20ref_grid()%20.&text=With%20mode%20=%20%22latent%22%20%2C,corresponding%20vector%20of%20coefficient%20estimates.
-emm <- emmeans(fit1b, ~ job_category * solution)
+emm <- emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
 by_job <- summary(
   pairs(emm, by = "job_category"),
   infer = TRUE # infer CIs
-) 
+)
 
 by_job
 ```
@@ -340,9 +337,17 @@ sig_by_job <- subset(by_job, p.value < 0.05)
 sig_by_job
 ```
 
-Okay, so here, the "estimate" column shows the difference in estimated marginal means for the two levels of interest, holding the other factor level constant (of my two factors, job and solution). So when the contrast is Computing environments vs. A learning community, the job_category is Faculty, and the estimate is 1.57, this indicates that faculty have a e^1.57 = 4.8 higher odds of rating Computing environments at least one category higher than A learning community. In other words, the odds of a faculty rating Computing environments at least one category higher than A learning community are 4.8:1.
+Okay, so here, the "estimate" column shows the difference in estimated marginal means for the two levels of interest, holding the other factor level constant (of my two factors, job and solution). So when the contrast is Computing environments vs. A learning community, the job_category is Faculty, and the estimate is 0.57, this indicates that the difference between the estimates of faculty's average rating of computer environments and their average rating of a learning community is 0.56, on a three-point scale.
 
-I'd like to plot these data as a heat map. I find it really confusing to rely on the sign of the estimate (+/-) to tell me which solution is preferred. I'd rather have only positive values, and instead of using the sign to indicate which solution is preferred, we'll use the order of the solutions to indicate that. Let's say that the solution on the y-axis is always the preferred solution, so that the color/value merely indicates the extent to which respondents prefer the solution on the y-axis. 
+```{r}
+subset(summary(emm), job_category=="Faculty" & solution == "Computing environments")$mean.class - subset(summary(emm), job_category=="Faculty" & solution == "A learning community")$mean.class
+```
+
+# Plotting the data (Unfinished)
+
+I'd like to plot these data as a heat map. However, I find it really confusing to rely on the sign of the estimate (+/-) to tell me which solution is preferred. I'd rather have only positive values, and instead of using the sign to indicate which solution is preferred, we'll use the order of the solutions to indicate which solution is preferred. Let's say that the solution on the y-axis is always the preferred solution, so that the color/value merely indicates the extent to which respondents prefer the solution on the y-axis. 
+
+To keep things simple for now, let's just look at non-research staff.
 
 ```{r}
 nr <- subset(by_job, job_category == "Non-research Staff")
@@ -375,31 +380,52 @@ nr2_clean <- nr2 %>%
     value = value_pos,
     significant
   )
+
+#Check the before and after
 tail(nr2)
 tail(nr2_clean)
+```
 
-# exponentiate log odds to odds
-nr2_clean$value <- exp(nr2_clean$value) 
+In this new data frame, soln1 is the preferred solution.
+
+Let's reorder the factor levels and make them the same for both solution columns. This ensures that all solutions appear on both axes, in the same order.
+
+```{r}
+sol_levels <- sort(unique(c(nr2_clean$soln1, nr2_clean$soln2)))
+
+plot_df <- nr2_clean %>% 
+  mutate(
+    soln1 = factor(soln1, levels = sol_levels),
+    soln2 = factor(soln2, levels = sol_levels)
+  ) %>% 
+  # complete fills in missing combinations
+  # as new rows with NA values
+  complete(soln1, soln2)
+
+plot_df
 ```
 
 ```{r, fig.width=12, fig.height=10}
 nr_heatmap <- ggplot(
-  data = nr2_clean,
+  data = plot_df,
   aes(x = soln2, y = soln1, fill = value)
 ) +
-  geom_tile() +
+  geom_tile(width = 0.97, height = 0.97) +   # gaps for the grid to show
   geom_text(aes(label = significant), color = "black", size = 8) +
-  scale_fill_gradient(low = "white", high = "darkred") +
+  # Reverse x‑axis order and put it on top
+  scale_x_discrete(limits = rev(sol_levels), position = "top") +
+  scale_fill_gradient(low = "white", high = "darkred", na.value = "#e6e6e6") +
   ggtitle("Solutions preferred by non-research staff") +
   labs(
-    fill = "Extent to which\nsolution on y-axis\nis preferred\n(odds ratio)"
+    fill = "Extent to which\ny-axis solution is\npreferred (difference in\nestimated mean rating)"
   ) +
   theme(
     axis.title.x = element_blank(),
     axis.title.y = element_blank(),
     axis.text.x = element_text(
-      angle = 90,
-      vjust = 0.6,
+      angle = 46,
+      vjust = 0,
+      hjust = 0,
       size = 20
     ),
     axis.text.y = element_text(size = 20),
@@ -416,9 +442,10 @@ nr_heatmap <- ggplot(
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
   )
 
-nr_heatmap
+#nr_heatmap
 ```
 
+Presumably, those warnings are just because our data frame contains a bunch of NA values, for combinations where the x-axis solution is preferred, and so we have no data.
 ```{r}
 save_plot("solns_heatmap_nrstaff.tiff", 12, 10, p=nr_heatmap)
 ```
@@ -449,14 +476,18 @@ gbc
 save_plot("solns_sanity_check_nrstaff.tiff", 12, 10, p=gbc)
 ```
 
-This looks reasonably consistent with the model. It appears that even though "A learning community" was the number 1 solution from non-research staff when we asked them to choose their top solution (see solutions_plots.qmd), when they were allowed to rate solutions on a Likert scale, sustainability grants were a bit more popular.
+This looks reasonably consistent with the model. From this bar chart, only Sustainability grants and Computing environments have a strong, linear slope with "very useful" being the most common response; and of the two, that trend is more pronounced for Sustainability grants. Previously, I found that "A learning community" was the number 1 solution from non-research staff when we asked them to choose their top solution (see solutions_plots.qmd), but apparently when they were allowed to rate solutions on a Likert scale, Sustainability grants was more popular, basically.
+
+This plot is pretty complicated and convoluted. If I do want to publish it, I'll probably want to use a diverging color scheme for positive and negative differences, and keep only squares on the diagonal gray. 
+
+# Global EMMs
 
 Can we say which solutions were generally popular overall? Here we get the expected rating for each solution, averaging over levels of job_category and participants. By default, each job contributes in proportion to its sample size. The mean.class value indicates the estimated rating, which is the sum of the probabilities of each of the likert levels.
 ```{r}
-global_soln_ratings <- emmeans(fit1b, ~ solution, mode = "mean.class")
-# equal weights because we're just looking at solutions
+global_soln_ratings <- emmeans(fit1b, ~ solution, mode = "mean.class", weights="cells")
 ```
-We get a warning, but this makes sense. Of course, when we are asking for a global mean, we are ignoring the effects of job.
+TODO: What's up with that warning?
+Need to figure out weighting strategy
 
 ```{r}
 global_sum <- summary(global_soln_ratings)
