@@ -464,7 +464,7 @@ future <- data %>%
   )
 
 future_codes <- c(
-  "Accessible conferences" = "Conferences/hackathons",
+  "Accessible conferences" = "Conferences and hackathons",
   "Access to free" = "Computing environments",
   "Educational materials" = "Educational materials",
   "An open source discussion group" = "Learning community",

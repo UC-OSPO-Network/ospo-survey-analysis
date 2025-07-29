@@ -1,0 +1,115 @@
+---
+title: "Solutions Stats Part 2: Aspiring Contributors"
+---
+
+Now let's look at Q15, where we asked aspiring contributors what would make them more likely to participate in open source projects.
+
+This is the second time now that I am flummoxed with how to analyze a "select all that apply" question. While it seems strange to me that statisticians haven't come up with a better solution, from my Googlings, it seems like it's pretty common to just make a bunch of little models with a single binary outcome variable, rather than trying to model a bunch of binary outcomes at once. So let's try that approach.
+
+https://www.statalist.org/forums/forum/general-stata-discussion/general/1394776-multivariate-analysis-on-a-multiple-selection-survey-question
+
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+```{r}
+future_solns <- load_qualtrics_data("clean_data/future_contributors_Q15.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+```
+
+
+```{r}
+# build a logical index: TRUE for rows that have at least one non-zero entry
+# rowSums(future_solns != 0) tallies the total for each row
+keep <- rowSums(future_solns != 0) > 0
+
+# subset both data.frames
+future_solns_clean <- future_solns[keep, ]
+
+other_quant_clean <- other_quant[keep, "job_category", drop = FALSE]
+
+future_solns_clean <- cbind(future_solns_clean, other_quant_clean)
+nrow(future_solns_clean)
+```
+
+Let's remove the "Other" option
+```{r}
+future_solns_clean <- future_solns_clean %>%
+    select(-c("Other"))
+```
+
+
+```{r}
+# remove "job_category" from this list of strings
+solution_names <- names(future_solns_clean)[-ncol(future_solns_clean)]
+
+# run a separate model for each outcome (solution)
+models <- lapply(solution_names, function(x) {
+  # wrap the column name in backticks so "My Column" becomes `My Column`
+  f_text <- paste0("`", x, "`", " ~ job_category")
+  f <- as.formula(f_text)
+  stats::glm(f, family = "binomial", data = future_solns_clean)
+})
+
+models[[1]]
+```
+
+Quick AIC check just because it's easy.
+
+```{r}
+sapply(models, function(x) stats::AIC(x))
+```
+
+Okay, none of them stands out as vastly worse than the others in terms of AIC.
+
+Let's makes some null models with an intercept only, and no predictor (job_category)
+```{r}
+null_models <- lapply(solution_names, function(x) {
+  # wrap the column name in backticks so "My Column" becomes `My Column`
+  f_text <- paste0("`", x, "`", " ~ 1")
+  f <- as.formula(f_text)
+  stats::glm(f, family = "binomial", data = future_solns_clean)
+})
+```
+
+And let's do ANOVA to compare the null models vs. full models.
+```{r}
+anova_results <- mapply(
+  FUN = function(null_m, full_m) {
+    stats::anova(null_m, full_m)
+  },
+  null_models,
+  models,
+  SIMPLIFY = FALSE
+)
+
+anova_results[[1]]
+```
+
+Womp womp. At least for that solution, which I believe is "Conferences and hackathons", including the predictor variable, job, does not improve model fit. Let's look at the others.
+```{r}
+for (i in seq_along(solution_names)) {
+  p_val <- anova_results[[i]]$`Pr(>Chi)`[2]
+  cat(
+    sprintf(
+      "%s  %.3f\n",
+      solution_names[i],
+      p_val                   # p‑value rounded to 3 decimals
+    )
+  )
+}
+```
+
+There we go. For Learning community, Dedicated grants, Academic job opportunities, and Mentoring programs, including the job predictor makes a difference.
+
+TODO next: 
+-Some sort of pairwise test to determine which solutions are significantly different from each other? Is this even possible, considering that we basically only have one observation (total votes) per solution?
+-Bring in comparison to experienced contributors (it may have to be rudimentary since the questions are not really comparable)

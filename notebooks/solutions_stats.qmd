@@ -4,6 +4,7 @@ title: "Solutions Stats"
 
 Some questions raised by my plots for Q10, about solutions (solutions_plots.qmd):\
 - Are solution scores by job category the same for all possible pairs of job groups?\
+- Are non-research staff significantly more likely than other groups to want a learning community?\
 - Are aspiring contributors significantly more likely than experienced contributors to select solutions related to learning and professional development?\
 - Are experienced contributors significantly more likely than aspiring contributors to select solutions related to funding?\
 
@@ -153,8 +154,8 @@ combined <- combined %>%
   mutate(
     job_category = recode(
       job_category,
-      "Grad Student" = "Student",
-      "Undergraduate" = "Student"
+      "Grad Student" = "Students",
+      "Undergraduate" = "Students"
     )
   )
 ```
@@ -294,7 +295,7 @@ So, I find myself in the annoying situation of having several g-o-f tests that d
 summary(fit1b)
 ```
 
-This is a lot to interpret. I'll do my best. First, let's just at the main effects, i.e. the effects of job category and solution. In the summary above, each job category is compared to Faculty, our job reference level, for the solution Computing environments, our solution reference level. The "Estimate" for job_categoryStudent is 1.66906, which indicates students have odds of e^1.67=5.3 of rating that solution at least one category higher than faculty. 
+This is a lot to interpret. I'll do my best. First, let's just at the main effects, i.e. the effects of job category and solution. In the summary above, each job category is compared to Faculty, our job reference level, for the solution Computing environments, our solution reference level. The "Estimate" for job_categoryStudents is 1.66906, which indicates students have odds of e^1.67=5.3 of rating that solution at least one category higher than faculty. 
 
 The solution Publicity has a coefficient of -0.66811, indicating that faculty have odds of e^0.67=2 of rating Publicity one level lower than Computing Environments.
 
@@ -307,7 +308,7 @@ So, faculty had significantly higher odds of selecting sustainability grants tha
 One job category did get two asterisks:\
 Coefficients:\
                                                                          Estimate Std. Error z value Pr(>|z|) \
-job_categoryStudent                                                       1.66906    0.61824   2.700 0.006941 ** \
+job_categoryStudents                                                       1.66906    0.61824   2.700 0.006941 ** \
 
 So, students had somewhat significantly higher odds of selecting computing environments than faculty.
 
@@ -315,26 +316,181 @@ So, painting this with a really broad brush, we might say that responses vary ac
 
 Since coefficients are hard to interpret, let's get contrasts using the emmeans package. The contrast essentially indicates the difference between two factor's effect sizes. So instead of comparing the coefficients by eye, we can just calculate contrasts that tell us how big the difference is, for each pair of coefficients.
 
-## Estimated marginal means
-So, here's my attempt to make sense of a complicated post-hoc exploration of a complicated model. Ordinal regression with the ordinal package--and ordinal regression in general, I think--assumes that there is a continuous random variable--a "Latent" variable--underlying the categorical outcomes. The category boundaries are then thresholds on the continuous function. The emmeans package is a package for getting estimated marginal means from your model: mean outcomes for certain variables while holding other variables constant. The emmeans function can be run in various modes that will change the reported means from the default "latent" scale (whose bounds are arbitrary) to something else. mode = "prob" will report descriptive statistics on the probability distribution of each rating. mode = "mean.class" will report the means of these distributions as probabilities on a scale of 1 to n, where n is the number of outcome categories in your data set. So if you have three outcomes, e.g. not very useful, useful, very useful, and you obtain an average rating of 2.1 for a particular solution with mode="mean.class", this means that the average rating for that solution was a teensy bit above "useful". 
+# Estimated marginal means
+So, here's my attempt to make sense of a complicated post-hoc exploration of a complicated model. Ordinal regression with the `ordinal` package--and ordinal regression in general, I think--assumes that there is a continuous random variable--a "latent" variable--underlying the categorical outcomes. The category boundaries are then thresholds on the continuous function. The emmeans package is a package for getting estimated marginal means from your model: mean outcomes for certain variables while holding other variables constant. The emmeans function can be run in various modes that will change the reported means from the default "latent" scale (whose bounds are arbitrary) to something else. mode = "prob" will report descriptive statistics on the probability distribution of each rating. mode = "mean.class" will report the means of these distributions as probabilities on a scale of 1 to n, where n is the number of outcome categories in your data set. So if you have three outcomes, e.g. not very useful, useful, very useful, and you obtain an average rating of 2.1 for a particular solution with mode="mean.class", this means that the (estimated) average rating for that solution was 2.1, or, a teensy bit above "useful". 
+
+I'm using mode="mean.class" because I find it much easier to interpret an average rating (the sum of the probabilities of each of the three rating categories) than values on the arbitrary latent scale. 
+
+N.B.: A warning to keep in mind when using mode="prob", and I assume it also applies to mode="mean.class": https://stats.stackexchange.com/questions/615711/why-are-emmip-response-y-axis-numbers-not-probabilities-for-ordinal-regressi#:~:text=There%20are%20several%20ways%20to,emmeans()%20or%20ref_grid()%20.&text=With%20mode%20=%20%22latent%22%20%2C,corresponding%20vector%20of%20coefficient%20estimates.
+I think we will be okay as long as we include job in the estimate formula?
+
+emmeans also gives you the option to weight the means by averaging over a factor. This handy command lets us see the weights in our model. https://stats.stackexchange.com/questions/610912/emmeans-weights-for-unbalanced-groups-factors
+```{r}
+ref_grid(fit1b)@grid
+```
+
+It appears that non-research staff are weighted more heavily, and students less so, presumably because there are a lot of observations for that group and not many observations, respectively.
+```{r}
+sapply(
+  c(
+    "Students",
+    "Non-research Staff",
+    "Postdocs and Staff Researchers",
+    "Faculty"
+  ),
+  function(x) {
+    nrow(subset(combined, job_category == x))
+  }
+)
+```
+
+First, let's explore the outcomes with different weighting schemes. I'm not cherry picking here, I'm just trying to understand the options.
+Let's calculate estimated marginal means for each solution, while holding job category constant. These will be really rough estimates, since we're averaging all the job categories, either equally or in proportion to their sample sizes. 
+
+(Here's a somewhat helpful explanation of weights in emmeans: https://stackoverflow.com/questions/66748520/what-is-the-difference-between-weights-cell-and-weights-proportional-in-r-pa)
 
 ```{r}
-# A warning to keep in mind when using mode="prob",
-# and I assume it also applies to mode="mean.class":
-# https://stats.stackexchange.com/questions/615711/why-are-emmip-response-y-axis-numbers-not-probabilities-for-ordinal-regressi#:~:text=There%20are%20several%20ways%20to,emmeans()%20or%20ref_grid()%20.&text=With%20mode%20=%20%22latent%22%20%2C,corresponding%20vector%20of%20coefficient%20estimates.
-emm <- emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
+# code copied from https://cran.r-project.org/web/packages/emmeans/vignettes/messy-data.html#weights
+sapply(c("equal", "prop", "outer", "cells", "flat"), \(w)
+    emmeans(fit1b, ~ solution, weights = w) |> predict()) |> head()
+```
+
+We only get two sets of estimates: equal/flat gives us the estimates where all means are given equal weight. Prop, outer, and cells give us another set of estimates, where each prediction is given the same weight as occurs in the model. At least, I think that's how it works. Let's do a sanity check. First, let's look at the average ratings by job category (our weighting scheme here doesn't matter, because we're splitting it up by job, not averaging over job).
+
+```{r}
+summary(emmeans(fit1b, ~ solution | job_category, mode="mean.class")) %>%
+ arrange(desc(mean.class))
+```
+
+Here, we see that "a learning community" is more popular among non-research staff than among other groups. So, we expect that if all groups are weighted equally, "a learning community" will be less popular than if we weight the means by sample size.
+
+Hmm. I'm not sure why the following commands fail when we include mode="mean.class". It says no weighting information is given. Maybe it's just not possible to estimate the mean of the underlying probability distribution AND weight that mean at the same time?
+```{r}
+summary(emmeans(fit1b, ~ solution, weights = "equal")) %>% 
+  arrange(desc(emmean))
+```
+
+```{r}
+summary(emmeans(fit1b, ~ solution, weights = "prop")) %>% 
+  arrange(desc(emmean))
+```
+
+Indeed, when we use the default weighting of "equal", "A learning community" is #8, but with "prop" weighting, it rises to #6. So now we know what the weights do.
+
+In fact, the more that I think about it, the more I feel like we shouldn't even report the global emms--just emms by job. It may do more harm than good to average over a factor that we've already established is important. So let's look at emms by job.
+
+```{r}
+# This yields the same results: emmeans(fit1b, ~ solution | job_category, mode = "mean.class")
+emm <- summary(emmeans(fit1b, ~ solution * job_category, mode = "mean.class"))
+emm
+```
+
+Plot the results.
+
+```{r, fig.width=10, fig.height=8}
+emm_clean <- emm %>% 
+  rename(mean = mean.class,
+         lwr  = asymp.LCL,
+         upr  = asymp.UCL) %>% 
+  mutate(across(c(mean, lwr, upr), as.numeric))
+
+# Use a common ordering of solutions (here, overall mean w equal weighting)
+solns_ordered <- summary(emmeans(fit1b, ~ solution, weights = "equal")) %>% 
+  arrange(emmean) %>% # don't do desc() bc these will be flipped later w coord_flip()
+  pull(solution) %>%
+  as.character()
+
+emm_clean <- emm_clean %>% 
+  mutate(solution = factor(solution, levels = solns_ordered))
+
+make_plot <- function(df, jc) {
+  ggplot(filter(df, job_category == jc),
+         aes(x = solution, y = mean)) +
+    geom_errorbar(aes(ymin = lwr, ymax = upr),
+                  width = .15, linewidth = .4) +
+    geom_point(size = 3) +
+    labs(title = jc, x = NULL, y = "Estimated mean rating (0–3)") +
+    coord_flip() +                       # solutions run down the y‑axis
+    theme(
+      plot.title = element_text(face = "bold"),
+      axis.text.x = element_text(
+        size = 12
+      ),
+      axis.text.y = element_text(
+        size = 12
+        ),
+      panel.background = element_blank(),
+      panel.grid = 
+        element_line(
+          linetype = "solid",
+          color = "gray90"
+          ),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+    )
+}
+
+plots <- lapply(unique(emm_clean$job_category),
+                make_plot, df = emm_clean)
+
+composite_plot <- wrap_plots(plots, ncol = 2)
+
+composite_plot
+```
+
+```{r}
+save_plot("solns_points.tiff", 12, 10, p=composite_plot)
+```
+
+I find it very surprising that "a learning community" ranked so low. Let's look at the rating distribution for each job category, for this solution, from the observed sample.
+
+```{r, fig.width=10, fig.height=8}
+learning_ratings <- grouped_bar_chart(
+  df = subset(combined, solution=="A learning community"),
+  x_var = "job_category",
+  fill_var = "utility",
+  title = "Ratings for 'A learning community'")
+learning_ratings
+```
+
+```{r}
+save_plot("solns_learning_comm.tiff", 12, 10, p=learning_ratings)
+```
+
+Ok, it's a messy plot but whatever. It shows that a lot of non-research staff selected "useful" or "very useful".
+
+# Pairwise comparisons and p-values
+
+```{r}
+emm_job <- emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
 by_job <- summary(
-  pairs(emm, by = "job_category"),
+  pairs(emm_job, by = "job_category"),
   infer = TRUE # infer CIs
 )
-
 by_job
 ```
 
+```{r}
+emm_soln <- emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
+by_soln <- summary(
+  pairs(emm_soln, by = "solution"),
+  infer = TRUE # infer CIs
+) 
+
+by_soln
+```
+
+
 Let's glance at the significant differences.
 ```{r}
-sig_by_job <- subset(by_job, p.value < 0.05)
+# Because there are so many significant comparisons,
+# let's be stringent
+sig_by_job <- subset(by_job, p.value < 0.0005)
 sig_by_job
+```
+
+```{r}
+sig_by_soln <- subset(by_soln, p.value < 0.05)
+sig_by_soln
 ```
 
 Okay, so here, the "estimate" column shows the difference in estimated marginal means for the two levels of interest, holding the other factor level constant (of my two factors, job and solution). So when the contrast is Computing environments vs. A learning community, the job_category is Faculty, and the estimate is 0.57, this indicates that the difference between the estimates of faculty's average rating of computer environments and their average rating of a learning community is 0.56, on a three-point scale.
@@ -343,7 +499,25 @@ Okay, so here, the "estimate" column shows the difference in estimated marginal 
 subset(summary(emm), job_category=="Faculty" & solution == "Computing environments")$mean.class - subset(summary(emm), job_category=="Faculty" & solution == "A learning community")$mean.class
 ```
 
-# Plotting the data (Unfinished)
+Sustainability grants and Finding funding show up frequently as being significantly higher than some of the other solutions. Let's plot the distributions of responses for sustainability grants, as a sanity check.
+
+```{r, fig.width=10, fig.height=8}
+grant_ratings <- grouped_bar_chart(
+  df = subset(combined, solution=="Sustainability grants"),
+  x_var = "job_category",
+  fill_var = "utility",
+  title = "Ratings for 'Sustainability grants'")
+grant_ratings
+```
+
+```{r}
+save_plot("solns_grants.tiff", 12, 10, p=grant_ratings)
+```
+
+
+
+
+# Heat map (Unfinished/Abandoned)
 
 I'd like to plot these data as a heat map. However, I find it really confusing to rely on the sign of the estimate (+/-) to tell me which solution is preferred. I'd rather have only positive values, and instead of using the sign to indicate which solution is preferred, we'll use the order of the solutions to indicate which solution is preferred. Let's say that the solution on the y-axis is always the preferred solution, so that the color/value merely indicates the extent to which respondents prefer the solution on the y-axis. 
 
@@ -480,75 +654,8 @@ This looks reasonably consistent with the model. From this bar chart, only Susta
 
 This plot is pretty complicated and convoluted. If I do want to publish it, I'll probably want to use a diverging color scheme for positive and negative differences, and keep only squares on the diagonal gray. 
 
-# Global EMMs
 
-Can we say which solutions were generally popular overall? Here we get the expected rating for each solution, averaging over levels of job_category and participants. By default, each job contributes in proportion to its sample size. The mean.class value indicates the estimated rating, which is the sum of the probabilities of each of the likert levels.
+# Session Info
 ```{r}
-global_soln_ratings <- emmeans(fit1b, ~ solution, mode = "mean.class", weights="cells")
-```
-TODO: What's up with that warning?
-Need to figure out weighting strategy
-
-```{r}
-global_sum <- summary(global_soln_ratings)
-global_sum <- global_sum %>% arrange(desc(mean.class))
-global_sum
-```
-
-Hmm. That's not quite what I expected. "A learning community" did well when we looked at the total "points" earned from the Likert scale question (see solutions_plots.qmd), and from the "choose your favorite" question, but here it didn't do so well. Maybe that's because we are ignoring job as a factor? But we were also ignoring it with our simple descriptive statistics... Hm.
-
-Let's make some more heat maps to continue getting a sense of the data.
-TODO: Plot global solution ratings, and ratings for each job
-```{r}
-pairs(global_soln_ratings)
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
-job_categories <- unique(long_data$job_category)
-by_job_dfs <- sapply(job_categories, function(x){
-  df <- subset(by_job, job_category == x)
-  df$contrast <- as.character(nr$contrast)
-})
-nr <- subset(by_job, job_category == "Non-research Staff")
-nr$contrast <- as.character(nr$contrast)
-soln1 <- unname(sapply(nr$contrast, function(x) strsplit(x, " - ")[[1]][1]))
-soln2 <- unname(sapply(nr$contrast, function(x) strsplit(x, " - ")[[1]][2]))
-nr2 <- data.frame(
-  soln1 = soln1,
-  soln2 = soln2,
-  value = nr$estimate,
-  pval = nr$p.value,
-  significant = ifelse(nr$p.value < 0.05, "*", "")
-)
-```
-
-
-
-
-
-
-
-
-
-
-```{r}
-emm_soln <- emmeans(fit1b, ~ job_category * solution)
-by_soln <- summary(
-  pairs(emm_soln, by = "solution"),
-  infer = TRUE # infer CIs
-) 
-
-by_soln
+sessionInfo()
 ```
