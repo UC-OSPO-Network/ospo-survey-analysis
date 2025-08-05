@@ -25,7 +25,7 @@ future_solns <- load_qualtrics_data("clean_data/future_contributors_Q15.tsv")
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
 
-
+# Wrangle data
 ```{r}
 # build a logical index: TRUE for rows that have at least one non-zero entry
 # rowSums(future_solns != 0) tallies the total for each row
@@ -40,12 +40,30 @@ future_solns_clean <- cbind(future_solns_clean, other_quant_clean)
 nrow(future_solns_clean)
 ```
 
-Let's remove the "Other" option
+Good. We know we had 61 survey respondents who identified as aspiring contributors.
+
+Let's remove the "Other" option.
 ```{r}
 future_solns_clean <- future_solns_clean %>%
     select(-c("Other"))
 ```
 
+Since we have much less data than we did from experienced contributors, I'm just going to assume a priori that we'll want to relabel the groups to have a smaller number of job categories, as we did with the experienced contributors. This way, each category will have more observations.
+```{r}
+future_solns_clean <- future_solns_clean %>%
+  mutate(
+    job_category = case_when(
+      job_category %in% c("Other research staff", "Post-Doc") ~ 
+        "Post-docs and staff researchers",
+      job_category %in% c("Grad Student", "Undergraduate") ~ 
+        "Students",
+      TRUE ~ job_category
+    )
+  )
+```
+
+# Create models
+Let's make a simple logistic regression model for each solution. The only independent variable is job_category.
 
 ```{r}
 # remove "job_category" from this list of strings
@@ -59,18 +77,27 @@ models <- lapply(solution_names, function(x) {
   stats::glm(f, family = "binomial", data = future_solns_clean)
 })
 
+# example
 models[[1]]
 ```
 
 Quick AIC check just because it's easy.
 
 ```{r}
-sapply(models, function(x) stats::AIC(x))
+for (i in seq_along(solution_names)) {
+  cat(
+    sprintf(
+      "%s  %.3f\n",
+      solution_names[i],
+      stats::AIC(models[[i]])   # AIC rounded to 3 decimals
+    )
+  )
+}
 ```
 
-Okay, none of them stands out as vastly worse than the others in terms of AIC.
+Hmm. The model for "Dedicated grants" looks a bit better than the others in terms of AIC, and "Educational materials" is the worst. Good to know.
 
-Let's makes some null models with an intercept only, and no predictor (job_category)
+Let's makes some null models with an intercept only, and no predictor (job_category).
 ```{r}
 null_models <- lapply(solution_names, function(x) {
   # wrap the column name in backticks so "My Column" becomes `My Column`
@@ -80,7 +107,7 @@ null_models <- lapply(solution_names, function(x) {
 })
 ```
 
-And let's do ANOVA to compare the null models vs. full models.
+And let's do ANOVA to compare the null models vs. full models. (Printing an example)
 ```{r}
 anova_results <- mapply(
   FUN = function(null_m, full_m) {
@@ -94,7 +121,7 @@ anova_results <- mapply(
 anova_results[[1]]
 ```
 
-Womp womp. At least for that solution, which I believe is "Conferences and hackathons", including the predictor variable, job, does not improve model fit. Let's look at the others.
+Womp womp. At least for that solution, "Conferences and hackathons", including the predictor variable, job, does not improve model fit. Let's look at p-values for all the ANOVAs.
 ```{r}
 for (i in seq_along(solution_names)) {
   p_val <- anova_results[[i]]$`Pr(>Chi)`[2]
@@ -106,10 +133,206 @@ for (i in seq_along(solution_names)) {
     )
   )
 }
+
 ```
 
-There we go. For Learning community, Dedicated grants, Academic job opportunities, and Mentoring programs, including the job predictor makes a difference.
+Hmm. Only for "Dedicated grants" does including the job predictor make a difference (p<0.05). This seems reasonable, considering that this model had the best fit, and only in this case was the predictor variable necessary.
 
-TODO next: 
--Some sort of pairwise test to determine which solutions are significantly different from each other? Is this even possible, considering that we basically only have one observation (total votes) per solution?
--Bring in comparison to experienced contributors (it may have to be rudimentary since the questions are not really comparable)
+Let's do pairwise contrasts to dig deeper.
+
+```{r}
+names(models) <- solution_names
+
+#I'm doing this in a functionalized way 
+# (across a list containing only one model) 
+# because I originally ran this script with the
+# un-consolidated group labels, which resulted in
+# more than one solution being significantly improved 
+# by including job_category. 
+# After consolidating the group labels, only "grants"
+# was worth probing futher, but I didn't feel like 
+# bothering to refactor the code.
+
+sig_models <- models[
+  sapply(anova_results, function(a) a$`Pr(>Chi)`[2] < 0.05)
+]
+
+sig_models
+```
+
+Here we get estimated marginal means on a "response" scale (For our purposes, I believe this just means we get odds ratios instead of log odds.)
+```{r}
+emm_grids_resp <- sapply(seq_along(sig_models), function(i) {
+  return(
+    emmeans(sig_models[[i]], ~ job_category, type = "response")
+  )
+})
+
+pair_results_resp <- sapply(seq_along(emm_grids_resp), function(i) {
+  return(
+    pairs(emm_grids_resp[[i]])
+  )
+})
+
+names(pair_results_resp) <- names(sig_models)
+
+for (i in seq_along(pair_results_resp)) {
+  res <- summary(pair_results_resp[[i]], infer=TRUE)
+  if (any(res$p.value < 0.05)) {
+    print(names(pair_results_resp)[i])
+    print(res)
+    }
+}
+```
+
+This analysis indicates that non-research staff are much less likely that students to select this solution. Let's do a sanity check on the raw data.
+
+```{r}
+tally_df <- aggregate(
+  . ~ job_category,
+  data = future_solns_clean,
+  FUN  = function(x) sum(x, na.rm = TRUE)
+)
+
+head(tally_df)
+```
+
+K, looks good. Out of curiosity, does running emmeans without type="response", i.e., keeping it on a latent scale, make a difference?
+
+```{r}
+emm_grids <- sapply(seq_along(sig_models), function(i) {
+  return(
+    emmeans(sig_models[[i]], ~ job_category)
+  )
+})
+
+pair_results <- sapply(seq_along(emm_grids), function(i) {
+  return(
+    pairs(emm_grids[[i]])
+  )
+})
+
+names(pair_results) <- names(sig_models)
+
+for (i in seq_along(pair_results)) {
+  res <- summary(pair_results[[i]], infer=TRUE)
+  if (any(res$p.value < 0.05)) {
+    print(names(pair_results)[i])
+    print(res)
+    }
+}
+```
+
+Okay, so it changed the estimates, but not the p-values. Good. That makes sense.
+
+Since we're here and it's interesting, let's add a row with the totals for the numeric columns.
+```{r}
+total_row <- tally_df %>%
+  summarise(
+    across(
+      where(is.numeric),    
+      \(x) sum(x, na.rm = TRUE)
+  )) %>%
+  # add the "Total" label as an entry in the job_category column
+  mutate(job_category = "Total") %>%  
+  select(job_category, everything())  # put job_category first
+
+tally_df_with_total <- bind_rows(tally_df, total_row)
+
+tally_df_with_total
+
+```
+
+So, here's my hot take.\
+- We don't have enough data to conclude whether the most popular solutions, in terms of total votes, are "significantly different" from each other. What does that even mean when we only have one observation?\
+- I relabeled some of the groups to make them larger, adding more statistical power.\
+- Only the "Dedicated grants" model was improved by adding job_category as a factor.\
+- The only significant pairwise difference was that Students are significantly more likely than Non-research staff to select Dedicated grants.\
+
+# Compare aspiring vs. experienced?
+Can we bring in a comparison to experienced contributors? It will have to be rudimentary since the questions are not really comparable. The question for experienced contributors was a likert scale Q, while the question for aspiring contributors was a "select all that apply". The options presented were also not exactly the same, though this was to some extent unavoidable, since some solutions only apply to experienced folks.
+
+Maybe we can look at the ordered solutions from each and say whether the rankings are different.
+
+Let's get the aspiring contributors' solutions, ordered by total number of votes.
+```{r}
+totals <- colSums(tally_df[ , -1], na.rm = TRUE)
+
+ordered_solutions <- names(sort(totals, decreasing = TRUE))
+
+print(ordered_solutions)
+
+```
+
+Lifting some code from solutions_plots.qmd to get the list of solutions from aspiring contributors.
+
+```{r}
+solutions <- load_qualtrics_data("clean_data/solutions_Q10.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+
+solutions <- exclude_empty_rows(solutions) # from scripts/utils.R
+
+long_data <- solutions %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "solution",
+    values_to = "utility"
+  )
+
+long_data <- long_data %>%
+  mutate(
+    utility_score = recode(
+      utility,
+      "Non-applicable" = 0L,
+      "Not very useful" = 0L,
+      "Useful" = 1L,
+      "Very useful" = 2L
+    )
+  )
+
+# Helper to compute the (numeric) mode
+get_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+summary_df <- long_data %>%
+  group_by(solution) %>%
+  summarise(
+    total  = sum(utility_score),
+    mean   = mean(utility_score, na.rm = TRUE),
+    median = median(utility_score),
+    mode   = get_mode(utility_score),
+    st_dev = sd(utility_score, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Order by highest total "score"
+summary_df <- summary_df %>%
+    arrange(desc(total))
+
+summary_df$solution
+```
+
+So, here are the two lists again, in an easier-to-read format:
+
+| Aspiring | Experienced |
+| :------- | :------: | -------: |
+| Computing environments  | Sustainability grants  |
+| A learning community  | Help finding funding  |
+| Educational materials  | Computing environments  |
+| Industry networking  | A learning community  |
+| Mentoring programs  | Documentation help  |
+| Conferences and hackathons  | Legal support  |
+| Legal support/ Academic job opportunities/ Dedicated grants  | Educational materials  |
+| Help finding funding  | Industry partnerships  |
+|   | Publicity  |
+|   | Mentoring programs  |
+|   | Containerization  |
+|   | Event planning  |
+
+Hm. I don't like this. It feels icky to be comparing two questions that are really quite different. I think this is all I'm comfortable concluding:\
+- The two funding-related solutions are in the bottom quartile among aspiring contributors, but they are in the top quartile among experienced contributors.\
+- Learning community and Computing environments are in the top quartile for both groups.
+
+We could maybe argue that education-related solutions are higher up the list for aspiring contributors, but in the absence of statistical testing (which we could really only do if the questions were more comparable), I'd rather not draw any conclusions.
