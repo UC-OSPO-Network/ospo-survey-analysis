@@ -1,0 +1,201 @@
+---
+title: "Demographics: descriptive statistics"
+---
+
+# Overview
+
+Let's look at survey participation rates across various groups (demographics). This isn't about hypothesis testing; it's just about getting a sense of who took the survey.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+
+```{r}
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+status <- load_qualtrics_data("clean_data/contributor_status_Q3.tsv")
+qual <- load_qualtrics_data("qual_responses.tsv")
+
+data <- cbind(status, other_quant)
+nrow(data)
+head(data)
+```
+
+# Experienced vs aspiring
+
+First, let's see how many experienced and aspiring open source contributors took the survey.
+
+Experienced:
+```{r}
+nrow(subset(data, Past=="True"))
+```
+
+Aspiring:
+```{r}
+nrow(subset(data, Past=="False" & Future=="True"))
+```
+
+# Campus
+
+I already learned while plotting the data that UCSB and UCLA are overrepresented. What proportion of respondents came from these two schools?
+```{r}
+unique(data$campus)
+```
+
+Let's remove people who said "I'm not affiliated with UC".
+
+```{r}
+data <- subset(data, campus != "I'm not affiliated with UC")
+nrow(data)
+```
+
+Only 2 respondents were not UC affiliates.
+```{r}
+campus_count <- data.frame(table(data$campus))
+names(campus_count) <- c("Campus", "Count")
+total <- sum(campus_count$Count)
+ucsb <- subset(campus_count, Campus=="UC Santa Barbara")[,"Count"]
+ucla <- subset(campus_count, Campus=="UC Los Angeles")[,"Count"]
+round((ucsb + ucla) / total * 100, digits = 1)
+```
+
+So 48% of respondents came from these two campuses.
+
+# Field of study
+How many respondents were from STEM, social science, and humanities?
+
+```{r}
+# Remove people who didn't answer this question--non-research staff
+tmp <- data$field_of_study[nzchar(data$field_of_study)]
+field_count <- data.frame(table(tmp))
+names(field_count) <- c("Field", "Count")
+total <- sum(field_count$Count)
+stem <- sum(
+  subset(
+    field_count,
+    Field == "Life sciences" |
+    Field == "Math and CS" |
+    Field == "Physical sciences"
+  )[, "Count"]
+)
+sosc_hum <- sum(
+  subset(
+    field_count,
+    Field == "Humanities" |
+    Field == "Social sciences"
+  )[, "Count"]
+)
+# sanity check
+total == stem + sosc_hum
+
+round(stem / total * 100, digits = 1)
+round(sosc_hum / total * 100, digits = 1)
+```
+
+So 86% of respondents are from stem, and 14% are from social sciences/humanities.
+
+How many of the STEM respondents are from math or CS?
+
+```{r}
+math_cs <- sum(
+  subset(
+    field_count,
+    Field == "Math and CS"
+  )[, "Count"]
+)
+round(math_cs / stem * 100, digits = 1)
+```
+
+53% of STEM respondents are from math or CS.
+
+How many experienced contributors were from humanities or social sciences?
+
+```{r}
+nrow(subset(data, field_of_study=="Humanities" & Past =="True"))
+
+nrow(subset(data, field_of_study=="Social sciences" & Past =="True"))
+```
+
+We had 4 experienced contributors from the humanities, and 10 from the social sciences. 
+
+# Job category
+
+```{r}
+# Remove people who didn't answer this question--
+# neither future nor past contributors
+tmp <- data$job_category[nzchar(data$job_category)]
+job_count <- data.frame(table(tmp))
+names(job_count) <- c("Job", "Count")
+total <- sum(job_count$Count)
+
+nr_staff <- subset(job_count, Job == "Non-research Staff")[, "Count"]
+academics <- sum(subset(job_count, Job != "Non-research Staff")[, "Count"])
+
+job_count
+
+round(nr_staff / total * 100, digits = 1)
+round(academics / total * 100, digits = 1)
+```
+
+36% of survey respondents are non-research staff, while 64% are academics.
+
+What about the job areas of the non-research staff?
+
+```{r}
+# Remove everybody except non-research staff
+tmp <- data$staff_categories[nzchar(data$staff_categories)]
+staff_count <- data.frame(table(tmp))
+names(staff_count) <- c("Area", "Count")
+total <- sum(staff_count$Count)
+
+staff_count
+
+rs <- subset(staff_count, Area == "Academic and Research Support")[, "Count"]
+it <- subset(staff_count, Area == "Information Technology (IT)")[, "Count"]
+
+round( (rs + it) / total * 100, digits = 1)
+```
+
+67% of the non-research staff respondents were from either IT or Academic and Research Support, which we told participants "includes research administration, libraries, and instructional design".
+
+# Qualitative responses: staff categories
+Let's look at the free-response field for staff job categories. These are the non-research staff who selected "other" and wrote in their job area.
+
+```{r}
+qual_staff <- qual$staff_categories_13_TEXT[nzchar(qual$staff_categories_13_TEXT)]
+```
+
+I looked at these manually, but for the sake of data privacy, I am not printing the free responses here. I can see that the word "Library" and the abbreviation "IT" each occur multiple times. 
+
+```{r}
+length(qual_staff)
+sum(str_count(qual_staff, pattern = "Library"))
+sum(str_count(qual_staff, pattern = "IT"))
+```
+
+So, seven of the free-text responses contained either the word "Library" or "IT" or both. I am looking manually, and I can see that these came from 6 people. (One person put "Library IT".)
+
+# Qualitative responses: subfields
+
+For Q18, after asking them their broad domain of study, we asked them this free-response question:
+What is your primary field? (e.g. astrophysics, neuroscience)
+One response is preferred, but if multiple are needed, please separate with commas.
+
+```{r}
+qual_fields <- qual$subfield[nzchar(qual$subfield)]
+length(qual_fields)
+academics
+```
+
+This question was not mandatory, but 170/188 academics answered it.
+
+```{r}
+
+```

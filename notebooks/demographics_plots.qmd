@@ -9,7 +9,7 @@ various groups (demographics). If you want to look at just demographics for
 experienced OS contributors, you can change the `contributor_mode` variable
 to `TRUE`, around line 182(ish). 
 
-## Import packages and utilities
+# Import packages and utilities
 ```{r}
 project_root <- here::here() # requires that you be somewhere in the
 # project directory (not above it)
@@ -19,7 +19,7 @@ suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
-## Define functions
+# Define functions
 
 #### create_df_for_plotting
 
@@ -159,6 +159,7 @@ filter_contribs <- function(df, cmode) {
   }
 }
 ```
+
 ## Load data
 
 ```{r}
