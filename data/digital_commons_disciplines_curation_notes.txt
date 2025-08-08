@@ -6,3 +6,7 @@ Social and Behavioral Sciences: Public Affairs, Public Policy and Public Adminis
 Disaster Management
 Became:
 Social and Behavioral Sciences: Public Affairs, Public Policy and Public Administration: Emergency and Disaster Management
+
+Finally, the original taxonomy contained a typo. I corrected:
+Physical Sciences and Mathematics: Chemistry: Environmental Chemistry0
+by removing the trailing 0.

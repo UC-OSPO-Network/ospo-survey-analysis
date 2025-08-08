@@ -1003,7 +1003,7 @@ Physical Sciences and Mathematics: Astrophysics and Astronomy: Other Astrophysic
 Physical Sciences and Mathematics: Chemistry
 Physical Sciences and Mathematics: Chemistry: Analytical Chemistry
 Physical Sciences and Mathematics: Chemistry: Computational Chemistry
-Physical Sciences and Mathematics: Chemistry: Environmental Chemistry0
+Physical Sciences and Mathematics: Chemistry: Environmental Chemistry
 Physical Sciences and Mathematics: Chemistry: Forensic Chemistry
 Physical Sciences and Mathematics: Chemistry: Inorganic Chemistry
 Physical Sciences and Mathematics: Chemistry: Materials Chemistry

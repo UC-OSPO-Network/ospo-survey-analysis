@@ -1,0 +1,216 @@
+---
+title: "Demographics: qualitative responses"
+---
+
+At this point, I've manually reviewed the classifications of people's write-in responses to Q18 in Microsoft Excel. There were definitely some decisions that I think even state-of-the-art AI would have struggled with.
+
+I saved my work in an excel spreadsheet. The key column is the "decision" column, so I just copied that one column to a code-friendly text editor and saved it as a tsv. Here's my curation schema:
+k = keep as-is
+d = drop
+If I put a number in the decision column, that means replace the existing row with that row of the taxonomy.
+Also, the taxonomy didn't have "AI" or "Machine Learning" by themselves. So I tagged people who wrote in "AI" or "ML" as 1017, "Artificial Intelligence and Robotics", even though none of these people mentioned robotics. I'll correct that right before I plot the data.
+
+We'll want to use this column to make substitutions in the data frame produced by demographics_qual_part1.qmd.
+
+I also recorded 4 rows that need to be added. These were cases where people indicated two fields, usually with an "and" instead of with a slash or comma, so I didn't split these on my first pass. Since there's only 4 of these, I'm just hard-coding them in here. (Ugly code, yeah, I know.)
+
+```{r}
+additions <- data.frame(
+    participantID = c(16, 62, 137, 159),
+    decision = c(1029, 1016, 1093, 838)
+)
+```
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+
+# Load data
+```{r}
+tax <- as.data.frame(
+    readLines("data/digital_commons_disciplines.txt"),
+    stringsAsFactors = FALSE)
+
+# Data cleaning
+tax <- tax %>%
+  separate(
+    col   = names(tax)[1],
+    into  = c("Level1", "Level2", "Level3"),
+    sep   = ": ",
+    fill  = "right",   # any missing pieces become NA
+    extra = "merge"    # if there were >2 colons, they’d all merge into Level3
+  )
+```
+
+```{r}
+auto_results <- read.csv("data/qual_fields_guesses.tsv", sep="\t", stringsAsFactors = FALSE)
+
+decisions <- as.data.frame(
+    readLines("data/classification_decisions.tsv"),
+    stringsAsFactors = FALSE)
+
+names(decisions) <- c("decision")
+```
+
+Let's make sure that both data frames have the same number of rows.
+
+```{r}
+nrow(auto_results) == nrow(decisions)
+```
+
+Now, let's start updating the data frame we got in part 1 with the manual revisions. First, let's drop the rows we can drop.
+
+```{r}
+dim(auto_results)
+curated <- auto_results
+curated <- cbind(curated, decisions)
+
+curated <- curated %>%
+    filter(decision != "d")
+
+dim(curated)
+head(curated)
+```
+
+Next, let's substitute the bad rows with the correct ones.
+
+```{r}
+# Try to coerce entries in decision to numeric
+dec_num <- suppressWarnings(as.integer(curated$decision))
+head(dec_num)
+
+# Logical vector indicating whether decision is a (sensible) number
+ok <- !is.na(dec_num) & dec_num >= 1 & dec_num <= nrow(tax)
+head(ok)
+
+# overwrite Level columns in curated with those cols
+# in the corresponding row from tax
+curated[ok, c("Level1", "Level2", "Level3")] <- 
+  tax[dec_num[ok], c("Level1", "Level2", "Level3")]
+```
+
+Let's inspect the results with a side-by-side comparison (well, vertically speaking.) I could make this print-out prettier if I had time and cared enough.
+
+```{r}
+for (i in seq(10)) {
+    cat("Before:\n")
+    # write.table() prints to the console by default and lets you hide headers
+    write.table(subset(auto_results, participantID == i), col.names = FALSE, row.names = FALSE, quote = 2)
+    cat("After:\n")
+    tmp <- subset(curated, participantID == i)
+    write.table(tmp[,-ncol(tmp)], col.names = FALSE, row.names = FALSE, quote = 2)
+    cat("\n")
+}
+```
+
+We see that the errors have been corrected.
+
+We don't need this column anymore.
+```{r}
+curated <- curated %>% select(-c("decision"))
+```
+
+Finally, let's add those additional 4 rows that I hard-coded at the top of this document.
+
+```{r}
+# Create a "decision" column that just reflects row number
+# so that we can join the decision col in additions with that of tax
+tmp_tax <- tax %>% mutate(decision = row_number())
+
+new_rows <- additions %>%
+  mutate(decision = suppressWarnings(as.integer(decision))) %>%
+  left_join(curated, by = "participantID") %>%
+  select(-c("Level1", "Level2", "Level3")) %>% # we're just grabbing the response col from `curated`
+  left_join(tmp_tax, by = "decision") %>% # grab the Level cols from tax, at the row specified in decision
+  select(participantID, response, Level1, Level2, Level3)
+
+curated <- bind_rows(curated, new_rows)
+curated <- curated %>% arrange(participantID)
+
+subset(curated, participantID==16)
+```
+
+Ok! Now we finally have the qualitative responses smooshed and zhoozhed into our taxonomy.
+
+# Analysis
+
+First, I'd like to know how many participants identified with each unique option for Level1. So how many people had "Life Sciences" for Level1, how many people had "Arts and Humanities", etc.
+
+```{r}
+level1_counts <- curated %>%
+  distinct(participantID, Level1) %>% # one row per person per Level1
+  count(Level1, name = "n_participants") %>%
+  arrange(desc(n_participants))
+
+level1_counts
+```
+
+Neat! Now let's do the same for the other two levels.
+
+```{r}
+level2_counts <- curated %>%
+  distinct(participantID, Level2) %>% # one row per person per Level1
+  count(Level2, name = "n_participants") %>%
+  arrange(desc(n_participants))
+
+level2_counts
+```
+
+Cool! I think Level 2 will be most useful, but let's take a look at level 3.
+
+```{r}
+level3_counts <- curated %>%
+  distinct(participantID, Level3) %>% # one row per person per Level1
+  count(Level3, name = "n_participants") %>%
+  arrange(desc(n_participants))
+
+level3_counts
+```
+
+Acutally, Level 3 is pretty interesting, too.
+
+Let's do a little curation. First, let's remove those NA rows. These were rows where the participant's input matched at level 1 or 2, but not all three levels, so there was an NA for levels 2 and/or 3.
+```{r}
+level2_counts <- level2_counts %>%
+    filter(!is.na(Level2))
+level3_counts <- level3_counts %>%
+    filter(!is.na(Level3))
+```
+
+
+And let's change that Artificial Intelligence label I mentioned at the top of this document. 
+
+```{r}
+level3_counts$Level3[level3_counts$Level3 == "Artificial Intelligence and Robotics"] <- "AI and Machine Learning"
+```
+
+Let's rearrange the columns a bit for readability, and put these all back into one data frame.
+
+```{r}
+names(level1_counts)[1] <- "Discipline"
+names(level2_counts)[1] <- "Discipline"
+names(level3_counts)[1] <- "Discipline"
+
+level1_counts <- cbind("Level 1", level1_counts)
+level2_counts <- cbind("Level 2", level2_counts)
+level3_counts <- cbind("Level 3", level3_counts)
+
+names(level1_counts)[1] <- "Taxonomy Level"
+names(level2_counts)[1] <- "Taxonomy Level"
+names(level3_counts)[1] <- "Taxonomy Level"
+
+final_data <- rbind(level1_counts, level2_counts, level3_counts)
+```
+
+I'm just going to leave them as a table for now. I'll save them with my figures. Remember from utils.R that I've saved the path to my figures, which are on my local computer, in my .Renviron file.
+
+```{r}
+write.table(final_data, file.path(Sys.getenv("FIGURE_PATH"), "qual_disciplines.tsv"), row.names = FALSE, quote = FALSE, sep="\t")
+```
