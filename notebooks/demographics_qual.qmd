@@ -1,0 +1,306 @@
+---
+title: "Demographics: qualitative responses"
+---
+
+TODO:
+- Remember we asked people to comma-separate multiple fields
+- Need a smarter algorithm? Or just go through them manually. Probably the latter
+
+
+# Qualitative responses: subfields
+
+For Q18, after asking respondents their broad domain of study, we asked them this free-response question:\
+What is your primary field? (e.g. astrophysics, neuroscience)\
+One response is preferred, but if multiple are needed, please separate with commas.\
+
+I plan to "classify" these free responses into standardized categories. The taxonomy of academic disciplines that I'll be using is here:\
+https://digitalcommons.elsevier.com/en_US/dc-disciplines-taxonomy
+
+I downloaded the PDF and did a very tiny amount of curation to make this list of academic fields and subfields machine-readable.
+
+I'll use a fuzzy string matching algorithm to classify the responses--essentially, looking for which item in the taxonomy most closely matches the user's entry. Hopefully, there will be very few entries that aren't a good match for anything in the taxonomy, and I can deal with these stragglers manually.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+
+```{r}
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+status <- load_qualtrics_data("clean_data/contributor_status_Q3.tsv")
+qual <- load_qualtrics_data("qual_responses.tsv")
+tax <- as.data.frame(
+    readLines("data/digital_commons_disciplines.txt"),
+    stringsAsFactors = FALSE)
+
+data <- cbind(status, other_quant)
+nrow(data)
+head(data)
+```
+
+```{r}
+tmp <- data$job_category[nzchar(data$job_category)]
+job_count <- data.frame(table(tmp))
+names(job_count) <- c("Job", "Count")
+
+academics <- sum(subset(job_count, Job != "Non-research Staff")[, "Count"])
+```
+
+```{r}
+qual_fields <- qual$subfield[nzchar(qual$subfield)]
+length(qual_fields)
+academics
+```
+
+This question was not mandatory, but 170/188 academics answered it.
+
+```{r}
+head(qual_fields)
+```
+
+Let's standardize the capitalization in this vector. The capitalization will now match my taxonomy, which is important since the fuzzy string matching algorithm I'll be using momentarily is case-sensitive.
+
+```{r}
+qual_fields <- unname(
+    sapply(
+        qual_fields,
+        function(x) tools::toTitleCase(tolower(x)) )
+    )
+
+head(qual_fields)
+```
+
+Oof. The correction of "AI" to "Ai" is unfortunate, but let's see how it goes.
+
+Here's our taxonomy:
+
+```{r}
+head(tax)
+```
+
+Let's tidy this data frame.
+
+```{r}
+tax_split <- tax %>%
+  separate(
+    col   = names(tax)[1],
+    into  = c("Level1", "Level2", "Level3"),
+    sep   = ": ",
+    fill  = "right",   # any missing pieces become NA
+    extra = "merge"    # if there were >2 colons, they’d all merge into Level3
+  )
+
+head(tax_split)
+```
+
+You can take my word for it that I looked back and forth between the data frame and the data file, and made sure that the data frame looks good. (Correct # of rows, row numbers match line numbers, etc.)
+
+Cool! Now we are ready for fuzzy string matching. Let's start with a very rudimentary method, and we can do something fancier if this appears insufficient.
+
+We are just calculating the Levenshtein distance between pairs of strings--the minimum number of substitutions needed to turn string a into string b.
+
+
+```{r}
+library(dplyr)
+library(purrr)
+
+# qual_fields: a character vector of survey responses
+# tax_split : a data.frame (or tibble) with columns Level1, Level2, Level3
+
+find_best_match <- function(query, tax_split) {
+  # 1) compute Levenshtein distances to each level
+  d1 <- adist(query, tax_split$Level1)
+  d2 <- ifelse(!is.na(tax_split$Level2),
+               adist(query, tax_split$Level2),
+               Inf)
+  d3 <- ifelse(!is.na(tax_split$Level3),
+               adist(query, tax_split$Level3),
+               Inf)
+  
+  # 2) assemble into one table
+  df <- tax_split %>%
+    mutate(
+      dist1 = as.numeric(d1),
+      dist2 = as.numeric(d2),
+      dist3 = as.numeric(d3)
+    ) %>%
+    rowwise() %>%
+    mutate(
+      # minimal distance for this row
+      min_dist = min(c(dist1, dist2, dist3), na.rm = TRUE),
+      # which level gave that minimum
+      level    = c("Level1","Level2","Level3")[
+                    which.min(c(dist1, dist2, dist3))
+                  ]
+    ) %>%
+    ungroup()
+  
+  # 3) find the global minimum across all rows
+  best_dist <- min(df$min_dist)
+  candidates <- df %>% filter(min_dist == best_dist)
+  
+  # 4) disambiguate by preferring a full Level3 match first,
+  #    then a Level2 match where Level3 is NA, then a Level1
+  if (any(candidates$level == "Level3")) {
+    winner <- candidates %>% filter(level == "Level3") %>% slice(1)
+  } else if (any(candidates$level == "Level2")) {
+    lvl2_cands <- candidates %>% filter(level == "Level2")
+    # prefer the one with no Level3
+    lvl2_na <- lvl2_cands %>% filter(is.na(Level3))
+    winner <- if (nrow(lvl2_na)) lvl2_na[1,] else lvl2_cands[1,]
+  } else {
+    lvl1_cands <- candidates %>% filter(level == "Level1")
+    # prefer the one with no Level2 or Level3
+    lvl1_na <- lvl1_cands %>% filter(is.na(Level2) & is.na(Level3))
+    winner <- if (nrow(lvl1_na)) lvl1_na[1,] else lvl1_cands[1,]
+  }
+  
+  # 5) return only the three taxonomy columns, plus the distance & match‐level
+  winner %>% 
+    select(Level1, Level2, Level3, min_dist, level) %>%
+    mutate(query = query)
+}
+
+# Apply it over your whole vector:
+matches <- map_dfr(qual_fields, find_best_match, tax_split = tax_split)
+
+# Inspect:
+matches
+
+```
+
+
+```{r}
+get_row_results <- function(query, tax_df, row_num) {
+
+  # For a given row/query pair (the query being the
+  # string our respondent wrote on the survey),
+  # Record which column had the lowest distance score,
+  # and the string in that column.
+  # I'm not currently handling ties because... I'll
+  # deal with that if and when it arises.
+
+  # I like to include tax_df as an argument just for clarity,
+  # even though tax_split is the only df I'll be running this on.
+
+  strL1 <- tax_df[row_num, "Level1"]
+  strL2 <- tax_df[row_num, "Level2"]
+  strL3 <- tax_df[row_num, "Level3"]
+
+  # compute Levenshtein distances for each level
+  dist1 <- as.numeric(
+    adist(query, strL1)
+  )
+  dist2 <- as.numeric(
+    ifelse(
+      !is.na(strL2),
+      adist(query, strL2),
+      Inf
+    )
+  )
+  dist3 <- as.numeric(
+    ifelse(
+      !is.na(strL3),
+      adist(query, strL3),
+      Inf
+    )
+  )
+
+  # assemble into a vector
+  min_dist = min(c(dist1, dist2, dist3), na.rm = TRUE)
+  level = c("Level1", "Level2", "Level3")[
+    which.min(c(dist1, dist2, dist3))
+  ]
+
+  return(
+    c(min_dist, level)
+  )
+}
+```
+
+
+```{r}
+get_candidates <- function(q_scores) {
+  # For a given row/query pair (the query being the
+  # string our respondent wrote on the survey),
+  # collect indices for all rows that had the lowest
+  # distance score, as well as column indices (though
+  # I am using column names e.g. "Level1" instead of numbers).
+
+  # find the global minimum across all rows
+  best_dist <- min(q_scores$min_dist)
+  cands <- q_scores %>% filter(min_dist == best_dist)
+  return(cands)
+}
+
+```
+
+
+```{r}
+get_all_hits <- function(query, tax_df) {
+    n_tax <- nrow(tax_df)
+
+  # Pre-allocate data frame rows for computational efficiency
+  query_scores <- data.frame(
+    min_dist = rep(NA_real_, n_tax),
+    level = rep(NA_character_, n_tax),
+    index = seq_len(n_tax),
+    stringsAsFactors = FALSE
+  )
+
+  # Get metadata for all hits with the minimum distance score
+  for (i in seq_len(n_tax)) {
+    results <- get_row_results(query, tax_df, i)
+    query_scores$min_dist[i] <- as.numeric(results[[1]])
+    query_scores$level[i] <- results[[2]]
+  }
+
+  return(query_scores)
+}
+```
+
+
+```{r}
+get_winner_df <- function(cands_df) {
+  winners <- ""
+  lvl3_cands <- subset(cands_df, level == "Level3")
+  lvl2_cands <- subset(cands_df, level == "Level2")
+  lvl1_cands <- subset(cands_df, level == "Level1")
+
+  if (nrow(lvl3_cands) > 0) {
+    winners <- tax_split[lvl3_cands$index, ]
+  } else if (nrow(lvl2_cands) > 0) {
+    keep_idx <- lvl2_cands$index[is.na(tax_split$Level3[lvl2_cands$index])]
+    winners <- tax_split[keep_idx, , drop = FALSE]
+  } else {
+    keep_idx <- lvl1_cands$index[
+      is.na(tax_split$Level2[lvl1_cands$index]) &
+        is.na(tax_split$Level3[lvl1_cands$index])
+    ]
+    winners <- tax_split[keep_idx, , drop = FALSE]
+  }
+  return(winners)
+}
+```
+
+
+```{r}
+results <- vector(mode = "list", length = length(t))
+
+for (i in seq_along(qual_fields)) {
+    current_query <- qual_fields[[i]]
+    q_scores <- get_all_hits(current_query, tax_split)
+    candidates <- get_candidates(q_scores)
+    w <- get_winner_df(candidates)
+    results[[i]] <- w
+    names(results)[i] <- current_query
+}
+```
+

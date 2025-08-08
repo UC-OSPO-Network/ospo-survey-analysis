@@ -21,7 +21,6 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```{r}
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 status <- load_qualtrics_data("clean_data/contributor_status_Q3.tsv")
-qual <- load_qualtrics_data("qual_responses.tsv")
 
 data <- cbind(status, other_quant)
 nrow(data)
@@ -181,21 +180,3 @@ sum(str_count(qual_staff, pattern = "IT"))
 ```
 
 So, seven of the free-text responses contained either the word "Library" or "IT" or both. I am looking manually, and I can see that these came from 6 people. (One person put "Library IT".)
-
-# Qualitative responses: subfields
-
-For Q18, after asking them their broad domain of study, we asked them this free-response question:
-What is your primary field? (e.g. astrophysics, neuroscience)
-One response is preferred, but if multiple are needed, please separate with commas.
-
-```{r}
-qual_fields <- qual$subfield[nzchar(qual$subfield)]
-length(qual_fields)
-academics
-```
-
-This question was not mandatory, but 170/188 academics answered it.
-
-```{r}
-
-```

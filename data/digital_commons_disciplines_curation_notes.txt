@@ -1,0 +1,8 @@
+I downloaded my taxonomy of academic discisplines from here: https://digitalcommons.elsevier.com/en_US/dc-disciplines-taxonomy
+Then I copied the text from the PDF into a code-friendly text editor. Then I removed the page headings, which were also copied 
+when I hightlighted the test in the pdf ("DC Three-Tiered List of Academic Disciplines (March 2025)").
+Next, I put long fields that spanned multiple lines onto one line. E.g.:
+Social and Behavioral Sciences: Public Affairs, Public Policy and Public Administration: Emergency and
+Disaster Management
+Became:
+Social and Behavioral Sciences: Public Affairs, Public Policy and Public Administration: Emergency and Disaster Management
