@@ -2,23 +2,22 @@
 title: "Demographics: qualitative responses"
 ---
 
-TODO:
-- Remember we asked people to comma-separate multiple fields
-- Need a smarter algorithm? Or just go through them manually. Probably the latter
-
-
 # Qualitative responses: subfields
 
-For Q18, after asking respondents their broad domain of study, we asked them this free-response question:\
+For Q18, after asking respondents for their broad domain of study, we asked them this free-response question:\
 What is your primary field? (e.g. astrophysics, neuroscience)\
 One response is preferred, but if multiple are needed, please separate with commas.\
 
 I plan to "classify" these free responses into standardized categories. The taxonomy of academic disciplines that I'll be using is here:\
 https://digitalcommons.elsevier.com/en_US/dc-disciplines-taxonomy
 
-I downloaded the PDF and did a very tiny amount of curation to make this list of academic fields and subfields machine-readable.
+I downloaded the PDF and did a very tiny amount of curation to make this list of academic fields and subfields machine-readable. (I left a txt file with my curation notes in the data/ folder.)
 
 I'll use a fuzzy string matching algorithm to classify the responses--essentially, looking for which item in the taxonomy most closely matches the user's entry. Hopefully, there will be very few entries that aren't a good match for anything in the taxonomy, and I can deal with these stragglers manually.
+
+Note that while I am preforming classification, there's no machine learning here.
+
+Note from the future: this code ended up being pretty ugly, with a lot of nested loops. Maybe I could have written less code if I'd used the `fuzzyjoin` package. Oh well. I went for a rudimentary solution, and it worked well enough.
 
 # Import packages and utilities
 ```{r}
@@ -32,6 +31,25 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 
 # Define funtions
 
+#### get_all_hits
+- Arguments:
+  - `query`: A survey response, e.g. "neuroscience" or "AI".
+  - `tax_df`: The taxonomy, as a data frame with columns `Level1`, `Level2`,
+    and `Level3`. It wasn't really necessary to include this as an argument
+    since it doesn't change, but I like to be explicit about what goes into the
+    function.
+- Details:
+  - For a given query (survey response), return a data frame with the similarity
+    scores between that query and all strings in the DC taxonomy. Each row
+    in the taxonomy gets a row score, which is the minimum distance between the
+    query and any of the three strings in that row. Row score was computed with
+    `get_row_results()`.
+- Outputs:
+  - A data frame with columns `min_dist`, `level`, and `index`. `index` is just
+    row number for that row in the taxonomy/in this data frame (they have the
+    same number of rows). `level` indicates which level the winning string came
+    from. `index` will be useful later. In the for loop at the end of this script,
+    this df is called `q_scores`.
 ```{r}
 get_all_hits <- function(query, tax_df) {
     n_tax <- nrow(tax_df)
@@ -55,19 +73,23 @@ get_all_hits <- function(query, tax_df) {
 }
 ```
 
-
+#### get_row_results
+- Arguments:
+  - `query`: A survey response, e.g. "neuroscience" or "AI".
+  - `tax_df`: see get_all_hits
+  - `row_num`: Row number of the row in `tax_df` you want to analyze.
+- Details:
+  - For a given query (survey response), and a given row in the taxonomy,
+    record which column's entry had the lowest distance score. Breaks ties
+    by just choosing the first occurrence of a minimum value. So it prefers
+    Level1 over Level2, and Level2 over Level3. I'm betting that 99% of ties
+    are basically just noise, and not real matches.
+- Outputs:
+  - A vector with two elements: first, the lowest distance score
+    between the query and any string in that row of the taxonomy, and second,
+    the name of the column that the winning string came from (e.g. `Level1`).
 ```{r}
 get_row_results <- function(query, tax_df, row_num) {
-
-  # For a given row/query pair (the query being the
-  # string our respondent wrote on the survey),
-  # Record which column had the lowest distance score,
-  # and the string in that column.
-  # I'm not currently handling ties because... I'll
-  # deal with that if and when it arises.
-
-  # I like to include tax_df as an argument just for clarity,
-  # even though tax_split is the only df I'll be running this on.
 
   strL1 <- tax_df[row_num, "Level1"]
   strL2 <- tax_df[row_num, "Level2"]
@@ -91,12 +113,29 @@ get_row_results <- function(query, tax_df, row_num) {
       Inf
     )
   )
+  
+  dists <- c(dist1, dist2, dist3)
+  min_dist <- min(dists, na.rm = TRUE)
 
-  # assemble into a vector
-  min_dist = min(c(dist1, dist2, dist3), na.rm = TRUE)
-  level = c("Level1", "Level2", "Level3")[
-    which.min(c(dist1, dist2, dist3))
+  # which.min gets the index of the lowest element.
+  # In the event of a tie, it chooses the first one.
+  # So it will choose level1 over level2, and level2 over level3.
+  level <- c("Level1", "Level2", "Level3")[
+    which.min(dists)
   ]
+
+  # This was a little test I ran to see how common ties are.
+  # Turns out ties are extremely common. They are all, or nearly
+  # all, cases where all 3 levels are really different from the query.
+  # I'm willing to assume that a tie means the taxonomy strings are all
+  # really different from the query, and I'm not going to fret over the
+  # fact that this function is practically breaking the tie at random,
+  # just choosing the first minimum in the list.
+#   has_tied_min <- function(x, na.rm = FALSE) {
+#   m <- min(x, na.rm = na.rm)
+#   sum(x == m, na.rm = na.rm) > 1L
+# }
+  #if (has_tied_min(dists)) {message(query, " | ", tax_df[row_num,], " | ", dists)}
 
   return(
     c(min_dist, level)
@@ -104,47 +143,64 @@ get_row_results <- function(query, tax_df, row_num) {
 }
 ```
 
+#### get_candidates
+- Arguments:
+  - `q_scores`: A data frame with columns `min_dist`, `level`, and `index`,
+    produced by `get_all_hits()`.
+- Details:
+  - Given the minimum distance scores for every row/query pair, find the
+    global minimum across all rows. Handles ties by reporting multiple
+    candidates.
+- Outputs:
+  - A data frame with the same columns as the input data frame. It has been
+    merely been subsetted so the only rows remaining are those with the
+    minimum distance.
 ```{r}
 get_candidates <- function(q_scores) {
-  # For a given row/query pair (the query being the
-  # string our respondent wrote on the survey),
-  # collect indices for all rows that had the lowest
-  # distance score, as well as column indices (though
-  # I am using column names e.g. "Level1" instead of numbers).
 
-  # find the global minimum across all rows
   best_dist <- min(q_scores$min_dist)
   cands <- q_scores %>% filter(min_dist == best_dist)
   return(cands)
 }
 ```
 
-
+#### get_winner_df
+- Arguments:
+  - `cands_df`: A data frame with columns `min_dist`, `level`, and `index`,
+    produced by `get_candidates()`.
+  - `tax_df`: see `get_all_hits()`.
+- Details:
+  - Given a set of candidate rows, choose a smaller number of rows to keep.
+    Chooses final picks by preferring Level 3 matches over Level 2 matches,
+    and preferring Level 2 over Level 1. Returns a subset of the taxonomy,
+    not just a bunch of indices and distance scores.
+- Outputs:
+  - A subset of the taxonomy; the final rows for manual inspection (as a
+    data frame).
 ```{r}
-get_winner_df <- function(cands_df) {
+get_winner_df <- function(cands_df, tax_df) {
   winners <- ""
   lvl3_cands <- subset(cands_df, level == "Level3")
   lvl2_cands <- subset(cands_df, level == "Level2")
   lvl1_cands <- subset(cands_df, level == "Level1")
 
   if (nrow(lvl3_cands) > 0) {
-    winners <- tax_split[lvl3_cands$index, ]
+    winners <- tax_df[lvl3_cands$index, ]
   } else if (nrow(lvl2_cands) > 0) {
-    keep_idx <- lvl2_cands$index[is.na(tax_split$Level3[lvl2_cands$index])]
-    winners <- tax_split[keep_idx, , drop = FALSE]
+    keep_idx <- lvl2_cands$index[is.na(tax_df$Level3[lvl2_cands$index])]
+    winners <- tax_df[keep_idx, , drop = FALSE]
   } else {
     keep_idx <- lvl1_cands$index[
-      is.na(tax_split$Level2[lvl1_cands$index]) &
-        is.na(tax_split$Level3[lvl1_cands$index])
+      is.na(tax_df$Level2[lvl1_cands$index]) &
+        is.na(tax_df$Level3[lvl1_cands$index])
     ]
-    winners <- tax_split[keep_idx, , drop = FALSE]
+    winners <- tax_df[keep_idx, , drop = FALSE]
   }
   return(winners)
 }
 ```
 
 # Load data
-
 ```{r}
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 status <- load_qualtrics_data("clean_data/contributor_status_Q3.tsv")
@@ -190,7 +246,7 @@ qual_fields <- unname(
 head(qual_fields)
 ```
 
-Oof. The correction of "AI" to "Ai" is unfortunate, but let's see how it goes.
+Hmm. The correction of "AI" to "Ai" is unfortunate, but let's see how it goes.
 
 Here's our taxonomy:
 
@@ -239,8 +295,9 @@ responses_df <- tibble(
 responses_df
 ```
 
-Again, you can take my word for it that I visually compared this df to the raw survey data and it looks good.
+Again, you can take my word for it that I visually compared this df to the raw survey data and it looks good. Now let's get to the meat of the script: for each discipline entered by a survey participant, get rows that contain the best possible fuzzy match (allowing multiple rows for ties).
 
+This code takes a minute to run.
 ```{r}
 results <- vector("list", nrow(responses_df))
 
@@ -250,7 +307,7 @@ for (i in seq_len(nrow(responses_df))) {
 
   q_scores <- get_all_hits(current_query, tax)
   candidates <- get_candidates(q_scores)
-  winnerdf <- get_winner_df(candidates)
+  winnerdf <- get_winner_df(candidates, tax)
 
   # add participant info
   winnerdf$participantID <- current_participantID
@@ -258,7 +315,6 @@ for (i in seq_len(nrow(responses_df))) {
   results[[i]] <- winnerdf
 }
 
-# combine results into a data frame
 final_results <- dplyr::bind_rows(results) %>%
   # move participantID to be the first column
   dplyr::relocate(participantID, response)
@@ -269,6 +325,15 @@ head(final_results, n=50)
 Okay, well I got results, but there's a pretty high rate of crappy matches. And then there's some that only a sophisticated algorithm would catch, and a couple that I'M not even sure how to classify. I think experimenting with better algorithms, or "real ML" classifiers, would probably take longer than just manually sifting through these. My code is ugly, and I hate that my procedure is not reproducible, but it's fast. So I'm just going to manually review these classifications in Microsoft Excel.
 
 ```{r}
-write.table(final_results, "data/qual_fields_guesses.tsv", sep="\t", quote=FALSE, row.names = FALSE)
+write.table(
+  final_results,
+  "data/qual_fields_guesses.tsv",
+  sep = "\t",
+  quote = FALSE,
+  row.names = FALSE
+)
 ```
 
+```{r}
+sessionInfo()
+```

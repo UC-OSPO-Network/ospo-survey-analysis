@@ -2,9 +2,9 @@
 title: "Demographics: qualitative responses"
 ---
 
-At this point, I've manually reviewed the classifications of people's write-in responses to Q18 in Microsoft Excel. There were definitely some decisions that I think even state-of-the-art AI would have struggled with.
+At this point, I've manually reviewed the classifications of people's write-in responses to Q18 in Microsoft Excel. There were definitely some decisions that I think even state-of-the-art AI would have struggled with. You could call this notebook "post-review curation".
 
-I saved my work in an excel spreadsheet. The key column is the "decision" column, so I just copied that one column to a code-friendly text editor and saved it as a tsv. Here's my curation schema:
+I saved my work in an excel spreadsheet. The most important column is the "decision" column, so I just copied that one column to a code-friendly text editor and saved it as a tsv. Here's a key to my mark-up in that column:
 k = keep as-is
 d = drop
 If I put a number in the decision column, that means replace the existing row with that row of the taxonomy.
@@ -13,7 +13,6 @@ Also, the taxonomy didn't have "AI" or "Machine Learning" by themselves. So I ta
 We'll want to use this column to make substitutions in the data frame produced by demographics_qual_part1.qmd.
 
 I also recorded 4 rows that need to be added. These were cases where people indicated two fields, usually with an "and" instead of with a slash or comma, so I didn't split these on my first pass. Since there's only 4 of these, I'm just hard-coding them in here. (Ugly code, yeah, I know.)
-
 ```{r}
 additions <- data.frame(
     participantID = c(16, 62, 137, 159),
@@ -50,11 +49,16 @@ tax <- tax %>%
 ```
 
 ```{r}
-auto_results <- read.csv("data/qual_fields_guesses.tsv", sep="\t", stringsAsFactors = FALSE)
+auto_results <- read.csv(
+  "data/qual_fields_guesses.tsv",
+  sep = "\t",
+  stringsAsFactors = FALSE
+)
 
 decisions <- as.data.frame(
-    readLines("data/classification_decisions.tsv"),
-    stringsAsFactors = FALSE)
+  readLines("data/classification_decisions.tsv"),
+  stringsAsFactors = FALSE
+)
 
 names(decisions) <- c("decision")
 ```
@@ -65,8 +69,8 @@ Let's make sure that both data frames have the same number of rows.
 nrow(auto_results) == nrow(decisions)
 ```
 
+# Curate the data based on manual review
 Now, let's start updating the data frame we got in part 1 with the manual revisions. First, let's drop the rows we can drop.
-
 ```{r}
 dim(auto_results)
 curated <- auto_results
@@ -100,19 +104,29 @@ Let's inspect the results with a side-by-side comparison (well, vertically speak
 
 ```{r}
 for (i in seq(10)) {
-    cat("Before:\n")
-    # write.table() prints to the console by default and lets you hide headers
-    write.table(subset(auto_results, participantID == i), col.names = FALSE, row.names = FALSE, quote = 2)
-    cat("After:\n")
-    tmp <- subset(curated, participantID == i)
-    write.table(tmp[,-ncol(tmp)], col.names = FALSE, row.names = FALSE, quote = 2)
-    cat("\n")
+  cat("Before:\n")
+  # write.table() prints to the console by default and lets you hide headers
+  write.table(
+    subset(auto_results, participantID == i),
+    col.names = FALSE,
+    row.names = FALSE,
+    quote = 2
+  )
+  cat("After:\n")
+  tmp <- subset(curated, participantID == i)
+  write.table(
+    tmp[, -ncol(tmp)],
+    col.names = FALSE,
+    row.names = FALSE,
+    quote = 2
+  )
+  cat("\n")
 }
 ```
 
 We see that the errors have been corrected.
 
-We don't need this column anymore.
+We don't need this column anymore:
 ```{r}
 curated <- curated %>% select(-c("decision"))
 ```
@@ -127,14 +141,16 @@ tmp_tax <- tax %>% mutate(decision = row_number())
 new_rows <- additions %>%
   mutate(decision = suppressWarnings(as.integer(decision))) %>%
   left_join(curated, by = "participantID") %>%
-  select(-c("Level1", "Level2", "Level3")) %>% # we're just grabbing the response col from `curated`
-  left_join(tmp_tax, by = "decision") %>% # grab the Level cols from tax, at the row specified in decision
+  # we're just grabbing the response col from `curated`
+  select(-c("Level1", "Level2", "Level3")) %>%
+  # grab the Level cols from tax, at the row specified in decision
+  left_join(tmp_tax, by = "decision") %>%
   select(participantID, response, Level1, Level2, Level3)
 
 curated <- bind_rows(curated, new_rows)
 curated <- curated %>% arrange(participantID)
 
-subset(curated, participantID==16)
+subset(curated, participantID == 16)
 ```
 
 Ok! Now we finally have the qualitative responses smooshed and zhoozhed into our taxonomy.
@@ -188,7 +204,9 @@ level3_counts <- level3_counts %>%
 And let's change that Artificial Intelligence label I mentioned at the top of this document. 
 
 ```{r}
-level3_counts$Level3[level3_counts$Level3 == "Artificial Intelligence and Robotics"] <- "AI and Machine Learning"
+level3_counts$Level3[
+  level3_counts$Level3 == "Artificial Intelligence and Robotics"
+] <- "AI and Machine Learning"
 ```
 
 Let's rearrange the columns a bit for readability, and put these all back into one data frame.
@@ -212,5 +230,15 @@ final_data <- rbind(level1_counts, level2_counts, level3_counts)
 I'm just going to leave them as a table for now. I'll save them with my figures. Remember from utils.R that I've saved the path to my figures, which are on my local computer, in my .Renviron file.
 
 ```{r}
-write.table(final_data, file.path(Sys.getenv("FIGURE_PATH"), "qual_disciplines.tsv"), row.names = FALSE, quote = FALSE, sep="\t")
+write.table(
+  final_data,
+  file.path(Sys.getenv("FIGURE_PATH"), "qual_disciplines.tsv"),
+  row.names = FALSE,
+  quote = FALSE,
+  sep = "\t"
+)
+```
+
+```{r}
+sessionInfo()
 ```
