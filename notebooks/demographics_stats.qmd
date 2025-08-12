@@ -4,7 +4,7 @@ title: "Demographics: descriptive statistics"
 
 # Overview
 
-Let's look at survey participation rates across various groups (demographics). This isn't about hypothesis testing; it's just about getting a sense of who took the survey.
+Let's look at survey participation rates across various groups (demographics). This isn't about hypothesis testing; it's just about getting a sense of who took the survey. These are all pretty basic, descriptive statistics.
 
 # Import packages and utilities
 ```{r}
@@ -33,12 +33,65 @@ First, let's see how many experienced and aspiring open source contributors took
 
 Experienced:
 ```{r}
-nrow(subset(data, Past=="True"))
+total_expd <- nrow(subset(data, Past=="True"))
+total_expd
 ```
 
 Aspiring:
 ```{r}
-nrow(subset(data, Past=="False" & Future=="True"))
+total_asp <- nrow(subset(data, Past=="False" & Future=="True"))
+total_asp
+```
+
+## Experienced vs. aspiring by job
+
+```{r}
+# Filter duds
+status_data <- data %>%
+    filter(!(Past == "" | Future == "")) %>%
+    filter(!(Past == "False" & Future == "False"))
+
+status_data <- status_data %>%
+  mutate(status = if_else(Past == "True", "experienced", "aspiring")) %>%
+  select(job_category, status)
+
+stat_sum <- data.frame(
+  ftable(xtabs(~ job_category + status, data = status_data))
+)
+subset(stat_sum, status == "aspiring") %>% arrange(desc(Freq))
+subset(stat_sum, status == "experienced") %>% arrange(desc(Freq))
+```
+
+I think this will be easier to interpret if we combine some of these groups.
+```{r}
+stat_sum_relabeled <- stat_sum %>%
+  mutate(
+    job_category = case_when(
+      job_category %in% c("Other research staff", "Post-Doc") ~
+        "Post-docs and staff researchers",
+      job_category %in% c("Grad Student", "Undergraduate") ~ "Students",
+      TRUE ~ job_category
+    )
+  ) %>%
+  group_by(job_category, status) %>%
+  summarise(Freq = sum(Freq, na.rm = TRUE), .groups = "drop")
+
+
+asp <- subset(stat_sum_relabeled, status == "aspiring") %>% arrange(desc(Freq))
+expd <- subset(stat_sum_relabeled, status == "experienced") %>% arrange(desc(Freq))
+
+asp
+expd
+```
+
+Ah, that's better. We can see that students have moved way up. Let's look at the proportions, which will make this even easier to see.
+
+```{r}
+asp$prop <- round(asp$Freq/total_asp * 100, digits = 1)
+expd$prop <- round(expd$Freq/total_expd * 100, digits = 1)
+
+asp
+expd
 ```
 
 # Campus

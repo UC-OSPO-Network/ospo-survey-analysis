@@ -4,7 +4,7 @@ title: "Solutions Stats Part 2: Aspiring Contributors"
 
 Now let's look at Q15, where we asked aspiring contributors what would make them more likely to participate in open source projects.
 
-This is the second time now that I am flummoxed with how to analyze a "select all that apply" question. While it seems strange to me that statisticians haven't come up with a better solution, from my Googlings, it seems like it's pretty common to just make a bunch of little models with a single binary outcome variable, rather than trying to model a bunch of binary outcomes at once. So let's try that approach.
+This is the second time now that I am flummoxed with how to analyze a "select all that apply" question. While it seems strange to me that statisticians haven't come up with a better solution, from my Googlings, it seems like it's pretty common to just make a bunch of little models with a single binary outcome variable, rather than trying to model a bunch of binary outcomes at once, in one multivariate model. So let's try that approach.
 
 https://www.statalist.org/forums/forum/general-stata-discussion/general/1394776-multivariate-analysis-on-a-multiple-selection-survey-question
 
@@ -136,7 +136,7 @@ for (i in seq_along(solution_names)) {
 
 ```
 
-Hmm. Only for "Dedicated grants" does including the job predictor make a difference (p<0.05). This seems reasonable, considering that this model had the best fit, and only in this case was the predictor variable necessary.
+Hmm. Only for "Dedicated grants" does including the job predictor make a difference (p<0.05).
 
 Let's do pairwise contrasts to dig deeper.
 

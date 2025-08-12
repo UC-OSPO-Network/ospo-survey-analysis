@@ -314,10 +314,10 @@ So, students had somewhat significantly higher odds of selecting computing envir
 
 So, painting this with a really broad brush, we might say that responses vary across solutions more than they vary across job categories, at least in the sense that there are more significant differences within faculty than between faculty vs. students.
 
-Since coefficients are hard to interpret, let's get contrasts using the emmeans package. The contrast essentially indicates the difference between two factor's effect sizes. So instead of comparing the coefficients by eye, we can just calculate contrasts that tell us how big the difference is, for each pair of coefficients.
+Since coefficients are hard to interpret, let's get contrasts using the emmeans package. The contrast essentially indicates the difference between two factors' effect sizes. So instead of comparing the coefficients by eye, we can just calculate contrasts that tell us how big the difference is, for each pair of coefficients.
 
 # Estimated marginal means
-So, here's my attempt to make sense of a complicated post-hoc exploration of a complicated model. Ordinal regression with the `ordinal` package--and ordinal regression in general, I think--assumes that there is a continuous random variable--a "latent" variable--underlying the categorical outcomes. The category boundaries are then thresholds on the continuous function. The emmeans package is a package for getting estimated marginal means from your model: mean outcomes for certain variables while holding other variables constant. The emmeans function can be run in various modes that will change the reported means from the default "latent" scale (whose bounds are arbitrary) to something else. mode = "prob" will report descriptive statistics on the probability distribution of each rating. mode = "mean.class" will report the means of these distributions as probabilities on a scale of 1 to n, where n is the number of outcome categories in your data set. So if you have three outcomes, e.g. not very useful, useful, very useful, and you obtain an average rating of 2.1 for a particular solution with mode="mean.class", this means that the (estimated) average rating for that solution was 2.1, or, a teensy bit above "useful". 
+So, here's my attempt to make sense of a complicated post-hoc exploration of a complicated model. Ordinal regression with the `ordinal` package--and ordinal regression in general, I think--assumes that there is a continuous random variable--a "latent" variable--underlying the categorical outcomes. The category boundaries are then thresholds on the continuous function. The emmeans package gets estimated marginal means from your model: mean outcomes for certain variables while holding other variables constant. The emmeans function can be run in various modes that will change the reported means from the default "latent" scale (whose bounds are arbitrary) to something else. mode = "prob" will report descriptive statistics on the probability distribution of each rating. mode = "mean.class" will report the means of these distributions as probabilities on a scale of 1 to n, where n is the number of outcome categories in your data set. So if you have three outcomes, e.g. not very useful, useful, very useful, and you obtain an average rating of 2.1 for a particular solution with mode="mean.class", this means that the (estimated) average rating for that solution was 2.1, or, a teensy bit above "useful". 
 
 I'm using mode="mean.class" because I find it much easier to interpret an average rating (the sum of the probabilities of each of the three rating categories) than values on the arbitrary latent scale. 
 
@@ -329,7 +329,7 @@ emmeans also gives you the option to weight the means by averaging over a factor
 ref_grid(fit1b)@grid
 ```
 
-It appears that non-research staff are weighted more heavily, and students less so, presumably because there are a lot of observations for that group and not many observations, respectively.
+It appears that non-research staff are weighted more heavily, and students less so, presumably because there are a lot of observations for that group and not many for the other, respectively.
 ```{r}
 sapply(
   c(
@@ -385,6 +385,7 @@ emm <- summary(emmeans(fit1b, ~ solution * job_category, mode = "mean.class"))
 emm
 ```
 
+# Plot emms
 Plot the results.
 
 ```{r, fig.width=10, fig.height=8}
@@ -409,6 +410,7 @@ make_plot <- function(df, jc) {
     geom_errorbar(aes(ymin = lwr, ymax = upr),
                   width = .15, linewidth = .4) +
     geom_point(size = 3) +
+    ylim(c(1, 3)) +
     labs(title = jc, x = NULL, y = "Estimated mean rating (0–3)") +
     coord_flip() +                       # solutions run down the y‑axis
     theme(
