@@ -153,7 +153,17 @@ curated <- curated %>% arrange(participantID)
 subset(curated, participantID == 16)
 ```
 
-Ok! Now we finally have the qualitative responses smooshed and zhoozhed into our taxonomy.
+Ok! Now we finally have the qualitative responses smooshed and zhoozhed into our taxonomy. Let's save this to a file.
+
+```{r}
+write.table(
+  curated,
+  file.path(Sys.getenv("DATA_PATH"), "qual_disciplines_final.tsv"),
+  row.names = FALSE,
+  quote = FALSE,
+  sep = "\t"
+)
+```
 
 # Analysis
 

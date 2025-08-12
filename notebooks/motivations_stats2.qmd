@@ -1,0 +1,335 @@
+---
+title: "Motivations for contributing to OS: statistical analysis"
+---
+
+# Overview
+
+I'm redoing an earlier analysis of 6, which is about participants' reasons for contributing to open source. I was trying to incorporate all the binary response variables (yes/no to each possible motivation) in one model, but I think it just ended up being obtuse and hard to understand. I also don't feel good about using mvabund(), which did exactly what I needed, but it's an ecology tool, and basically 100% of the papers that cite it are ecology papers, so it just didn't feel right.
+
+I'm just going to use more popular functions, and I'll use multiple small models instead of one big complicated one.
+
+The old analysis is in notebooks/defunct/motivations_stats.qmd.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+
+# Function definition
+#### pairwise_z_test_lessthan
+- Arguments:
+  - `df`: A data frame where rows are participants, and columns are a
+    predictor, either `job_category` or `Role`, plus at least one response 
+    variable, e.g. `Skills`, `Give back`, etc. Extra columns are okay. 
+    The response variable of interest should be a column of 0s and 1s.
+  - `outcome_col`: A string. `Skills` by default, but could be any of the
+    7 response variables, e.g. `Improve tools`, `Job`, etc.
+  - `predictor_col`: A string. The name of a factor column containing 2 groups
+    to compare. Currently, should be either `Role` or `job_category` (default).
+  - `group1`: A string. The job category that you suspect has a lower
+    "success rate", of the two.
+  - `group2`: A string. The job category that you suspect has a higher
+    "success rate", of the two.
+- Details:
+  - A simple function that performs a pairwise z-test for equality of two
+    proportions. Most of the function is just summing across the data frame.
+    it calls stats::prop.test to run a one-sided z-test testing whether
+    the proportion of "successes" in group1 is less than that of group2.
+- Outputs:
+  - An "htest" object, from stats::prop.test.
+```{r}
+pairwise_z_test_lessthan <- function(
+  df,
+  outcome_col = "Skills",
+  predictor_col = "job_category",
+  group1,
+  group2,
+  alternative = "less"
+) {
+  # Count total and 'yes' outcomes for each group
+  n1 <- sum(df[[predictor_col]] == group1)
+  y1 <- sum(df[[predictor_col]] == group1 & df[[outcome_col]] == 1)
+
+  n2 <- sum(df[[predictor_col]] == group2)
+  y2 <- sum(df[[predictor_col]] == group2 & df[[outcome_col]] == 1)
+
+  # Perform the one-sided prop test (testing if group1 < group2)
+  result <- prop.test(
+    x = c(y1, y2),
+    n = c(n1, n2),
+    alternative = alternative,
+  )
+
+  return(result)
+}
+```
+
+
+# Load data
+```{r}
+motivations <- load_qualtrics_data("clean_data/motivations_Q6.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+```
+
+# Wrangle data
+
+```{r}
+motivations_job <- cbind(motivations, other_quant$job_category)
+# Rename last col
+names(motivations_job)[length(names(motivations_job))] <- "job_category"
+# Remove any rows where the job_category is missing
+motivations_job_clean <- exclude_empty_rows(motivations_job, strict=TRUE)
+# Remove rows of all 0s
+motivations_job_clean <- motivations_job_clean %>%
+  filter(!if_all(Job:Other, ~ .x == 0))
+
+# drop the "Other" column
+motivations_job_clean <- motivations_job_clean %>%
+    select(-c("Other"))
+
+head(motivations_job_clean)
+dim(motivations_job_clean)
+
+# This will also come in handy later.
+motivation_cols <- names(motivations_job_clean)[-length(names(motivations_job_clean))]
+```
+
+Since other models elsewhere in this study have had trouble converging, I'm just going to combine some of the groups a priori so we can have larger sample sizes per group. This is, in a gut-sense kind of way, consistent with the power analysis I did in the earlier version of this script--the comparisons I was interested in that involved undergrads and postdocs didn't have enough statistical power for hypothesis testing. The initial group labels on the survey (faculty, postdoc, grad student, undergrad, staff researcher, non-research staff) were somewhat arbitrary, so I have no qualms about combining them now into a different set of somewhat arbitrary groups.
+
+```{r}
+combined <- motivations_job_clean %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
+    )
+  )
+
+combined <- combined %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Students",
+      "Undergraduate" = "Students"
+    )
+  )
+
+head(combined)
+```
+
+Let's make a simple logistic regression model for each motivation. The only independent variable is job_category.
+
+```{r}
+# run a separate model for each outcome (motivation)
+models <- lapply(motivation_cols, function(x) {
+  # wrap the column name in backticks so "My Column" becomes `My Column`
+  f_text <- paste0("`", x, "`", " ~ job_category")
+  f <- as.formula(f_text)
+  stats::glm(f, family = "binomial", data = motivations_job_clean)
+})
+
+# example
+models[[1]]
+```
+
+
+Quick AIC check just because it's easy.
+
+```{r}
+for (i in seq_along(motivation_cols)) {
+  cat(
+    sprintf(
+      "%s  %.3f\n",
+      motivation_cols[i],
+      stats::AIC(models[[i]])   # AIC rounded to 3 decimals
+    )
+  )
+}
+```
+
+Hmm. Some pretty big differences here. Improve Tools is by far the best fit. Fun and Job are a pretty poor fit.
+
+Let's makes some null models with an intercept only, and no predictor (job_category).
+```{r}
+null_models <- lapply(motivation_cols, function(x) {
+  # wrap the column name in backticks so "My Column" becomes `My Column`
+  f_text <- paste0("`", x, "`", " ~ 1")
+  f <- as.formula(f_text)
+  stats::glm(f, family = "binomial", data = motivations_job_clean)
+})
+```
+
+And let's do ANOVA to compare the null models vs. full models. (Printing an example)
+```{r}
+anova_results <- mapply(
+  FUN = function(null_m, full_m) {
+    stats::anova(null_m, full_m)
+  },
+  null_models,
+  models,
+  SIMPLIFY = FALSE
+)
+
+anova_results[[1]]
+```
+
+Let's look at p-values for all the ANOVAs.
+```{r}
+p_vals <- c()
+for (i in seq_along(motivation_cols)) {
+  p_val <- anova_results[[i]]$`Pr(>Chi)`[2]
+  p_vals[i] <- p_val
+  cat(
+    sprintf(
+      "%s  %.3f\n",
+      motivation_cols[i],
+      p_val # p‑value rounded to 3 decimals
+    )
+  )
+}
+```
+
+Skills has a super low p-value, as we'd expect based on the earlier analysis with mvabund, which found that Skills was the only variable that job category strongly predicted. Maybe we should do a multiple test correction?
+
+```{r}
+# Choosing BH pretty arbitrarily. I don't feel a
+# need to be super conservative, and I hear BH
+# is more forgiving than holm.
+p_fdr  <- p.adjust(p_vals, method = "BH")
+for (i in seq_along(p_fdr)) {
+  cat(
+    sprintf(
+      "%s  %.3f\n",
+      motivation_cols[i],
+      p_fdr[i] # p‑value rounded to 3 decimals
+    )
+  )
+}
+```
+
+Yup. Give back is no longer significant. This too, aligns with what I saw in the previous analysis with mvabund. I didn't do quite the same procedure this time, but I noticed the coefficients for both Skills and Give back were big, and really different from the other variables, but only Skills turned had a significant (p-adjusted) ANOVA from univariate ANOVAs.
+
+So, as we saw previously, Skills is the most interesting one. It's the only case where the model fit is significantly improved by inclusion of the job_category variable. It was sort of middling in terms of AIC, and I'm okay with that.
+
+# Test for trend in "skills"
+
+In my other script, motivations_plots, we have one plot where we apparently see a trend: the probability of a respondent choosing "skills" as a motivator appears to decrease as they advance in their academic career. We will use a Cochrane-Armitage test for trend to evaluate whether this trend is real. More precisely, I believe we are evaluating whether the order "P(Yes | Undergrad) > P(Yes | Grad) > P(Yes | Postdoc) > P(Yes | Faculty)" is highly unlikely (<95% chance) given the null hypothesis that all four categories have the same probability of a "yes" response.
+
+Full disclosure: I'm being a little p-hacky here, because I'm only trying this after I tried a series of pairwise z-tests to see whether the proportion of "yes" for "skills" was significantly different from undergrads vs. grads, grads vs. postdocs, etc. That analysis is in the old notebook. In all seriousness, I don't actually feel that I am p-hacking because I'm not just using a new test to try and make the same claim; this is a different test and we will interpret it appropriately. I'm not claiming that undergrads are more likely than grads to select skills; I'm just claiming that there is a trend across the 4 categories. 
+
+```{r}
+# Here, I haven't combined post-docs and other research staff
+n_postdoc <- sum(motivations_job_clean$job_category == "Post-Doc")
+n_postdoc_yes <- sum(
+  motivations_job_clean$job_category == "Post-Doc" &
+    motivations_job_clean$Skills == 1
+)
+# For the other groups, it doesn't matter if we use the raw or processed data
+n_faculty <- sum(motivations_job_clean$job_category == "Faculty")
+n_faculty_yes <- sum(
+  motivations_job_clean$job_category == "Faculty" &
+    motivations_job_clean$Skills == 1
+)
+
+n_grad <- sum(motivations_job_clean$job_category == "Grad Student")
+n_grad_yes <- sum(
+  motivations_job_clean$job_category == "Grad Student" &
+    motivations_job_clean$Skills == 1
+)
+
+n_undergrad <- sum(motivations_job_clean$job_category == "Undergraduate")
+n_undergrad_yes <- sum(
+  motivations_job_clean$job_category == "Undergraduate" &
+    motivations_job_clean$Skills == 1
+)
+
+n_yes <- c(
+  n_undergrad_yes,
+  n_grad_yes,
+  n_postdoc_yes,
+  n_faculty_yes
+)
+
+n_tot <- c(
+  n_undergrad,
+  n_grad,
+  n_postdoc,
+  n_faculty
+)
+
+# Assign scores 1,2,3,4 for Undergrad --> Faculty
+# To indicate the ordering
+scores <- 1:4
+
+stats::prop.trend.test(
+  x = n_yes,
+  n = n_tot,
+  score = scores
+)
+```
+
+I'm honestly not sure whether this is a one-tailed or two-tailed test... I would assume one-tailed, but the documentation is terse. Anyway, even if we divide that p-value by two it's still well under p=0.05.
+
+# By popular demand: IT vs. Academics
+Greg raised an interesting question: what about IT staff vs. academics? Let's play around with this.
+
+I plotted the data (see motivations_plots.qmd), and it appears that these groups are somewhat different. The "Job" motivation looks to be the most different, just by eyeballing it. But let's see what the statistics say.
+
+## Data Wrangling
+```{r}
+motivations_job_staff <- cbind(motivations, other_quant$job_category)
+# Rename columns
+names(motivations_job_staff)[length(names(motivations_job_staff))] <- "job_category"
+motivations_job_staff <- cbind(motivations_job_staff, other_quant$staff_categories)
+names(motivations_job_staff)[length(names(motivations_job_staff))] <- "staff_category"
+# Remove any rows where the job_category or staff_category are missing
+motivations_job_staff_clean <- exclude_empty_rows(motivations_job_staff, strict=TRUE)
+# Remove rows of all 0s
+motivations_job_staff_clean <- motivations_job_staff_clean %>%
+  filter(!if_all(Job:Other, ~ .x == 0))
+
+# drop the "Other" column
+motivations_job_staff_clean <- motivations_job_staff_clean %>%
+    select(-c("Other"))
+
+head(motivations_job_staff_clean)
+```
+
+```{r}
+it <- motivations_job_staff_clean %>%
+  filter(staff_category == "Information Technology (IT)") %>%
+  select(-c(job_category, staff_category))
+it$Role <- "IT"
+head(it)
+dim(it)
+```
+
+```{r}
+# Everyone except non-research staff
+academics <- combined %>%
+  filter(
+    job_category == "Faculty" |
+    job_category == "Students" |
+    job_category == "Postdocs and Staff Researchers"
+  ) %>%
+    select(-job_category)
+academics$Role <- "Academic"
+head(academics)
+dim(academics)
+```
+
+```{r}
+it_acad <- rbind(it, academics)
+it_acad$Role <- as.factor(it_acad$Role)
+dim(it_acad)
+```
+
+## Regression
+TODO
