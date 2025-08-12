@@ -21,56 +21,6 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
 
-# Function definition
-#### pairwise_z_test_lessthan
-- Arguments:
-  - `df`: A data frame where rows are participants, and columns are a
-    predictor, either `job_category` or `Role`, plus at least one response 
-    variable, e.g. `Skills`, `Give back`, etc. Extra columns are okay. 
-    The response variable of interest should be a column of 0s and 1s.
-  - `outcome_col`: A string. `Skills` by default, but could be any of the
-    7 response variables, e.g. `Improve tools`, `Job`, etc.
-  - `predictor_col`: A string. The name of a factor column containing 2 groups
-    to compare. Currently, should be either `Role` or `job_category` (default).
-  - `group1`: A string. The job category that you suspect has a lower
-    "success rate", of the two.
-  - `group2`: A string. The job category that you suspect has a higher
-    "success rate", of the two.
-- Details:
-  - A simple function that performs a pairwise z-test for equality of two
-    proportions. Most of the function is just summing across the data frame.
-    it calls stats::prop.test to run a one-sided z-test testing whether
-    the proportion of "successes" in group1 is less than that of group2.
-- Outputs:
-  - An "htest" object, from stats::prop.test.
-```{r}
-pairwise_z_test_lessthan <- function(
-  df,
-  outcome_col = "Skills",
-  predictor_col = "job_category",
-  group1,
-  group2,
-  alternative = "less"
-) {
-  # Count total and 'yes' outcomes for each group
-  n1 <- sum(df[[predictor_col]] == group1)
-  y1 <- sum(df[[predictor_col]] == group1 & df[[outcome_col]] == 1)
-
-  n2 <- sum(df[[predictor_col]] == group2)
-  y2 <- sum(df[[predictor_col]] == group2 & df[[outcome_col]] == 1)
-
-  # Perform the one-sided prop test (testing if group1 < group2)
-  result <- prop.test(
-    x = c(y1, y2),
-    n = c(n1, n2),
-    alternative = alternative,
-  )
-
-  return(result)
-}
-```
-
-
 # Load data
 ```{r}
 motivations <- load_qualtrics_data("clean_data/motivations_Q6.tsv")
@@ -78,26 +28,28 @@ other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
 
 # Wrangle data
-
 ```{r}
 motivations_job <- cbind(motivations, other_quant$job_category)
 # Rename last col
 names(motivations_job)[length(names(motivations_job))] <- "job_category"
 # Remove any rows where the job_category is missing
-motivations_job_clean <- exclude_empty_rows(motivations_job, strict=TRUE)
+motivations_job_clean <- exclude_empty_rows(motivations_job, strict = TRUE)
 # Remove rows of all 0s
 motivations_job_clean <- motivations_job_clean %>%
   filter(!if_all(Job:Other, ~ .x == 0))
 
 # drop the "Other" column
 motivations_job_clean <- motivations_job_clean %>%
-    select(-c("Other"))
+  select(-c("Other"))
 
 head(motivations_job_clean)
 dim(motivations_job_clean)
 
 # This will also come in handy later.
-motivation_cols <- names(motivations_job_clean)[-length(names(motivations_job_clean))]
+motivation_cols <- names(motivations_job_clean)[
+  -length(names(motivations_job_clean))
+]
+motivation_cols
 ```
 
 Since other models elsewhere in this study have had trouble converging, I'm just going to combine some of the groups a priori so we can have larger sample sizes per group. This is, in a gut-sense kind of way, consistent with the power analysis I did in the earlier version of this script--the comparisons I was interested in that involved undergrads and postdocs didn't have enough statistical power for hypothesis testing. The initial group labels on the survey (faculty, postdoc, grad student, undergrad, staff researcher, non-research staff) were somewhat arbitrary, so I have no qualms about combining them now into a different set of somewhat arbitrary groups.
@@ -124,6 +76,8 @@ combined <- combined %>%
 head(combined)
 ```
 
+# Regression on job categories
+
 Let's make a simple logistic regression model for each motivation. The only independent variable is job_category.
 
 ```{r}
@@ -132,7 +86,7 @@ models <- lapply(motivation_cols, function(x) {
   # wrap the column name in backticks so "My Column" becomes `My Column`
   f_text <- paste0("`", x, "`", " ~ job_category")
   f <- as.formula(f_text)
-  stats::glm(f, family = "binomial", data = motivations_job_clean)
+  stats::glm(f, family = "binomial", data = combined)
 })
 
 # example
@@ -162,7 +116,7 @@ null_models <- lapply(motivation_cols, function(x) {
   # wrap the column name in backticks so "My Column" becomes `My Column`
   f_text <- paste0("`", x, "`", " ~ 1")
   f <- as.formula(f_text)
-  stats::glm(f, family = "binomial", data = motivations_job_clean)
+  stats::glm(f, family = "binomial", data = combined)
 })
 ```
 
@@ -196,7 +150,7 @@ for (i in seq_along(motivation_cols)) {
 }
 ```
 
-Skills has a super low p-value, as we'd expect based on the earlier analysis with mvabund, which found that Skills was the only variable that job category strongly predicted. Maybe we should do a multiple test correction?
+Skills has a super low p-value, as we'd expect based on the earlier analysis with mvabund, which found a similar result. Maybe we should do a multiple test correction?
 
 ```{r}
 # Choosing BH pretty arbitrarily. I don't feel a
@@ -214,9 +168,25 @@ for (i in seq_along(p_fdr)) {
 }
 ```
 
-Yup. Give back is no longer significant. This too, aligns with what I saw in the previous analysis with mvabund. I didn't do quite the same procedure this time, but I noticed the coefficients for both Skills and Give back were big, and really different from the other variables, but only Skills turned had a significant (p-adjusted) ANOVA from univariate ANOVAs.
+Yup. Give back is no longer significant. This too, aligns with what I saw in the previous analysis with mvabund. I didn't do quite the same procedure this time, but I noticed the coefficients for both Skills and Give back were big, and really different from the other variables, but only Skills turned out to have a significant (p-adjusted) ANOVA from univariate ANOVAs.
 
-So, as we saw previously, Skills is the most interesting one. It's the only case where the model fit is significantly improved by inclusion of the job_category variable. It was sort of middling in terms of AIC, and I'm okay with that.
+So, as we saw previously, Skills is the most interesting one. It's the only case where the model fit is significantly improved by inclusion of the job_category variable. It was sort of middling in terms of AIC, and I'm okay with that. Let's take a closer look at the model output.
+
+```{r}
+skills_model <- models[[which(motivation_cols=="Skills")]]
+skills_model
+
+p_fdr[[which(motivation_cols=="Skills")]]
+```
+
+Okay, apparently Faculty are our reference level. All the coefficients are positive, so everyone else is more likely to choose "Skills" than faculty.
+
+```{r}
+emm <- emmeans(skills_model, ~ job_category, type="response")
+pairs(emm, type="response", infer = TRUE)  
+```
+
+Meh, not sure if these contrasts are interesting enough to be worth reporting.
 
 # Test for trend in "skills"
 
@@ -275,7 +245,7 @@ stats::prop.trend.test(
 )
 ```
 
-I'm honestly not sure whether this is a one-tailed or two-tailed test... I would assume one-tailed, but the documentation is terse. Anyway, even if we divide that p-value by two it's still well under p=0.05.
+I'm honestly not sure whether this is a one-tailed or two-tailed test... I would assume one-tailed, but the documentation is terse. Anyway, even if we divide that p-value by two it's still well under p=0.05. So, yes, there is a trend of skills declining as a motivator.
 
 # By popular demand: IT vs. Academics
 Greg raised an interesting question: what about IT staff vs. academics? Let's play around with this.
@@ -286,18 +256,28 @@ I plotted the data (see motivations_plots.qmd), and it appears that these groups
 ```{r}
 motivations_job_staff <- cbind(motivations, other_quant$job_category)
 # Rename columns
-names(motivations_job_staff)[length(names(motivations_job_staff))] <- "job_category"
-motivations_job_staff <- cbind(motivations_job_staff, other_quant$staff_categories)
-names(motivations_job_staff)[length(names(motivations_job_staff))] <- "staff_category"
+names(motivations_job_staff)[length(names(
+  motivations_job_staff
+))] <- "job_category"
+motivations_job_staff <- cbind(
+  motivations_job_staff,
+  other_quant$staff_categories
+)
+names(motivations_job_staff)[length(names(
+  motivations_job_staff
+))] <- "staff_category"
 # Remove any rows where the job_category or staff_category are missing
-motivations_job_staff_clean <- exclude_empty_rows(motivations_job_staff, strict=TRUE)
+motivations_job_staff_clean <- exclude_empty_rows(
+  motivations_job_staff,
+  strict = TRUE
+)
 # Remove rows of all 0s
 motivations_job_staff_clean <- motivations_job_staff_clean %>%
   filter(!if_all(Job:Other, ~ .x == 0))
 
 # drop the "Other" column
 motivations_job_staff_clean <- motivations_job_staff_clean %>%
-    select(-c("Other"))
+  select(-c("Other"))
 
 head(motivations_job_staff_clean)
 ```
@@ -331,5 +311,88 @@ it_acad$Role <- as.factor(it_acad$Role)
 dim(it_acad)
 ```
 
+Great. Now we have a data frame with the responses of IT staff and academics.
+
 ## Regression
-TODO
+Let's do a quick regression to see whether the IT/Academic groups improve the model fit.
+
+```{r}
+# run a separate model for each outcome (motivation)
+models <- lapply(motivation_cols, function(x) {
+  # wrap the column name in backticks so "My Column" becomes `My Column`
+  f_text <- paste0("`", x, "`", " ~ Role")
+  f <- as.formula(f_text)
+  stats::glm(f, family = "binomial", data = it_acad)
+})
+
+null_models <- lapply(motivation_cols, function(x) {
+  # wrap the column name in backticks so "My Column" becomes `My Column`
+  f_text <- paste0("`", x, "`", " ~ 1")
+  f <- as.formula(f_text)
+  stats::glm(f, family = "binomial", data = it_acad)
+})
+```
+
+If I wanted to (borderline) p-hack, I could just test "Job" and avoid multiple test correction, since the plot suggested that was the biggest difference. But I want to report robust differences that can withstand correction. So let's test them all and do the correction.
+
+```{r}
+anova_results <- mapply(
+  FUN = function(null_m, full_m) {
+    stats::anova(null_m, full_m)
+  },
+  null_models,
+  models,
+  SIMPLIFY = FALSE
+)
+
+p_vals <- c()
+for (i in seq_along(motivation_cols)) {
+  p_vals[i] <- anova_results[[i]]$`Pr(>Chi)`[2]
+}
+
+p_fdr  <- p.adjust(p_vals, method = "BH")
+for (i in seq_along(p_fdr)) {
+  cat(
+    sprintf(
+      "%s  %.3f\n",
+      motivation_cols[i],
+      p_fdr[i] # p‑value rounded to 3 decimals
+    )
+  )
+}
+```
+
+Great. Once again, the results are in accordance with the earlier mvabund analysis. Only Job is significant. Let's look at the model.
+
+```{r}
+it_acad_job_model <- models[[which(motivation_cols=="Job")]]
+it_acad_job_model
+```
+
+I believe the negative coefficient indicates that the IT are less likely to select "yes".
+
+And here's the full p-value from the ANOVA:
+
+```{r}
+p_fdr[[which(motivation_cols=="Job")]]
+```
+
+```{r}
+emm <- emmeans(it_acad_job_model, ~ Role, type="response")
+pairs(emm, type="response", infer = TRUE)  
+```
+
+We can interpret that odds ratio as: The odds that an academic selects ‘Yes’ are 3.57× the odds for IT staff.
+
+Actually, this is just the inverse of the exponentiated coefficient from the model: exp(−1.27136) = 0.280, and 1/0.280 = 3.57, which makes sense. So we didn't need emmeans. The only difference is that emmeans is just using Academic as the numerator in the odds ratio (reference level), while the model is using IT. I think integer odds are easier to understand than fractional odds (0.280), so I'll report that one. I also want to get confidence intervals. To minimize me exponentiating things by hand, I'll just redo the model with the factor level order switched.
+
+```{r}
+levels(it_acad$Role)
+
+it_acad$Role <- relevel(it_acad$Role, ref = "IT")
+
+rev_model <- stats::glm(Job ~ Role, family = "binomial", data = it_acad)
+rev_model
+
+exp(stats::confint(rev_model)) # exp to get it on the odds-ratio scale
+```
