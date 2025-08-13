@@ -5,6 +5,8 @@ title: "Motivations for contributing to OS: statistical analysis"
 # Overview
 This script runs some statistical tests on data from Q6, which is about participants' reasons for contributing to open source.
 
+THIS SCRIPT IS AN OLD VERSION OF AN ANALYSIS I LATER RE-DID. Accordingly, I am commenting out references to mvabund, so that renv::snapshot will not include this package in the lock file. IF YOU WANT TO RUN THIS SCRIPT, YOU'LL NEED TO UNCOMMENT THOSE.
+
 # Import packages and utilities
 ```{r}
 project_root <- here::here() # requires that you be somewhere in the
@@ -133,7 +135,7 @@ head(X)
 
 Create the model. I'm mostly using the default settings.
 ```{r}
-fit <- mvabund::manyglm(Y ~ X, family = "binomial", show.coef=TRUE)
+#fit <- mvabund::manyglm(Y ~ X, family = "binomial", show.coef=TRUE)
 fit
 ```
 
@@ -411,7 +413,7 @@ X <- it_acad$Role
 
 I'm just glancing at the AIC values, degrees of freedom, and the residual plot. They seem fine. It would be a bit weird if they weren't, since this is the same data as before; the categories are just grouped differently (and in fact, our minimum sample size is larger).
 ```{r}
-fit <- mvabund::manyglm(Y ~ X, family = "binomial", show.coef=TRUE)
+#fit <- mvabund::manyglm(Y ~ X, family = "binomial", show.coef=TRUE)
 fit
 plot(fit)
 ```
