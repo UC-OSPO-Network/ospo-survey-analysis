@@ -98,6 +98,7 @@ long_data
 Next, let's calculate some simple descriptive statistics. I will choose:\
 * The total "score", that is, the total number of "points" a challenge received
 * The mean (which might be misleading if 0s drag it down, and also, who's to say what a 2.5 really means? Are the distances between the Likert points equal? We assume so, but this is hand-wavy.)
+* The median
 * The mode
 * The standard deviation
 ```{r}
@@ -112,6 +113,7 @@ summary_df <- long_data %>%
   summarise(
     total  = sum(challenge_score),
     mean   = mean(challenge_score, na.rm = TRUE),
+    median = median(challenge_score),
     mode   = get_mode(challenge_score),
     st_dev = sd(challenge_score, na.rm = TRUE)
   ) %>%
@@ -263,6 +265,7 @@ wide_counts <- data.frame(wide_counts)
 # Turn this categorical column into row names
 rownames(wide_counts) <- wide_counts$challenge
 wide_counts <- wide_counts[,2:(ncol(wide_counts))]
+head(wide_counts)
 
 # Scaling probably isn't necessary?
 # We have the same number of responses throughout,
