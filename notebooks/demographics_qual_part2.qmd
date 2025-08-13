@@ -167,7 +167,22 @@ write.table(
 
 # Analysis
 
-First, I'd like to know how many participants identified with each unique option for Level1. So how many people had "Life Sciences" for Level1, how many people had "Arts and Humanities", etc.
+Did we end up with one label (taxonomy row) per participant?
+```{r}
+nrow(curated)
+max(curated$participantID)
+```
+
+No. Some people listed more than one discipline.
+
+```{r}
+more_than_one <- subset(as.data.frame(table(curated$participantID)), Freq > 1)
+nrow(more_than_one)
+```
+
+17 people entered more than one discipline. One enthusiastic respondent listed six. All others entered two.
+
+Next, I'd like to know how many participants identified with each unique option for Level1. So how many people had "Life Sciences" for Level1, how many people had "Arts and Humanities", etc.
 
 ```{r}
 level1_counts <- curated %>%
