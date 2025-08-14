@@ -93,6 +93,7 @@ donut_chart <- function(
   legendpos = "right",
   title_bottom_margin = 15,
   legend_top_margin = 0,
+  label_dist = 4.3, # controls how close the labels are to the ring
   white_labels = FALSE
 ) {
 
@@ -100,14 +101,10 @@ donut_chart <- function(
     label_x     <- 3.5
     label_size  <- 8
     label_color <- "white"
-    # We only need xlim up to 4 (labels sit inside the ring)
-    #x_limits   <- c(2, 4)
   } else {
-    label_x     <- 4.3
+    label_x     <- label_dist
     label_size  <- 9
     label_color <- "black"
-    # Extend x‐axis so outside labels aren't cut off
-    #x_limits   <- c(2, 4.6)
   }
 
   ggplot(
@@ -130,8 +127,8 @@ donut_chart <- function(
     ) +
     scale_fill_manual(values = cpalette) +
     theme_void() +
-    coord_polar(theta = "y") +
-    xlim(c(2, 4)) +
+    coord_polar(theta = "y", clip = "off") +
+    xlim(c(2, label_x + 0.05)) +
     theme(
       legend.text = element_text(size = 18),
       legend.title = element_blank(),
@@ -143,7 +140,7 @@ donut_chart <- function(
         size = 28,
         margin = margin(b = title_bottom_margin)
       ),
-      plot.margin = margin(t = 20, r = 5, b = 5, l = 5),
+      plot.margin = margin(t = 20, r = 5, b = 10, l = 5),
       plot.background = element_rect(fill = "white", color = "white")
     )
 }
@@ -203,7 +200,7 @@ Plot #1 is of job category (Undergrad, Post-Doc, Non-research Staff, etc.).
 job_data <- create_df_for_plotting(other_quant, "job_category")
 
 p1 <- donut_chart(job_data) +
-  labs(title = sprintf("Job Category of %s", population))
+  labs(title = sprintf("%s' Job Categories", population))
 ```
 
 
@@ -224,7 +221,7 @@ plot.
 ```{r}
 field_data <- create_df_for_plotting(other_quant, "field_of_study")
 p3 <- donut_chart(field_data) +
-  labs(title = sprintf("Academic %s' fields of study", tolower(population)))
+  labs(title = sprintf("Academic %s' Fields of Study", population))
 ```
 
 Plot #4 is of staff categories (IT, Research Support, etc.). This one is more
@@ -275,7 +272,7 @@ staff_long_data <- reorder_factor_by_column(
 )
 
 p4 <- donut_chart(staff_long_data) +
-  labs(title = sprintf("Staff %s' work areas", tolower(population)))
+  labs(title = sprintf("Staff %s' Work Areas", population))
 
 ```
 
@@ -335,13 +332,13 @@ p3 <- donut_chart(
   ),
   legendpos="left"
 ) +
-  labs(title = sprintf("Academic %s' fields of study", tolower(population)))
+  labs(title = sprintf("Academic %s' Fields of Study", population))
 p3
 ```
 
 ```{r}
 # Function from utils.R
-save_plot(sprintf("field_donut_%s.tiff", tolower(population)), 10, 6, p = p3)
+save_plot(sprintf("field_donut_%s.tiff", population), 10, 6, p = p3)
 ```
 
 #### Plot: job categories
@@ -349,11 +346,12 @@ save_plot(sprintf("field_donut_%s.tiff", tolower(population)), 10, 6, p = p3)
 p1 <- donut_chart(
   job_data,
   legendpos = "bottom",
-  title_bottom_margin = 40,
-  legend_top_margin = 20,
-  white_labels = TRUE
+  title_bottom_margin = 0,
+  legend_top_margin = 0,
+  label_dist = 4.6,
+  white_labels = FALSE
 ) +
-  labs(title = sprintf("Job category of %s", tolower(population))
+  labs(title = sprintf("%s' Job Categories", population)
   )
 p1
 ```
@@ -363,8 +361,8 @@ Save plot
 # Function from utils.R
 save_plot(
   sprintf("job_category_donut_%s.tiff", tolower(population)),
-  10,
-  6,
+  12,
+  8,
   p = p1
 )
 ```
@@ -381,7 +379,7 @@ p4 <- donut_chart(
     '#994455'
   )
 ) +
-  labs(title = sprintf("Staff %s' work areas", tolower(population)))
+  labs(title = sprintf("Staff %s' Work Areas", population))
 p4
 ```
 

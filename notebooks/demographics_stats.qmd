@@ -147,6 +147,7 @@ sosc_hum <- sum(
 # sanity check
 total == stem + sosc_hum
 
+field_count
 round(stem / total * 100, digits = 1)
 round(sosc_hum / total * 100, digits = 1)
 ```
