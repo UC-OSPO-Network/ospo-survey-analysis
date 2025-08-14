@@ -289,29 +289,29 @@ Hm. The silhouette plot indicates I should use k=3.
 
 I think I'll try k=4 first, since it's closer to the number I got from eyeballing. Let's look at a different type of silhouette plot, which shows us the silhouette width of each cluster and on average across the clusters.
 ```{r, fig.width=9, fig.height=6}
-km <- kmeans(scaled, centers = 4, nstart = 25)
+km <- stats::kmeans(scaled, centers = 4, nstart = 25)
 dist_mat <- dist(scaled)
 sil <- cluster::silhouette(km$cluster, dist_mat)
 plot(sil)
 ```
 
-Hm. Looks... acceptable. From Wikipedia: "A clustering with an average silhouette width of over 0.7 is considered to be "strong", a value over 0.5 "reasonable" and over 0.25 "weak"." Let's try unscaled data.
+Hm. Looks... acceptable. Average silhouette width of 0.47. From Wikipedia: "A clustering with an average silhouette width of over 0.7 is considered to be "strong", a value over 0.5 "reasonable" and over 0.25 "weak"." Let's try unscaled data.
 ```{r, fig.width=9, fig.height=6}
-km <- kmeans(wide_counts, centers = 4, nstart = 25)
+km <- stats::kmeans(wide_counts, centers = 4, nstart = 25)
 dist_mat <- dist(wide_counts)
 sil <- cluster::silhouette(km$cluster, dist_mat)
 plot(sil)
 ```
 
-Looks slightly worse. Still, I think we should probably stick with unscaled data because it's simpler, and I don't think we should add extra unnecessary procedures. What if we try 3 clusters?
+Looks slightly worse: average silhouette width = 0.43. Still, I think we should probably stick with unscaled data because it's simpler, and I don't think we should add extra unnecessary procedures. What if we try 3 clusters?
 ```{r, fig.width=9, fig.height=6}
-km <- kmeans(wide_counts, centers = 3, nstart = 25)
+km <- stats::kmeans(wide_counts, centers = 3, nstart = 25)
 dist_mat <- dist(wide_counts)
 sil <- cluster::silhouette(km$cluster, dist_mat)
 plot(sil)
 ```
 
-With an average silhouette width of 0.43-0.47, our clusters aren't looking amazing. But they're not terrible, either. I prefer to use unscaled data with k=3, which results in an average silhouette score of 0.47. I think these results are consistent with my hunch that the data for the challenges are not all drawn from the same distribution. These are the cluster assignments:
+With an average silhouette width of 0.44-0.52, our clusters aren't looking amazing (unscaled data, 3 clusters). But they're not terrible, either. I prefer to use unscaled data with k=3, which results in an average silhouette width of 0.47. I think these results are consistent with my hunch that the data for the challenges are not all drawn from the same distribution. These are the cluster assignments:
 ```{r}
 # A little extra code to achieve prettier printing
 cluster_df <- data.frame(sort(km$cluster))
