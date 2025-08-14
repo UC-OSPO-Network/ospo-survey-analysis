@@ -194,17 +194,8 @@ if (contributor_mode) {
 
 This script creates 4 plots, called `p1`-`p4`.
 
-Plot #1 is of job category (Undergrad, Post-Doc, Non-research Staff, etc.).
+Plot #1 is of campus.
 
-```{r}
-job_data <- create_df_for_plotting(other_quant, "job_category")
-
-p1 <- donut_chart(job_data) +
-  labs(title = sprintf("%s' Job Categories", population))
-```
-
-
-Plot #2 is of campus.
 ```{r}
 campus_data <- create_df_for_plotting(other_quant, "campus")
 campus_data <- campus_data %>%
@@ -212,16 +203,26 @@ campus_data <- campus_data %>%
     !startsWith(as.character(values), "I'm not affiliat")
   )
 
-p2 <- donut_chart(campus_data) +
+p1 <- donut_chart(campus_data) +
   labs(title = sprintf("Campus of %s", population))
 ```
 
-Plot #3 is of their field of study. Qualitative answers are not included in this
+Plot #2 is academics' field of study. Qualitative answers are not included in this
 plot.
+
 ```{r}
 field_data <- create_df_for_plotting(other_quant, "field_of_study")
-p3 <- donut_chart(field_data) +
+p2 <- donut_chart(field_data) +
   labs(title = sprintf("Academic %s' Fields of Study", population))
+```
+
+Plot #3 is of all respondents' job categories.
+
+```{r}
+job_data <- create_df_for_plotting(other_quant, "job_category")
+
+p3 <- donut_chart(job_data) +
+  labs(title = sprintf("%s' Job Categories", population))
 ```
 
 Plot #4 is of staff categories (IT, Research Support, etc.). This one is more
@@ -276,74 +277,64 @@ p4 <- donut_chart(staff_long_data) +
 
 ```
 
-# View and save combined plot
-
-First let's view and save one plot.
-
-#### Individual plot: campus
-```{r, fig.width=9, fig.height=6}
-p2
-```
-Save if you wish.
-```{r}
-# Function from utils.R
-# save_plot(
-#   sprintf("campus_donut_%s.tiff", tolower(population)),
-#   9,
-#   6,
-#   p = p2
-# )
-```
-
-#### All four plots combined 
-It's also nice to see them all in one figure.
-```{r}
-combined_donuts <- patchwork::wrap_plots(p1, p2, p3, p4, ncol = 2)
-```
-
-```{r, fig.width=18, fig.height=12}
-combined_donuts
-```
-
-```{r}
-# Function from utils.R
-# save_plot(
-#   sprintf("combined_donuts_%s.tiff", tolower(population)),
-#   18,
-#   12,
-#   p = combined_donuts
-# )
-```
-
 # Refine plot aesthetics
 
 I'm envisioning a figure where I'd like to have some variety in the color palettes and the legend position. I'll put three donuts onto one canvas in Powerpoint, and then make some additional tweaks: I'll add some lines to illustrate which slices of the donut I'm focusing on, and also I will need to fix this bug where the legend keys stretch to multiple lines. (https://github.com/tidyverse/ggplot2/issues/3669) (A fix has been merged, but it's not yet available in the latest release of ggplot2.)
 
-#### Plot: fields of study
+#### Plot 1:  campus
+
 ```{r, fig.width=9, fig.height=6}
-p3 <- donut_chart(
+p1 <- donut_chart(
+  campus_data,
+  # Paul Tol's "rainbow" color scheme
+  cpalette = c(
+  "#882d71",
+  "#1964b0",
+  "#518ac6",
+  "#7bb0df",
+  "#4db264",
+  "#cae1ac",
+  "#f7f057",
+  "#f4a637",
+  "#db060b",
+  "#71190d"
+  )
+ ) +
+  labs(title = sprintf("Campus of %s", population))
+p1
+```
+
+```{r}
+# Function from utils.R
+save_plot(sprintf("donut_p1_%s.tiff", population), 10, 6, p = p1)
+```
+
+#### Plot 2: fields of study
+```{r, fig.width=9, fig.height=6}
+p2 <- donut_chart(
   field_data,
   cpalette = c(
     '#BBBBBB',
     '#CCBB44',
-    '#EE3377',
+    '#882d71',
     '#33BBEE',
     '#228833'
   ),
   legendpos="left"
 ) +
   labs(title = sprintf("Academic %s' Fields of Study", population))
-p3
+p2
 ```
 
 ```{r}
 # Function from utils.R
-save_plot(sprintf("field_donut_%s.tiff", population), 10, 6, p = p3)
+save_plot(sprintf("donut_p2_%s.tiff", population), 10, 6, p = p2)
 ```
 
-#### Plot: job categories
+
+#### Plot3: job categories
 ```{r, fig.width=9, fig.height=6}
-p1 <- donut_chart(
+p3 <- donut_chart(
   job_data,
   legendpos = "bottom",
   title_bottom_margin = 0,
@@ -353,21 +344,22 @@ p1 <- donut_chart(
 ) +
   labs(title = sprintf("%s' Job Categories", population)
   )
-p1
+p3
 ```
 
 Save plot
 ```{r}
 # Function from utils.R
 save_plot(
-  sprintf("job_category_donut_%s.tiff", tolower(population)),
+  sprintf("donut_p3_%s.tiff", tolower(population)),
   12,
   8,
-  p = p1
+  p = p3
 )
 ```
 
-#### Plot: non-research staff categories
+
+#### Plot 4: non-research staff categories
 ```{r, fig.width=9, fig.height=6}
 p4 <- donut_chart(
   staff_long_data,
@@ -383,11 +375,10 @@ p4 <- donut_chart(
 p4
 ```
 
-
 ```{r}
 # Function from utils.R
 save_plot(
-  sprintf("nrstaff_category_donut_%s.tiff", tolower(population)),
+  sprintf("donut_p4_%s.tiff", tolower(population)),
   10,
   6,
   p = p4

@@ -199,6 +199,7 @@ round(academics / total * 100, digits = 1)
 
 36% of survey respondents are non-research staff, while 64% are academics.
 
+## Staff categories
 What about the job areas of the non-research staff?
 
 ```{r}
