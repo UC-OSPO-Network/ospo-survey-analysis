@@ -43,7 +43,6 @@ total_asp <- nrow(subset(data, Past=="False" & Future=="True"))
 total_asp
 ```
 
-## Experienced vs. aspiring by job
 
 ```{r}
 # Filter duds
@@ -61,6 +60,8 @@ stat_sum <- data.frame(
 subset(stat_sum, status == "aspiring") %>% arrange(desc(Freq))
 subset(stat_sum, status == "experienced") %>% arrange(desc(Freq))
 ```
+
+## Experienced vs. aspiring by job
 
 I think this will be easier to interpret if we combine some of these groups.
 ```{r}

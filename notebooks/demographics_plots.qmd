@@ -24,7 +24,10 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 #### create_df_for_plotting
 
 - Arguments:
-  - `data`: The unmodified data frame with all the (deidentified) survey data.
+  - `data`: The data frame with the survey data. This function will count
+    rows to determine the count for each category, so don't tally up the
+    group counts in advance. It will also remove rows where this column
+    is an empty string, so no need to clean the df at all.
   - `column`: The name of the column with the data to be plotted.
 - Details:
   - This function creates a new data frame suitable for plotting as a donut
@@ -161,6 +164,7 @@ filter_contribs <- function(df, cmode) {
 
 ```{r}
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+status <- load_qualtrics_data("clean_data/contributor_status_Q3.tsv")
 ```
 
 ## Filter for contributors, if desired
@@ -300,7 +304,7 @@ p1 <- donut_chart(
   "#71190d"
   )
  ) +
-  labs(title = sprintf("Campus of %s", population))
+  labs(title = sprintf("Campuses of %s", population))
 p1
 ```
 
@@ -382,6 +386,50 @@ save_plot(
   10,
   6,
   p = p4
+)
+```
+
+# Experienced vs. aspiring contributors
+
+A last-minute add-on: let's also make a simple donut plot with aspiring vs. experienced contributors.
+
+```{r}
+# Filter duds
+status_clean <- status %>%
+    filter(!(Past == "" | Future == "")) %>%
+    filter(!(Past == "False" & Future == "False"))
+
+status_clean <- status_clean %>%
+  mutate(status = if_else(Past == "True", "Experienced", "Aspiring")) %>%
+  select(status)
+
+head(status_clean)
+```
+
+```{r, fig.width=9, fig.height=6}
+status_data <- create_df_for_plotting(status_clean, "status")
+
+p5 <- donut_chart(
+  status_data,
+  label_dist = 4.5,
+  cpalette = c(
+    "#ddaa33",
+    "#004488"
+  ),
+  title_bottom_margin = 0
+  ) +
+  labs(title = sprintf("%s' Statuses as \nOpen Source Contributors", population))
+
+p5
+```
+
+```{r}
+# Function from utils.R
+save_plot(
+  sprintf("donut_p5_%s.tiff", tolower(population)),
+  10,
+  6,
+  p = p5
 )
 ```
 
