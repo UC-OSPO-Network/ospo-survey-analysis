@@ -483,9 +483,7 @@ more_than_mod$importance_area <- factor(
 
 I'm not using my `grouped_bar_chart` function in `scripts/utils.R` because I have pre-computed the bar heights, and that function counts rows. Since I'm currently only creating this kind of bar chart once, I'm not bothering to create a new function (or incorporate this option into the `grouped_bar_chart` function).
 
-
 ```{r fig.width=16, fig.height=8}
-
 p <- ggplot(
   more_than_mod,
   aes(
@@ -507,9 +505,10 @@ p <- ggplot(
     axis.title.y = element_text(size = 24),
     axis.text.x = element_text(
       angle = 60,
-      vjust = 0.6,
+      vjust = 1,
+      hjust = 1,
       size = 22,
-      margin = margin(t = 8)
+      margin = margin(t = 12)
     ),
     axis.text.y = element_text(
       size = 22,
