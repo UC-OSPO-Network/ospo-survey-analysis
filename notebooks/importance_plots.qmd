@@ -281,30 +281,6 @@ more_than_mod <- rbind(
 
 Next, I want to look at two importance areas, Learning and Professional Development, for all four job categories: Teachers, Researchers, Non-research staff, and Students. We'll have to determine teachers and researchers based on who answered the teaching question and who answered the research question, respectively. Meanwhile, for "Student", we'll have to combine grad students and undergrads into one group. 
 
-We will have to go back to an earlier data frame and redo some of the data wrangling. (We want to filter for people who answered e.g. teaching, but look at their answers for the other questions. This information was lost when we rearranged from wide to long format.)
-```{r}
-# # Rename this one long job category
-# importance_and_job$job_category <- gsub(
-#   "^Other.*",
-#   "Research Staff",
-#   importance_and_job$job_category
-# )
-
-# #Rename columns for readability
-# importance_and_job <- importance_and_job %>%
-#   rename(
-#     Research = importance_opensrc_1,
-#     Teaching = importance_opensrc_2,
-#     Learning = importance_opensrc_3,
-#     `Professional Development` = importance_opensrc_4,
-#     Job = importance_opensrc_5
-#   )
-
-# # Remove rows that contain any empty strings
-# importance_and_job <- importance_and_job %>%
-#   filter(!if_any(everything(), ~ . == ""))
-```
-
 Let's keep rows from teachers, but keep columns for Learning and Professional Development. Then we change the job_category column to "Teacher".
 ```{r}
 teachers_learn_pd <- importance_and_job %>%
@@ -519,6 +495,7 @@ p <- ggplot(
   )
 ) +
   geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_hline(yintercept = 80, linetype = "dashed", color = "black") +
   ggtitle("Perceived Importance of Open Source\nfor Different Kinds of Work") +
   labs(
     y = "Percent of Respondents Who Said OS\nIs More than Moderately Important"
