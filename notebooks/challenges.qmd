@@ -372,7 +372,6 @@ Although this analysis was brief, I think we can conclude that these three clust
 A request from Amber: how about color-coded stacked bar plots, instead of the bar charts I made above?
 
 ```{r}
-
 # Rename this column, poorly named by the cluster package
 # From `sort.km.cluster.` to sort_km_cluster
 names(cluster_df)[1] <- "sort_km_cluster"
@@ -482,6 +481,89 @@ Actually, I think the cluster assignments might be stochastic? I.e., they are la
 ```{r}
 #save_plot("challenge_stacks.tiff", 14, 12, p=combined)
 ```
+
+How does it look if we arrange these plots horizontally? We'll need to put the lenged on the right-most plot in this case.
+
+```{r}
+p2_hor <- stacked_bar_chart(
+  df = data_cluster3,
+  x_var = "challenge",
+  y_var = "total",
+  fill = "challenge_level",
+  title = "Cluster 2", # NAME CHANGE, SEE TEXT ABOVE
+  ylabel = NULL,
+  show_legend = FALSE, # don't show legend
+  show_axis_title_y = FALSE,
+  show_x_axis_text = FALSE,
+  show_grid = TRUE,
+  horizontal = TRUE,
+  proportional = TRUE,
+  cpalette = sunset
+)
+
+p3_hor <- stacked_bar_chart(
+  df = data_cluster1,
+  x_var = "challenge",
+  y_var = "total",
+  fill = "challenge_level",
+  title = "Cluster 3", # NAME CHANGE, SEE TEXT ABOVE
+  ylabel = NULL,
+  show_axis_title_y = FALSE,
+  show_x_axis_text = FALSE,
+  show_grid = TRUE,
+  legend_left_margin = 45, # show legend, with a wide margin
+  horizontal = TRUE,
+  proportional = TRUE,
+  cpalette = sunset
+)
+```
+
+Tried plotting horizontally a couple different ways. I like the second way better, for now.
+
+```{r, fig.width=14, fig.height=12}
+# left column: p1 over p2; right column: p3 spanning full height
+combined_hor <- patchwork::wrap_plots(
+  (p1 / p2_hor / patchwork::plot_spacer()) + plot_layout(heights = c(1,1,0.1)) | p3_hor
+) +
+  #patchwork::plot_layout(heights = c(1, 1, 1)) +
+  patchwork::plot_annotation(
+    title = "Frequency of Open Source Challenges",
+    theme = theme(
+      plot.title = element_text(
+        size = 24,
+        margin = margin(t = 15),
+        hjust = 0.5
+      )
+    )
+  )
+combined_hor
+```
+
+```{r, fig.width=15, fig.height=5}
+# three plots in a row
+combined_hor <- patchwork::wrap_plots(
+  (p1 / patchwork::plot_spacer() ) + plot_layout(heights = c(1,1.4)) |
+  (p2_hor / patchwork::plot_spacer() ) + plot_layout(heights = c(1,1.4)) | 
+  p3_hor
+) +
+  #patchwork::plot_layout(heights = c(1, 1, 1)) +
+  patchwork::plot_annotation(
+    title = "Frequency of Open Source Challenges",
+    theme = theme(
+      plot.title = element_text(
+        size = 24,
+        margin = margin(t = 15),
+        hjust = 0.5
+      )
+    )
+  )
+combined_hor
+```
+
+```{r}
+save_plot("challenge_stacks_horizontal.tiff", 36, 8, p=combined_hor)
+```
+
 
 
 # PCA (Abandoned)

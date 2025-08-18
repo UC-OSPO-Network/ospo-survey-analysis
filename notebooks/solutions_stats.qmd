@@ -388,7 +388,7 @@ emm
 # Plot emms
 Plot the results.
 
-```{r, fig.width=10, fig.height=8}
+```{r}
 emm_clean <- emm %>% 
   rename(mean = mean.class,
          lwr  = asymp.LCL,
@@ -403,7 +403,9 @@ solns_ordered <- summary(emmeans(fit1b, ~ solution, weights = "equal")) %>%
 
 emm_clean <- emm_clean %>% 
   mutate(solution = factor(solution, levels = solns_ordered))
+```
 
+```{r, fig.width=10, fig.height=8}
 make_plot <- function(df, jc) {
   ggplot(filter(df, job_category == jc),
          aes(x = solution, y = mean)) +
@@ -442,6 +444,53 @@ composite_plot
 ```{r}
 save_plot("solns_points.tiff", 12, 10, p=composite_plot)
 ```
+
+
+
+```{r}
+# Define a position dodge object to ensure points and error bars align
+pd <- position_dodge(width = 0.6)
+
+# Create the single, combined plot
+p_final <- ggplot(emm_clean, 
+       aes(x = solution, y = mean, 
+           color = job_category, 
+           shape = job_category,
+           group = job_category)) +
+  geom_errorbar(aes(ymin = lwr, ymax = upr),
+                width = 0.2, 
+                linewidth = 0.5, 
+                position = pd) +
+  geom_point(size = 3.5, position = pd) +
+  scale_shape_manual(values = c(16, 17, 15, 18)) +
+  ylim(c(1, 3)) +
+  labs(
+    title = "Estimated Mean Rating by Job Category",
+    x = NULL,
+    y = "Estimated mean rating (0–3)"
+  ) +
+  coord_flip() +
+  theme(
+    plot.title = element_text(size = 16, hjust = 0.5),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    panel.background = element_blank(),
+    panel.grid.major.x = element_line(linetype = "solid", color = "gray90"),
+    panel.grid.major.y = element_line(linetype = "dashed", color = "gray95"),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
+    legend.position = "top", # Move legend to the top for better spacing
+    legend.title = element_blank()
+  )
+
+p_final
+```
+
+```{r}
+save_plot("solns_points.tiff", 12, 10, p=p_final)
+```
+
+
+# Sanity checking: bar plots
 
 I find it very surprising that "a learning community" ranked so low. Let's look at the rating distribution for each job category, for this solution, from the observed sample.
 
