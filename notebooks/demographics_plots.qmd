@@ -81,7 +81,6 @@ create_df_for_plotting <- function(data, column) {
 ```
 
 #### donut_chart
-
 - Arguments:
   - `df`: The data frame ready for plotting, such as the one produced by
     create_df_for_plotting.
@@ -211,6 +210,18 @@ p1 <- donut_chart(campus_data) +
   labs(title = sprintf("Campus of %s", population))
 ```
 
+Save data to file for fine-tuning of plot.
+
+```{r}
+cd <- campus_data
+names(cd)[1] <- "categories"
+names(cd)[2] <- "n_responses"
+write_df_to_file(
+  cd,
+  file.path("data_for_plots/fig_campus_donut.tsv")
+)
+```
+
 Plot #2 is academics' field of study. Qualitative answers are not included in this
 plot.
 
@@ -220,6 +231,18 @@ p2 <- donut_chart(field_data) +
   labs(title = sprintf("Academic %s' Fields of Study", population))
 ```
 
+Save data to file for fine-tuning of plot.
+
+```{r}
+fd <- field_data
+names(fd)[1] <- "categories"
+names(fd)[2] <- "n_responses"
+write_df_to_file(
+  fd,
+  file.path("data_for_plots/fig_fields_donut.tsv")
+)
+```
+
 Plot #3 is of all respondents' job categories.
 
 ```{r}
@@ -227,6 +250,17 @@ job_data <- create_df_for_plotting(other_quant, "job_category")
 
 p3 <- donut_chart(job_data) +
   labs(title = sprintf("%s' Job Categories", population))
+```
+
+Save the count data to a file for fine-tuning of plot. Since this plot is more complicated, I am not pre-calculating the label positions; I am just saving the simple count data.
+
+```{r}
+jd <- job_data %>% select(c(values, Freq))
+names(jd) <- c("categories", "n_responses")
+write_df_to_file(
+  jd,
+  file.path("data_for_plots/fig_job_donut.tsv")
+)
 ```
 
 Plot #4 is of staff categories (IT, Research Support, etc.). This one is more
@@ -280,6 +314,22 @@ p4 <- donut_chart(staff_long_data) +
   labs(title = sprintf("Staff %s' Work Areas", population))
 
 ```
+
+Save data to file for fine-tuning of plot.
+
+```{r}
+sd <- staff_long_data
+names(sd)[1] <- "categories"
+names(sd)[2] <- "n_responses"
+# I put newline characters in some of these categories so they would
+# fit on the plot; remove them before saving to file
+sd$categories <- sapply(sd$categories, function(x) gsub("\n", " ", x))
+write_df_to_file(
+  sd,
+  file.path("data_for_plots/fig_staff_donut.tsv")
+)
+```
+
 
 # Refine plot aesthetics
 
@@ -433,6 +483,17 @@ save_plot(
 )
 ```
 
+Save data to file for fine-tuning of plot.
+
+```{r}
+statd <- status_data
+names(statd)[1] <- "categories"
+names(statd)[2] <- "n_responses"
+write_df_to_file(
+  statd,
+  file.path("data_for_plots/fig_status_donut.tsv")
+)
+```
 
 ```{r}
 sessionInfo()

@@ -1,0 +1,280 @@
+---
+title: "Figure 2"
+---
+
+# Overview
+This script is similar to demographics_plots.qmd, but with less data wrangling, so I can focus on plotting the donut plots together into a nice final figure. The data ingested by this script was produced by demographics_plots.qmd.
+
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Define functions
+
+```{r}
+read_donut_data_from_file <- function(filename) {
+  df <- read.csv(
+    file.path(
+      Sys.getenv("DATA_PATH"),
+      "data_for_plots",
+      filename
+    ),
+    stringsAsFactors = FALSE,
+    sep = "\t"
+  )
+  df$categories <- as.factor(df$categories)
+  df <- reorder_factor_by_column(
+    df,
+    categories,
+    n_responses,
+    descending = TRUE
+  )
+}
+```
+
+This function is for the "simple" donut charts, i.e. the ones that don't have an exploding slice.
+```{r}
+donut_chart <- function(
+  df,
+  cpalette = COLORS, # default: colors from utils.R
+  legendpos = "right",
+  plot_right_margin = 5,
+  plot_left_margin = 5,
+  label_dist = 4.3 # controls how close the labels are to the ring
+) {
+  ggplot(
+    df,
+    aes(
+      ymax = ymax,
+      ymin = ymin,
+      xmax = 4,
+      xmin = 3,
+      fill = categories
+    )
+  ) +
+    geom_rect() +
+    # Add labels
+    geom_text(
+      x = label_dist,
+      aes(y = labelPosition, label = label),
+      size = 9
+    ) +
+    scale_fill_manual(values = cpalette) +
+    theme_void() +
+    coord_polar(theta = "y", clip = "off") +
+    xlim(c(2, label_dist + 0.05)) +
+    theme(
+      legend.text = element_text(size = 18),
+      legend.title = element_blank(),
+      legend.position = legendpos,
+      legend.key.spacing.y = unit(0.5, "lines"),
+      plot.title = element_text(
+        hjust = 0.5,
+        size = 28,
+        margin = margin(b = 15)
+      ),
+      plot.margin = margin(t = 20, r = plot_right_margin, b = 10, l = plot_left_margin),
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+}
+```
+
+## Load data
+
+```{r}
+campus_data <- read_donut_data_from_file("fig_campus_donut.tsv")
+job_data <- read_donut_data_from_file("fig_job_donut.tsv")
+field_data <- read_donut_data_from_file("fig_fields_donut.tsv")
+staff_data <- read_donut_data_from_file("fig_staff_donut.tsv")
+status_data <- read_donut_data_from_file("fig_status_donut.tsv")
+```
+
+# Plot campus
+
+```{r}
+# Add asterisks without changing factor level order
+targets <- c(
+  "UC Santa Barbara",
+  "UC Los Angeles",
+  "UC Davis",
+  "UC Santa Cruz",
+  "UC Berkeley",
+  "UC San Diego"
+)
+lvls <- levels(campus_data$categories)
+lvls[lvls %in% targets] <- paste0(lvls[lvls %in% targets], "*")
+levels(campus_data$categories) <- lvls
+
+# Plot
+p_campus <- donut_chart(
+  campus_data,
+  # Paul Tol's "rainbow" color scheme
+  cpalette = c(
+    "#882d71",
+    "#1964b0",
+    "#518ac6",
+    "#7bb0df",
+    "#4db264",
+    "#cae1ac",
+    "#f7f057",
+    "#f4a637",
+    "#db060b",
+    "#71190d"
+  ),
+  plot_right_margin = 80
+) +
+  labs(title = "Campuses of Respondents")
+```
+
+# Plot fields of study
+
+```{r}
+p_field <- donut_chart(
+  field_data,
+  # Paul Tol's "bright" scheme
+  cpalette = c(
+    '#1a7937', #dark green
+    '#acd49f', #light green
+    '#e5e5e5', #gray
+    '#c3a4d0', #light purple
+    '#752a82' #dark purple
+  ),
+  legendpos = "left",
+  plot_right_margin = 80
+) +
+  labs(title = "Academic Respondents' Fields of Study")
+
+  # # Paul Tol's "bright" scheme
+  # cpalette = c(
+  #   '#4477aa', #medium blue
+  #   '#66ccee', #light blue
+  #   '#228833', #green
+  #   '#aa3377', #purple
+  #   '#c6c6c6' #gray
+  # ),
+```
+
+# Plot staff work areas
+
+```{r}
+p_staff <- donut_chart(staff_data,
+  # Paul Tol's YlOrBr palette
+  cpalette = c(
+    '#662606', #brown
+    '#cc4c02', #dark orange
+    '#fb9b2a', #light orange
+    '#fde391', #pale yellow
+    '#ffffe5' #almost-white-yellow
+  ),
+  plot_left_margin = 80
+  ) +
+  labs(title = "Staff Respondents' Work Areas")
+
+  # Paul Tol's "medium contrast" scheme
+  # cpalette = c(
+  #   '#994455', #magenta
+  #   '#ee99aa', #pink
+  #   '#997700', #dark gold
+  #   '#eecc66', #yellow
+  #   '#6699cc' #muted blue
+  # )
+```
+
+# Plot experience status
+
+```{r}
+p_status <- donut_chart(status_data,
+  label_dist = 4.5,
+  cpalette = c(
+    "#ddaa33",
+    "#004488"
+  ),
+  plot_left_margin = 80
+ ) +
+  labs(title = "Respondents' Experience Levels")
+```
+
+# Plot job categories
+
+```{r}
+# Specify radius for exploded segment
+job_data$explode <- c(0.3, rep(0, times = nrow(job_data)-1))
+
+# Compute segment starts and ends
+job_data <- job_data %>%
+  mutate(
+    proportion = n_responses / sum(n_responses),
+    # Compute the cumulative percentages (top of each segment)
+    ymax = cumsum(proportion),
+    # lag finds the previous value in a vector
+    ymin = lag(ymax, default = 0),
+  ) %>% 
+    # we don't need this column anymore
+    select(-proportion)
+```
+
+After many attempts to pre-compute label positions with trigonometry, I eventually gave up and just painstakingly chose label positions through visual inspection and trial and error.
+
+```{r}
+p_job <- ggplot(job_data) +
+  ggforce::geom_arc_bar(aes(
+    x0 = 0,
+    y0 = 0,
+    r0 = 0.5, # r0=0 makes it a pie, 0.5 makes it a donut
+    r = 1, 
+    start = ymin * 2 * pi, # Start angle in radians
+    end = ymax * 2 * pi, # End angle in radians
+    fill = categories,
+    explode = explode # Map the explode column here
+  ), color = NA   # remove borders
+  ) +
+  labs(title = "Respondents' Job Categories") + 
+  coord_fixed() + # Ensures the plot is a circle
+  theme_void() +
+  coord_fixed(clip = "off") + # Allow labels to overflow beyond plot area
+  scale_fill_manual(values = COLORS) +
+  geom_text(
+    x = c(1.6,  0.2, -1.25, -1.3, -0.6, -0.2),
+    y = c(0.5, -1.3, -0.6,  0.5,  1.15,  1.25),
+    size = 9,
+    aes(label=n_responses)
+  ) +
+  theme(
+      legend.text = element_text(size = 18),
+      legend.title = element_blank(),
+      legend.position = "bottom",
+      legend.key.spacing.y = unit(0.5, "lines"),
+      legend.margin = margin(t = 80), # legend top margin
+      plot.title = element_text(
+        hjust = 0.5,
+        size = 28,
+        margin = margin(b = 40) # title bottom margin
+      ),
+      plot.margin = margin(t = 20, r = 80, b = 10, l = 80),
+      plot.background = element_rect(fill = "white", color = "white")
+  )
+
+#p_job
+```
+
+
+```{r}
+top_row <- (p_campus + p_status)
+bottom_row <- (p_field + p_job + p_staff)
+p_combined <- patchwork::wrap_plots(
+  top_row / bottom_row
+)
+```
+
+
+```{r}
+# Function from utils.R
+save_plot("figure2.tiff", 32, 16, p = p_combined)
+```
