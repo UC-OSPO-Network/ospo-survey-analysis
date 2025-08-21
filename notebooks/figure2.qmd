@@ -276,5 +276,11 @@ p_combined <- patchwork::wrap_plots(
 
 ```{r}
 # Function from utils.R
-save_plot("figure2.tiff", 32, 16, p = p_combined)
+#save_plot("figure2.tiff", 32, 16, p = p_combined)
+```
+
+
+```{r}
+# SVG is higher quality
+svglite::svglite(file.path(FIGURE_PATH, "figure2.svg"), width = 32, height = 16); print(p_combined); dev.off()
 ```
