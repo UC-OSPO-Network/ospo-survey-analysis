@@ -44,7 +44,7 @@ counts <- counts %>%
 counts
 ```
 
-That's mildly interesting. There's about 2.7-3 maintainers for every community manager, sys admin, or UI designer. I'm curious how many people are EXCLUSIVELY one thing. Mainly interested in how many people are EXCLUSIVELY a maintainer, contributor, bug reporter, or supervisor.
+That's mildly interesting. There's about 2.7-3 maintainers for every community manager, sys admin, or UI designer (keeping in mind that people might be both). I'm curious how many people are EXCLUSIVELY one thing. Mainly interested in how many people are EXCLUSIVELY a maintainer, contributor, bug reporter, or supervisor.
 
 ```{r}
 indices <- which(rowSums(roles) == 1 )
@@ -84,6 +84,13 @@ num_roles <- data.frame(
     function(x) get_mean_num_roles(roles2, x)
   )
 )
+
+num_roles <- num_roles[
+  order(
+    num_roles$avg_num_roles_per_participant,
+    decreasing = TRUE
+  ),
+]
 
 num_roles
 ```
