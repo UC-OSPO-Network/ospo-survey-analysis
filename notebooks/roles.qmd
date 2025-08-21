@@ -1,0 +1,236 @@
+---
+title: "Contributor roles"
+---
+
+# Overview
+This script explores Q4: "Which of these open source contributor roles has ever applied to you?".
+
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+```{r}
+roles_raw <- load_qualtrics_data("clean_data/contributor_roles_Q4.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+head(roles_raw)
+nrow(roles_raw)
+```
+
+# Wrangle data
+
+Drop rows with all 0s (NAs were already converted to 0s during data cleanup).
+
+```{r}
+roles <- filter_all(roles_raw, any_vars(. != 0))
+nrow(roles)
+```
+
+# Explore data
+
+```{r}
+counts <- colSums(roles)
+counts <- data.frame(Role = names(counts), Count = as.integer(counts), row.names = NULL)
+counts <- counts %>%
+    arrange(desc(Count))
+
+counts
+```
+
+That's mildly interesting. There's about 2.7-3 maintainers for every community manager, sys admin, or UI designer. I'm curious how many people are EXCLUSIVELY one thing. Mainly interested in how many people are EXCLUSIVELY a maintainer, contributor, bug reporter, or supervisor.
+
+```{r}
+indices <- which(rowSums(roles) == 1 )
+exclusive <- roles[indices,]
+nrow(exclusive)
+```
+
+Let's repeat what we did for the whole data frame, but now with just people who filled one role.
+
+```{r}
+counts_exc <- colSums(exclusive)
+counts_exc <- data.frame(Role = names(counts_exc), Count = as.integer(counts_exc), row.names = NULL)
+counts_exc <- counts_exc %>%
+    arrange(desc(Count))
+
+counts_exc
+```
+
+So, out of 233 contributors, only 16 identified with exactly one contributor role. 5 of those were Bug/Issue Reporter, the most common exclusive-role.
+
+```{r}
+# Calculate total roles for each participant
+roles2 <- cbind(roles, total_roles = rowSums(roles))
+
+# Get mean number of roles per column (role)
+get_mean_num_roles <- function(df, colnum) {
+    # drop rows where the entry in this col is 0
+    filtered <- df[df[[colnum]] != 0, ]
+    return(
+        mean(filtered$total_roles)
+    )
+}
+num_roles <- data.frame(
+  role = names(roles),
+  avg_num_roles_per_participant = sapply(
+    seq(ncol(roles)),
+    function(x) get_mean_num_roles(roles2, x)
+  )
+)
+
+num_roles
+```
+
+Huh. So I guess no one role is particularly enriched for people who hold many roles. (I mean, we can't really get statistical significance with just one observation, and this doesn't feel worth modeling.) I guess bug reporters and contributors have the fewest roles, by a small margin, which makes sense.
+
+I'd be interested in the 3-way venn diagram of contributors, but reporters and maintainers. (Though, if we do plot this, an UpSet plot would probably be better than a Venn diagram)
+```{r}
+# maintainers, contributors, and bug reporters in that order
+three_way_counts <- with(roles, {
+  M <- Maintainer == 1
+  C <- Contributor == 1
+  B <- `Bug/Issue Reporter` == 1
+
+  c(
+    "M, !C, !B"   = sum(M & !C & !B),
+    "M, C, !B"  = sum(M & C & !B),
+    "M, !C, B"  = sum(M & !C & B),
+    "M, C, B" = sum(M & C & B),
+    "!M, !C, B"   = sum(!M & !C & B),
+    "!M, C, B"  = sum(!M & C & B),
+    "!M, C, !B"   = sum(!M & C & !B),
+    "!M, !C, !B" = sum(!M & !C & !B)
+  )
+})
+
+three_way_counts
+# This should be 233, the number of experienced contributors
+sum(three_way_counts)
+# Number of people who contributed as at least one of these three roles
+at_least_one <- sum(three_way_counts)-three_way_counts["!M, !C, !B"]
+at_least_one
+# Percent of total who identified as at least one of the three
+round(three_way_counts/at_least_one*100, digits=1)
+
+```
+
+Interesting. So 96% of the survey respondents identified as at least one of Maintainer, Contributor, or Bug Reporter (223/233). 50.0% of those folks identified as all three (111/223). 21.1% identified as a contributor and bug reporter, but not a maintainer, and 12.1% identified as a bug reporter only. Together, these three groups make up 50+21.1+12.2 83.3% of the total.
+
+Out of curiosity, how many maintainers also selected tech support?
+
+```{r}
+two_way_counts <- with(roles, {
+  M <- Maintainer == 1
+  TS <- `Technical support` == 1
+
+  c(
+    "M, !T"   = sum(M & !TS),
+    "M, T"  = sum(M & TS)
+  )
+})
+
+two_way_counts
+```
+
+Eh, not that interesting. I thought more maintainers would also be tech supporters.
+
+What's the ratio of maintainers to other contributors?
+
+```{r}
+nrow(subset(roles, Maintainer == 1))
+nrow(subset(roles, Maintainer == 0))
+```
+
+That's somewhat interesting, and I guess it's consistent with the "three-way venn-diagram" above. 134 people identified as maintainers, and only 99 people identified as contributors of some sort, but not maintainers. So 134/233 = 57.5% of experienced contributors in this survey are maintainers. I'm getting the sense, basically, that there are a lot of maintainers in this survey.
+
+# Bring in job category
+
+Are Math/CS people more likely to be maintainers than biologists?
+
+```{r}
+roles_field <- cbind(roles_raw, other_quant$field_of_study)
+# Rename column
+names(roles_field)[ncol(roles_field)] <- "field_of_study"
+# Filter out non-academics (people who didn't answer the field of study question)
+roles_field <- roles_field %>%
+    filter(field_of_study != "")
+
+nrow(roles_field)
+
+# Remove people who did not select any role
+roles_field_clean <- roles_field[rowSums(roles_field[, -ncol(roles_field)]) != 0,]
+
+nrow(roles_field_clean)
+
+# Sanity check: make sure none of the rows sums to 0
+unname(rowSums(roles_field_clean %>% select(-field_of_study)))
+```
+
+Okay, so we have a total of 188 academics. It looks like 147 of those are experienced contributors--people who selected at least one role.
+
+```{r}
+maintainer_props <- roles_field_clean %>%
+  group_by(field_of_study) %>%
+  summarise(
+    n_people          = n(),
+    n_maintainers     = sum(Maintainer == 1),
+    prop_maintainers  = mean(Maintainer == 1)
+  ) %>%
+  arrange(desc(prop_maintainers))
+
+maintainer_props
+```
+
+Meh, mildly interesting. 50% or more of our survey respondents from STEM fields are maintainers. There's really not sufficient respondents from the non-STEM fields to draw any conclusions there.
+
+# Campus
+
+What proportion of respondents are maintainers, per campus?
+
+```{r}
+roles_campus <- cbind(roles_raw, other_quant$campus)
+# Rename column
+names(roles_campus)[ncol(roles_campus)] <- "campus"
+# Filter out non-UC
+roles_campus <- roles_campus %>%
+    filter(campus != "I'm not affiliated with UC")
+# Remove people who did not select any role
+roles_campus <- roles_campus[rowSums(roles_campus[, -ncol(roles_campus)]) != 0,]
+
+nrow(roles_campus)
+```
+
+```{r}
+maint_by_campus <- roles_campus %>%
+  group_by(campus) %>%
+  summarise(
+    n_rows = n(),
+    n_maintainer = sum(Maintainer == 1),
+    prop_maintainer = mean(Maintainer == 1)
+  ) %>%
+  arrange(desc(prop_maintainer))
+
+
+maint_by_campus <- maint_by_campus[
+  order(
+    maint_by_campus$prop_maintainer,
+    decreasing = TRUE
+  ),
+]
+maint_by_campus
+```
+
+Meh, again, only mildly interesting. I suppose it's an interesting add-on to the stat that about half of our respondents are maintainers. Almost like error basr, where the variability comes from the campuses. The campuses with fewer than ten respondents just feel like noise to me, since we can't really draw conclusions. Let's filter those out.
+
+```{r}
+subset(maint_by_campus, n_rows > 10)
+```
+
+That's a little clearer.
