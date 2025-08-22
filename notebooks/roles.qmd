@@ -157,7 +157,7 @@ nrow(subset(roles, Maintainer == 0))
 
 That's somewhat interesting, and I guess it's consistent with the "three-way venn-diagram" above. 134 people identified as maintainers, and only 99 people identified as contributors of some sort, but not maintainers. So 134/233 = 57.5% of experienced contributors in this survey are maintainers. I'm getting the sense, basically, that there are a lot of maintainers in this survey.
 
-# Bring in job category
+# Bring in field of study
 
 Are Math/CS people more likely to be maintainers than biologists?
 

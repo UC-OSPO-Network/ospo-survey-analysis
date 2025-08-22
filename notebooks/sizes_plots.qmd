@@ -1,0 +1,568 @@
+---
+title: "Project sizes: exploratory plots"
+---
+
+# Overview
+This notebook explores Q5: "How frequently have you contributed to projects of the following size?".
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+```{r}
+sizes_raw <- load_qualtrics_data("clean_data/project_size_Q5.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+```
+
+# Wrangle data
+
+Drop rows with no data
+```{r}
+sizes <- exclude_empty_rows(sizes_raw)
+nrow(sizes)
+```
+
+Let's create a long-format version for plotting.
+
+```{r}
+sizes_long <- sizes %>%
+  pivot_longer(
+    cols = everything(),
+    names_to  = "size",
+    values_to = "frequency"
+  )
+
+sizes_long
+```
+
+# Inspect data
+
+Let's look at the counts.
+
+```{r}
+sizes_counts <- sizes_long %>%
+  count(size, frequency, name = "n")
+
+sizes_counts[
+  order(
+    sizes_counts$n,
+    decreasing = TRUE
+  ),
+]
+```
+
+
+Reorder factor levels
+```{r}
+ordered_freqs <- c(
+  "Never",
+  "Relatively infrequently",
+  "Occasionally",
+  "Relatively frequently"
+)
+
+sizes_counts$frequency <- factor(
+  sizes_counts$frequency,
+  levels = ordered_freqs
+)
+
+ordered_sizes <- c(
+  "Small",
+  "Medium",
+  "Large"
+)
+
+sizes_counts$size <- factor(
+  sizes_counts$size,
+  levels = ordered_sizes
+)
+```
+
+
+# Stacked bar chart
+
+```{r, fig.width=8, fig.height=8}
+stacked_bar <- stacked_bar_chart(
+  sizes_counts,
+  x_var = "size",
+  y_var = "n",
+  fill = "frequency",
+  title = "Relative Frequency of Contributions\nto Projects of a Certain Size",
+  cpalette = c(
+    "#1a7937", # dark green
+    "#acd49f", # light green
+    "#e5e5e5", # light gray
+    "#c3a4d0", # light purple
+    "#752a82" # dark purple
+  )
+)
+stacked_bar <- stacked_bar +
+  geom_hline(yintercept = 155.4, linetype = "dashed", color = "black") +
+  geom_hline(yintercept = 77.7, linetype = "dashed", color = "black")
+stacked_bar
+```
+
+The dashed lines indicate 1/3 and 2/3 of the total number of responses.
+
+Save the plot
+```{r}
+save_plot("proj_sizes_bar.tiff", 8, 6, p=stacked_bar)
+```
+
+# Incorporate job category
+
+```{r}
+sizes_job <- cbind(sizes_raw, other_quant$job_category)
+# Rename column
+names(sizes_job)[ncol(sizes_job)] <- "job_category"
+# Filter out people who didn't answer either question
+sizes_job <- exclude_empty_rows(sizes_job, strict = TRUE)
+```
+
+```{r}
+sizes_job_long <- sizes_job %>%
+  pivot_longer(
+    cols = -job_category,
+    names_to = "size",
+    values_to = "frequency"
+  )
+```
+
+```{r}
+# three way cross tabs (xtabs) and flatten the table
+# code from: https://ladal.edu.au/tutorials/regression/regression.html
+ftable(xtabs(~ job_category + size + frequency, data = sizes_job_long))
+```
+
+Maybe these data are more suited to line plots than to bar plots. Also, maybe we should fold in the smaller job categories, like we did with the regressions.
+
+# Panel of line plots
+
+```{r}
+combined <- sizes_job_long %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
+    )
+  )
+
+combined <- combined %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Students",
+      "Undergraduate" = "Students"
+    )
+  )
+```
+
+Reorder factor levels
+```{r}
+ordered_jobs <- c(
+  "Students",
+  "Postdocs and Staff Researchers",
+  "Faculty",
+  "Non-research Staff"
+)
+
+combined$size <- factor(combined$size, levels = ordered_sizes)
+combined$frequency <- factor(combined$frequency, levels = ordered_freqs)
+combined$job_category <- factor(combined$job_category, levels = ordered_jobs)
+```
+
+Recode frequency from categorical to a numeric score
+
+```{r}
+combined_coded_all <- combined %>%
+  mutate(
+    frequency_score = recode(
+      frequency,
+      "Never" = 0L,
+      "Relatively infrequently" = 1L,
+      "Occasionally" = 2L,
+      "Relatively frequently" = 3L
+    )
+  ) %>%
+    select(-frequency)
+
+combined_coded_all
+```
+
+Sum up frequency scores
+
+```{r}
+combined_scores <- combined_coded_all %>%
+  count(job_category, size, wt = frequency_score, name = "total_score")
+
+# Reorder factor levels
+combined_scores$size <- factor(combined_scores$size, levels = ordered_sizes)
+
+combined_scores
+```
+
+Recycling some old code to create a stack of line plots.
+
+```{r}
+labeled_colors <- setNames(as.list(COLORS), ordered_jobs)
+
+lineplot <- function(df, current_job_cat) {
+  x <- ggplot(
+    subset(df, job_category == current_job_cat),
+    aes(x = size, y = total_score, group = job_category, color = job_category)
+  ) +
+    geom_line() +
+    geom_point() +
+    ylim(0, 175) +
+    scale_x_discrete(expand = c(0.025, 0.025)) +
+    ylab(current_job_cat) +
+    xlab("Project Size") +
+    ggtitle("Frequent Contributions by Project Size") +
+    scale_color_manual(values = c(labeled_colors[[current_job_cat]])) +
+    # Use different theme options depending on whether this is
+    # the first plot, a middle plot, or the last plot in the stack
+    # I know this code is painfully "wet" as opposed to "d.r.y" but it gets the job done
+    {
+      if (current_job_cat == ordered_jobs[[1]]) {
+        theme(
+          axis.title.y = element_text(
+            angle = 0,
+            vjust = 0.5,
+            color = labeled_colors[[current_job_cat]],
+            size = 12,
+            face = "bold"
+          ),
+          axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          plot.margin = unit(c(0.3, 0.5, 0, 0), "cm"),
+          plot.title = element_text(hjust = 0.5, size = 16),
+          legend.position = "none"
+        )
+      }
+    } +
+    {
+      if (
+        current_job_cat != ordered_jobs[[length(ordered_jobs)]] &
+          current_job_cat != ordered_jobs[[1]]) {
+        theme(
+          axis.title.y = element_text(
+            angle = 0,
+            vjust = 0.5,
+            color = labeled_colors[[current_job_cat]],
+            size = 12,
+            face = "bold"
+          ),
+          axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          plot.margin = unit(c(0.3, 0.5, 0, 0), "cm"),
+          plot.title = element_blank(),
+          legend.position = "none"
+        )
+      }
+    } +
+    {
+      if (current_job_cat == ordered_jobs[[length(ordered_jobs)]]) {
+        theme(
+          axis.title.y = element_text(
+            angle = 0,
+            vjust = 0.5,
+            color = labeled_colors[[current_job_cat]],
+            size = 12,
+            face = "bold"
+          ),
+          axis.title.x = element_text(size = 14, vjust = -0.5),
+          axis.text.x = element_text(size = 12),
+          panel.background = element_blank(),
+          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          plot.margin = unit(c(0.3, 0.5, 0.3, 0), "cm"),
+          plot.title = element_blank(),
+          legend.position = "none"
+        )
+      }
+    }
+}
+```
+
+
+```{r, fig.width=8, fig.height=8}
+plotlist <- lapply(
+  ordered_jobs,
+  function(x) lineplot(combined_scores, x)
+)
+
+patchwork::wrap_plots(plotlist, nrow = 4, ncol = 1)
+```
+
+Eh, I think they would look better if they were all on the same plot. 
+
+# Normal line plot
+
+```{r, fig.width=8, fig.height=8}
+ggplot(
+    combined_scores,
+    aes(x = size, y = total_score, group = job_category, color = job_category)
+  ) +
+    geom_line() +
+    geom_point() +
+    ylim(0, 175) +
+    scale_x_discrete(expand = c(0.025, 0.025)) +
+    ylab("Frequency Score") +
+    xlab("Project Size") +
+    ggtitle("Frequency of Contributions by Project Size") +
+    scale_color_manual(values = COLORS) +
+    
+    theme(
+          axis.title.y = element_text(
+            angle = 0,
+            vjust = 0.5,
+            size = 18,
+            face = "bold"
+          ),
+          axis.title.x = element_blank(),
+          axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(hjust = 0.5, size = 16),
+        )
+```
+
+Nah, still needs work. How about we just plot the trend for large projects?
+
+# Large projects
+
+```{r}
+large <- subset(combined, size == "Large")
+large_counts <- large %>%
+  count(job_category, frequency, name = "n")
+
+large_counts <- large_counts %>%
+  group_by(job_category) %>%
+  mutate(perc_total = round(100 * n / sum(n), 1)) %>%
+  ungroup()
+```
+
+
+```{r, fig.width=8, fig.height=8}
+large_line <- ggplot(
+    large_counts,
+    aes(x = frequency, y = perc_total, group = job_category, color = job_category)
+  ) +
+    geom_line() +
+    geom_point() +
+    ylim(0, 50) +
+
+    scale_x_discrete(expand = c(0.025, 0.025)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 1)) +
+    scale_color_manual(values = COLORS) +
+
+    ylab("Percent of Respondents\nin Job Category") +
+    xlab("Project Size") +
+    ggtitle("Frequency of Contributions\nto Large Projects") +
+    
+    
+    theme(
+          axis.title.y = element_text(
+            size = 22,
+            #face = "bold"
+          ),
+          axis.title.x = element_blank(),
+          axis.text.x = element_text(
+            angle = -45,
+            hjust = 0,
+            vjust = 1,
+            size = 20,
+            margin = margin(t = 6)),
+          #axis.ticks.x = element_blank(),
+          legend.text = element_text(size = 20),
+          legend.title = element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+        )
+
+large_line
+```
+
+Hard to discern a clear trend. Let's save the plot anyway.
+
+Save the plot
+```{r}
+save_plot("proj_sizes_large_line.tiff", 10, 6, p=large_line)
+```
+
+
+# Medium projects
+What about Medium projects? Do the same trends hold?
+```{r}
+med <- subset(combined, size == "Medium")
+med_counts <- med %>%
+  count(job_category, frequency, name = "n")
+
+med_counts <- med_counts %>%
+  group_by(job_category) %>%
+  mutate(perc_total = round(100 * n / sum(n), 1)) %>%
+  ungroup()
+```
+
+```{r, fig.width=8, fig.height=8}
+med_line <- ggplot(
+    med_counts,
+    aes(x = frequency, y = perc_total, group = job_category, color = job_category)
+  ) +
+    geom_line() +
+    geom_point() +
+    ylim(0, 50) +
+
+    scale_x_discrete(expand = c(0.025, 0.025)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 1)) +
+    scale_color_manual(values = COLORS) +
+
+    ylab("Percent of Respondents\nin Job Category") +
+    xlab("Project Size") +
+    ggtitle("Frequency of Contributions\nto Medium Projects") +
+    
+    
+    theme(
+          axis.title.y = element_text(
+            size = 22,
+            #face = "bold"
+          ),
+          axis.title.x = element_blank(),
+          axis.text.x = element_text(
+            angle = -45,
+            hjust = 0,
+            vjust = 1,
+            size = 20,
+            margin = margin(t = 6)),
+          #axis.ticks.x = element_blank(),
+          legend.text = element_text(size = 20),
+          legend.title = element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+        )
+
+med_line
+```
+
+Save the plot
+```{r}
+save_plot("proj_sizes_med_line.tiff", 10, 6, p=med_line)
+```
+
+# Small projects
+We've made it this far. We might as well look at small projects, too.
+
+```{r}
+small <- subset(combined, size == "Small")
+small_counts <- small %>%
+  count(job_category, frequency, name = "n")
+
+small_counts <- small_counts %>%
+  group_by(job_category) %>%
+  mutate(perc_total = round(100 * n / sum(n), 1)) %>%
+  ungroup()
+```
+
+```{r, fig.width=8, fig.height=8}
+small_line <- ggplot(
+    small_counts,
+    aes(x = frequency, y = perc_total, group = job_category, color = job_category)
+  ) +
+    geom_line() +
+    geom_point() +
+    ylim(0, 50) +
+
+    scale_x_discrete(expand = c(0.025, 0.025)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 1)) +
+    scale_color_manual(values = COLORS) +
+
+    ylab("Percent of Respondents\nin Job Category") +
+    xlab("Project Size") +
+    ggtitle("Frequency of Contributions\nto Small Projects") +
+    
+    
+    theme(
+          axis.title.y = element_text(
+            size = 22,
+            #face = "bold"
+          ),
+          axis.title.x = element_blank(),
+          axis.text.x = element_text(
+            angle = -45,
+            hjust = 0,
+            vjust = 1,
+            size = 20,
+            margin = margin(t = 6)),
+          #axis.ticks.x = element_blank(),
+          legend.text = element_text(size = 20),
+          legend.title = element_blank(),
+          panel.background = element_blank(),
+          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
+          plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
+          plot.title = element_text(hjust = 0.5, size = 24),
+        )
+
+small_line
+```
+
+Wow, that's much prettier.
+
+Save the plot
+```{r}
+save_plot("proj_sizes_small_line.tiff", 10, 6, p=small_line)
+```
+
+I'd like to know whether the proportion of academics who contribute to large projects with some frequency is significantly lower than the proportion of non-research staff who contribute to large projects with some frequency.
+
+```{r}
+combined_counts <- combined %>%
+  count(job_category, size, frequency, name = "n")
+
+res <- combined_counts %>%
+  filter(size == "Large") %>%
+  mutate(
+    group = if_else(job_category == "Non-research Staff",
+                    "Non-research Staff", "Academics"),
+    freq2 = if_else(frequency == "Never", "Never", "Other")
+  ) %>%
+  group_by(group, freq2) %>%
+  summarise(n = sum(n), .groups = "drop_last") %>%
+  mutate(prop = n / sum(n)) %>%
+  ungroup()
+
+# 2×2 table: proportions for each group
+res_wide <- res %>%
+  select(group, freq2, prop) %>%
+  pivot_wider(names_from = freq2, values_from = prop) %>%
+  arrange(match(group, c("Non-research Staff", "Academics")))
+
+res_wide
+```
+
+Hmm. Seems promising. We should probably do a regression...

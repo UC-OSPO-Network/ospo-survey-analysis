@@ -1,0 +1,130 @@
+---
+title: "Project sizes: statistics"
+---
+
+# Overview
+This notebook explores Q5: "How frequently have you contributed to projects of the following size?". I am following up on some plots and counts from sizes_plots.qmd with statistics.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+```{r}
+sizes_raw <- load_qualtrics_data("clean_data/project_size_Q5.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+```
+
+# Wrangle data
+
+```{r}
+sizes_job <- cbind(sizes_raw, other_quant$job_category)
+# Rename column
+names(sizes_job)[ncol(sizes_job)] <- "job_category"
+# Filter out people who didn't answer either question
+sizes_job <- exclude_empty_rows(sizes_job, strict = TRUE)
+sizes_job$participantID <- seq(nrow(sizes_job))
+```
+
+```{r}
+sizes_job_long <- sizes_job %>%
+  pivot_longer(
+    cols = -c(job_category, participantID),
+    names_to = "size",
+    values_to = "frequency"
+  )
+
+head(sizes_job_long)
+```
+
+```{r}
+# three way cross tabs (xtabs) and flatten the table
+# code from: https://ladal.edu.au/tutorials/regression/regression.html
+ftable(xtabs(~ job_category + size + frequency, data = sizes_job_long))
+```
+
+## Create different job category labels
+Let's fold in the smaller job categories, like we did with the other regressions. Acutally, let's try it two ways: first, with 4 groups (nr staff, students, postdocs, and faculty), and then with two: non-research staff vs. academics. We'll see which model looks better.
+
+```{r}
+combined4 <- sizes_job_long %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
+    )
+  )
+
+combined4 <- combined4 %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Students",
+      "Undergraduate" = "Students"
+    )
+  )
+```
+
+```{r}
+combined2 <- sizes_job_long %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Academic",
+      "Undergraduate" = "Academic",
+      "Other research staff" = "Academic",
+      "Post-Doc" = "Academic",
+      "Faculty" = "Academic"
+    )
+  )
+```
+
+Reorder factor levels.
+```{r}
+ordered_sizes <- c(
+  "Small",
+  "Medium",
+  "Large"
+)
+
+ordered_freqs <- c(
+  "Never",
+  "Relatively infrequently",
+  "Occasionally",
+  "Relatively frequently"
+)
+
+ordered_jobs <- c(
+  "Students",
+  "Postdocs and Staff Researchers",
+  "Faculty",
+  "Non-research Staff"
+)
+
+combined4$size <- factor(combined4$size, levels = ordered_sizes)
+combined4$frequency <- factor(combined4$frequency, levels = ordered_freqs)
+combined4$job_category <- factor(combined4$job_category, levels = ordered_jobs)
+
+combined2$size <- factor(combined2$size, levels = ordered_sizes)
+combined2$frequency <- factor(combined2$frequency, levels = ordered_freqs)
+combined2$job_category <- factor(combined2$job_category, levels = ordered_jobs)
+```
+
+# Model selection part 1: comparing non-mixed models
+
+To start with, I'm going to create and compare a variety of non-mixed models to see which one looks best. clm(), which is for non-mixed models, has a couple of diagnostic capabilities that clmm() (mixed models) does not. Once I've chosen a non-mixed model that looks good, I'll add in the random effects term.
+
+## Model 1: no job data
+
+```{r}
+
+```
+
+
