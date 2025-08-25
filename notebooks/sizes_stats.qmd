@@ -84,6 +84,9 @@ combined2 <- sizes_job_long %>%
       "Faculty" = "Academic"
     )
   )
+
+# example
+combined2
 ```
 
 Reorder factor levels.
@@ -101,30 +104,264 @@ ordered_freqs <- c(
   "Relatively frequently"
 )
 
-ordered_jobs <- c(
+ordered_jobs4 <- c(
   "Students",
   "Postdocs and Staff Researchers",
   "Faculty",
   "Non-research Staff"
 )
 
+ordered_jobs2 <- c(
+  "Academic",
+  "Non-research Staff"
+)
+
 combined4$size <- factor(combined4$size, levels = ordered_sizes)
 combined4$frequency <- factor(combined4$frequency, levels = ordered_freqs)
-combined4$job_category <- factor(combined4$job_category, levels = ordered_jobs)
+combined4$job_category <- factor(combined4$job_category, levels = ordered_jobs4)
 
 combined2$size <- factor(combined2$size, levels = ordered_sizes)
 combined2$frequency <- factor(combined2$frequency, levels = ordered_freqs)
-combined2$job_category <- factor(combined2$job_category, levels = ordered_jobs)
+combined2$job_category <- factor(combined2$job_category, levels = ordered_jobs2)
 ```
 
 # Model selection part 1: comparing non-mixed models
 
 To start with, I'm going to create and compare a variety of non-mixed models to see which one looks best. clm(), which is for non-mixed models, has a couple of diagnostic capabilities that clmm() (mixed models) does not. Once I've chosen a non-mixed model that looks good, I'll add in the random effects term.
 
+Here are the models I want to inspect:\
+freq ~ size\
+freq ~ combined2 + size\
+freq ~ combined2 * size\
+freq ~ combined4 + size\
+freq ~ combined4 * size\
+
 ## Model 1: no job data
 
 ```{r}
-
+# Since we're ignoring the job_category column, 
+# it doesn't matter which data frame we use
+fit1 <- ordinal::clm(frequency ~ size,                 
+            data = combined2, link = "logit", Hess = TRUE)
 ```
 
+## Model 2: 2 job categories, no interaction
 
+```{r}
+fit2 <- ordinal::clm(frequency ~ job_category + size,                 
+            data = combined2, link = "logit", Hess = TRUE)
+```
+
+## Model 3: 4 job categories, no interaction
+
+```{r}
+fit3 <- ordinal::clm(frequency ~ job_category + size,                 
+            data = combined4, link = "logit", Hess = TRUE)
+```
+
+## Model 4: 2 job categories, with interaction
+
+```{r}
+fit4 <- ordinal::clm(frequency ~ job_category * size,                 
+            data = combined2, link = "logit", Hess = TRUE)
+```
+
+## Model 5: 4 job categories, with interaction
+
+```{r}
+fit5 <- ordinal::clm(frequency ~ job_category * size,                 
+            data = combined4, link = "logit", Hess = TRUE)
+```
+
+# Goodness-of-fit
+
+## AICs
+
+```{r}
+models <- list(
+  "fit1"=fit1,
+  "fit2"=fit2,
+  "fit3"=fit3,
+  "fit4"=fit4,
+  "fit5"=fit5
+)
+```
+
+First, let's get a general sense of goodness-of-fit by looking at the AICs. You're not supposed to compare AICs for models fit to different data sets, but since I've only changed the job_category labels, not the observations or the number of observations, I think this is ok.
+
+```{r}
+sapply(models, function(x) round(stats::AIC(x)))
+```
+
+AICs are very similar across the board. The last two models look a teensy bit better.
+
+## "Condition number of the Hessian"
+
+Let's check the condition number of the Hessian. I don't really understand what this is, but the clmm2 tutorial says that high numbers, say larger than say 10^4 or 10^6, indicate poor fit.
+```{r}
+sapply(models, function(x) 
+summary(x)$info["cond.H"]
+)
+```
+
+All look fine.
+
+## ANOVAs
+
+Let's use some anovas to compare nested models.
+```{r}
+stats::anova(fit1, fit2)
+```
+
+Hmm. Including two job categories (no interaction) is just barely significant.
+
+```{r}
+stats::anova(fit1, fit3)
+```
+
+Including four job categories (no interaction) is slightly more significant. Let's proceed with fit3 as the one to beat. We'll compare it to fit5, which uses the same job labels.
+
+```{r}
+stats::anova(fit3, fit5)
+```
+
+Yes, inclusion of the interaction term is helpful.
+
+## Nominal and scale tests for clm
+
+https://www.rdocumentation.org/packages/ordinal/versions/2023.12-4.1/topics/nominal_test
+
+nominal_test(), as I understand it, tests for violations of the proportional odds assumption, which is the assumption that the effect of the explanatory variables are the same across all levels of the outcome variable (remember, we're assuming the outcome categories are cut-offs of an underlying continuous variable). It does ANOVA/LRT on models where a predictor is allowed to have different effects on the different factor levels (cut-off regions), and tests if a version of the model where this assumption is relaxed is a significantly better fit than the one where the assumption is required.
+
+scale_test() does the same sort of thing, but instead of testing for non-proportional odds, it's testing for heteroskedasticity.
+
+```{r}
+nominal_test(fit5)
+scale_test(fit5)
+```
+
+Hmm. Looks like the interaction term violates the non-proportional odds assumption. In other words, the effect of the interaction varies at different frequency levels. No bueno. But the model is improved by the interaction term, according to the LRTs, so we don't want to get rid of it. I will proceed cautiously, and maybe just report it? I really don't want to get into the weeds with this.
+
+# Mixed models
+
+## Model 6: size as fixed effect only
+
+```{r}
+fit6 <- ordinal::clmm(frequency ~ job_category * size +
+          (1 | participantID),               
+          data = combined4, link = "logit", Hess = TRUE)
+```
+
+## Model 7: size as both a fixed and random effect
+
+```{r}
+fit7 <- ordinal::clmm(frequency ~ job_category * size +
+          (1 + size | participantID),               
+          data = combined4, link = "logit", Hess = TRUE)
+```
+
+Hm. I think the 4-job-category data are too sparse for this model to converge. I'm kind of curious about the 2-job label.
+
+## Model 8: size as fixed + random, 2 job cats
+
+```{r}
+fit8 <- ordinal::clmm(frequency ~ job_category * size +
+          (1 + size | participantID),               
+          data = combined2, link = "logit", Hess = TRUE)
+```
+
+Hm. This one is having the same problem. I guess we'll proceed with the one that converged.
+
+# Goodness-of-fit: mixed
+
+```{r}
+stats::anova(fit5, fit6)
+```
+
+It appears that the model is very much improved by including the participant ID as a random effect (each participant has their own intercept ("baseline")). Since clmm() doesn't support relaxing the non-proportional odds requirement with nominal=, and since I really don't want to switch to a new package/methodology that does, I'm just going to report this and move forward with fit6.
+
+# Hypothesis testing (emmeans)
+```{r}
+summary(fit6)
+```
+
+That's a lot of parameters to interpret. emmeans to the rescue.
+
+I'm not going to attempt to average the results across job category, so there's no weighting scheme needed.
+
+```{r}
+emm <- emmeans(fit6, ~ size * job_category, mode = "mean.class")
+```
+
+```{r}
+summary(emm) %>% 
+  arrange(desc(mean.class))
+```
+
+Hmm. Mildly interesting. As suggested by the exploratory plots, the results are fairly clean for small and large projects, but more muddled for medium projects.
+
+```{r}
+by_job <- summary(
+  pairs(emm, by = "job_category"),
+  infer = TRUE # infer CIs
+)
+by_job
+```
+
+Wow, okay, still a lot of parameters to interpret. 
+
+After staring at this for a while, I think the main conclusion is that everyone is more likely to contribute to small projects than large projects.
+
+```{r}
+by_size <- summary(
+  pairs(emm, by = "size"),
+  infer = TRUE # infer CIs
+)
+by_size
+```
+
+After staring at this for a while, I think we can conclude that academics contribute to large projects less frequently than non-research staff, but there is very little evidence to support the reverse--that academics are more likely to contribute to small projects than NR staff. (Only true for postdocs and staff researchers.)
+
+So, w.r.t. conclusion #2, I think we've mitigated the danger of the non-proportional odds violation by just looking at a single level, i.e. Large projects for different job_categories, so it doesn't matter that the effect of the interaction is different at large vs. medium, for example, because we're only looking at large. I don't think this is true for #1, where were saying that the frequency of small is higher than the frequency of large for all groups.
+
+For a little confidence boost, let's try collapsing the frequency levels into a binary of Never vs. Some frequency, and then do a logistic regression. We'll need to use glmer instead of glm since we have a mixed model, which glm doesn't support.
+
+If this regression also says that all groups are more likely to contribute to small projects than large projects, then we have more confidence in that conclusion.
+
+```{r}
+combined4_2 <- within(combined4, some <- frequency != "Never")
+
+fit_bin <- lme4::glmer(
+  some ~ job_category * size + (1 | participantID),
+  family = binomial,
+  data = combined4_2
+)
+```
+
+Bah! Fails to converge
+
+```{r}
+combined2_2 <- within(combined2, some <- frequency != "Never")
+
+fit_bin <- lme4::glmer(
+  some ~ job_category * size + (1 | participantID),
+  family = binomial,
+  data = combined2_2
+)
+```
+
+Okay, had to switch to NR staff vs. academics to get the model to converge. I'm fine with this, since it's literally the same research question, conceptually, and just a different model, which is the whole point here.
+
+```{r}
+emm_bin <- emmeans(fit_bin, ~ size * job_category, mode = "mean.class")
+summary(
+  pairs(emm_bin, by = "job_category"),
+  infer = TRUE # infer CIs
+)
+summary(
+  pairs(emm_bin, by = "size"),
+  infer = TRUE # infer CIs
+)
+```
+
+Bah! Ugh, this regression says that NR staff are not significantly more likely to contribute to small projects than large projects.
