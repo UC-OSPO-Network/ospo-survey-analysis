@@ -2,6 +2,8 @@
 title: "Solutions Stats"
 ---
 
+# Overview
+
 Some questions raised by my plots for Q10, about solutions (solutions_plots.qmd):\
 - Are solution scores by job category the same for all possible pairs of job groups?\
 - Are non-research staff significantly more likely than other groups to want a learning community?\
@@ -270,9 +272,9 @@ It appears that job is also significant in explaining the variation in the data.
 
 ## More goodness of fit evaluation
 
-How else to evaluate the models? The `ordinal` package provides goodness-of-fit functions nominal_test and scale_test, but as far as I can tell, these only work on clm objects, not clmm objects. (mixed models)
+How else to evaluate the models? The `ordinal` package provides goodness-of-fit functions nominal_test and scale_test, but these only work on clm objects, not clmm objects (mixed models).
 
-Model 2b had a similar AIC as model 5. While I can't compare model 1b and model 2b with anova, since they're not nested, I can at least glance at the standard errors of the coefficients, which give me a sense of the precision of the coefficient estimates.
+Model 2b had a similar AIC as model 5. While I can't compare model 1b and model 2b with anova, since they're not nested, I can at least glance at the standard errors of the coefficients, which I think gives me a sense of the precision of the coefficient estimates.
 ```{r}
 summary(fit1b$coefficients)
 summary(fit2b$coefficients)
@@ -283,12 +285,21 @@ Hm. So fit1b had the lowest AIC of all the models and is significantly better at
 How about the log likelihoods?
 ```{r}
 LL <- sapply(models, function(x) x$logLik)
-# These are a bit hard to read to I am reordering them
+# These are a bit hard to read so I am reordering them
 LL[order(LL)]
 ```
-In this case, surprisingly, fit1 looks best. But only #4 and #6 look really bad. The rest are sort of close together, and fit1b is second best, not too far behind fit1.
+In this case, surprisingly, fit1 looks best. But according to the interwebs, this can happen just from having more parameters. So I think we should probably only use this to compare models that have the same number of parameters, e.g. fit3 vs. fit4.
 
-So, I find myself in the annoying situation of having several g-o-f tests that don't quite agree. However, I think I'll go with fit1b. It had the best AIC and the second-best log-likelihood. The SEs are a little concerning, but I don't think the SEs are a super reliable indicator of g-o-f anyway. This model consistently had pretty good g-o-f metrics, and I think it also intuitively makes the most sense.  
+So, I find myself in the annoying situation of having several g-o-f tests that don't perfectly agree. However, I'm leaning toward fit1b. It had the best AIC and the second-best log-likelihood. The SEs are a little concerning, but I don't think the SEs are a super reliable indicator of g-o-f anyway(?).  This model consistently had pretty good g-o-f metrics, and I think it also intuitively makes the most sense.
+
+Let's do one more test. fit6 is the equivalent model to fit1b, but with fixed effects only. Since we can do the nominal_test and scale_test on this model, let's try it and see if it sets off any red flags.
+
+```{r}
+nominal_test(fit6)
+scale_test(fit6)
+```
+
+Ouch. That's not ideal. Maybe we can proceed with caution, and follow up with a non-parametric test on whatever trends we find? https://www.fharrell.com/post/po/
 
 # Interpreting the model results
 ```{r}
@@ -355,7 +366,9 @@ sapply(c("equal", "prop", "outer", "cells", "flat"), \(w)
     emmeans(fit1b, ~ solution, weights = w) |> predict()) |> head()
 ```
 
-We only get two sets of estimates: equal/flat gives us the estimates where all means are given equal weight. Prop, outer, and cells give us another set of estimates, where each prediction is given the same weight as occurs in the model. At least, I think that's how it works. Let's do a sanity check. First, let's look at the average ratings by job category (our weighting scheme here doesn't matter, because we're splitting it up by job, not averaging over job).
+We only get two sets of estimates: equal/flat gives us the estimates where all means are given equal weight. Prop, outer, and cells give us another set of estimates, where each prediction is given the same weight as occurs in the model. At least, I think that's how it works. 
+
+Let's look at the average ratings by job category (our weighting scheme here doesn't matter, because we're splitting it up by job, not averaging over job).
 
 ```{r}
 summary(emmeans(fit1b, ~ solution | job_category, mode="mean.class")) %>%
@@ -520,6 +533,7 @@ by_job <- summary(
 by_job
 ```
 
+Here we look at pairwise contrasts by solution. These data are sort-of-kind-of corroborated below with a Kruskal-Wallis test.
 ```{r}
 emm_soln <- emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
 by_soln <- summary(
@@ -566,6 +580,33 @@ save_plot("solns_grants.tiff", 12, 10, p=grant_ratings)
 ```
 
 
+# Kruskal-Wallis test for ranking differences between groups
+
+Non-parametric corroboration of the extent of disagreement between groups. Whereas above, we tested for differences in mean ratings, here we are testing for differences in the distributions of ratings for each solution.
+
+```{r}
+combined2 <- combined %>%
+  mutate(
+    utility_score = recode(
+      utility,
+      "Non-applicable" = 0L,
+      "Not very useful" = 0L,
+      "Useful" = 1L,
+      "Very useful" = 2L
+    )
+  )
+
+kw_results <- sapply(split(combined2, combined2$solution), function(df) {
+  kruskal.test(utility_score ~ job_category, data = df)$p.value
+})
+
+p_adj_kw <- p.adjust(kw_results, "holm")
+
+p_adj_kw < 0.05
+sum(p_adj_kw < 0.05)
+```
+
+Hm. The results are a little surprising. 
 
 
 # Heat map (Unfinished/Abandoned)
