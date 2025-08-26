@@ -73,6 +73,7 @@ data <- data %>% select(-all_of(pii_cols))
 ```
 
 # Write qualitative responses to a file
+Note that I am curating the data a bit here. Some people hit 'return' in their text responses, which wreaked havoc on my parsing. So I am replacing tabs and newlines with a space.
 ```{r}
 qual_cols <- c(
   "final_thoughts",
@@ -81,7 +82,11 @@ qual_cols <- c(
 
 qual <- data %>% select(ends_with("_TEXT"), all_of(qual_cols))
 
-write_df_to_file(qual, "qual_responses.tsv")
+qual_clean <- qual %>%
+  mutate(across(everything(),
+                ~ str_replace_all(as.character(.x), "[\\t\\n]", " ")))
+
+write_df_to_file(qual_clean, "qual_responses.tsv")
 
 data <- data %>% select(-ends_with("_TEXT"), -all_of(qual_cols))
 ```

@@ -1,0 +1,428 @@
+---
+title: "Project Types"
+---
+
+# Overview 
+
+This analysis is of Q7 about the types of projects people have contributed to.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+```{r}
+ptypes_raw <- load_qualtrics_data("clean_data/project_types_Q7.tsv")
+sizes_raw <- load_qualtrics_data("clean_data/project_size_Q5.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+qual <- load_qualtrics_data("qual_responses.tsv")
+```
+
+# Wrangle data
+
+Discard rows from people who didn't answer the Q about project types
+```{r}
+ptypes <- ptypes_raw[which(rowSums(ptypes_raw) != 0),]
+```
+
+Discard rows from people who didn't answer the Q about project types OR who didn't answer the Q about job category
+```{r}
+ptypes_job <- cbind(ptypes_raw, other_quant$job_category)
+# Rename column
+names(ptypes_job)[ncol(ptypes_job)] <- "job_category"
+
+keep1 <- which(rowSums(ptypes_raw) != 0)
+keep2 <- which(ptypes_job$job_category != "")
+
+#Only keep people who answered both questions
+keep <- intersect(keep1, keep2)
+ptypes_job <- ptypes_job[keep,]
+nrow(ptypes_job)
+```
+
+# Inspect data
+
+```{r}
+counts <- data.frame(colSums(ptypes))
+names(counts)[1] <- "count"
+counts <- counts %>% arrange(desc(count))
+counts
+
+ordered_proj_types <- rownames(counts)
+```
+
+On average, how many project types does each person contribute to?
+
+```{r}
+get_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+mean(rowSums(ptypes))
+median(rowSums(ptypes))
+get_mode(rowSums(ptypes))
+```
+
+So, about three project types, on average.
+
+# Bring in job category
+
+Let's plot the distribution of project types for each job. Since there are very different sample sizes among the groups, we'll plot the proportion of each group that selected each project type.
+
+```{r}
+long_data <- ptypes_job %>%
+  pivot_longer(
+    cols = -job_category,
+    names_to = "project_type",
+    values_to = "flag"
+  ) %>%
+  filter(flag == 1) %>%
+  select(project_type, job_category)
+
+long_data
+```
+
+```{r}
+get_proportion_of_job_category <- function(x) {
+    tmp <- ptypes_job %>% filter(job_category == x)
+    tmp <- tmp %>% select(-job_category)
+    sums <- colSums(tmp)
+    return(
+        sums / nrow(tmp)
+    )
+}
+
+props <- as.data.frame(
+    sapply(
+    unique(ptypes_job$job_category),
+    function(x) get_proportion_of_job_category(x)
+    )
+)
+
+props$project_type <- rownames(props)
+
+props_long <- props %>%
+    pivot_longer(
+        cols = -project_type,
+        names_to = "job_category",
+        values_to = "proportion"
+    )
+```
+
+Reorder factor levels
+
+```{r}
+props_long$project_type <- factor(
+    props_long$project_type,
+    levels = ordered_proj_types
+)
+```
+
+
+```{r, fig.width=10, fig.height=8}
+ggplot(props_long, aes(
+    fill = job_category,
+    y = proportion,
+    x = project_type
+  )
+) +
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_fill_manual(values = COLORS) + # from utils.R
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_discrete(
+  # add whitespace to long labels
+    labels = ~ str_replace(
+      .x,
+      fixed("Libraries, packages, or frameworks"),
+      "Libraries, packages,\nor frameworks"
+    )
+  ) +
+  labs(y = "Percent of\nrespondents\nin category") +
+  ggtitle("Types of projects contributed to") +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(angle = 0, vjust = 0.5, size = 24),
+    #axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+    axis.text.x = element_text(
+      angle = -45,
+      hjust = 0,
+      vjust = 1,
+      size = 20,
+      margin = margin(t = 0)
+    ),
+    axis.text.y = element_text(size = 18),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 18),
+    panel.background = element_blank(),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    plot.title = element_text(hjust = 0, size = 24, face = "bold"),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  )
+```
+
+This plot feels a bit busy. Let's make a simpler version by combining some of the job categories. Let's also make it horizontal, which will make the labels easier to read.
+
+```{r}
+combined <- props_long %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
+    )
+  )
+
+combined <- combined %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Students",
+      "Undergraduate" = "Students"
+    )
+  )
+```
+
+Reorder factor levels
+
+```{r}
+combined$project_type <- factor(
+  combined$project_type,
+  levels = rev(ordered_proj_types))
+
+combined$job_category <- factor(
+    combined$job_category,
+    levels = c(
+        "Students",
+        "Postdocs and Staff Researchers",
+        "Faculty",
+        "Non-research Staff"
+    )
+)
+```
+
+```{r}
+cpalette <- c(
+  "#0077bb", # medium blue
+  "#009988", # green-blue
+  "#cc3311", # red
+  "#c6c6c6" # gray
+)
+```
+
+```{r, fig.width=10, fig.height=7}
+grouped_plot <- ggplot(
+  combined,
+  aes(fill = job_category, y = proportion, x = project_type)
+) +
+  geom_bar(position = "dodge", stat = "identity", width = 0.75) +
+  scale_fill_manual(
+    values = cpalette,
+    # add whitespace to long labels
+    labels = function(x) {
+      str_replace(
+        x,
+        fixed("Postdocs and Staff Researchers"),
+        "Postdocs and\nStaff Researchers"
+      )
+    }
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_discrete(
+  # add whitespace to long labels
+    labels = ~ str_replace(
+      .x,
+      fixed("Libraries, packages, or frameworks"),
+      "Libraries, packages,\nor frameworks"
+    )
+  ) +
+  labs(y = "Percent of respondents in category") +
+  ggtitle("Types of projects contributed to") +
+  coord_flip() +
+  theme(
+    axis.title.y = element_blank(),
+    axis.title.x = element_text(angle = 0, vjust = 0.5, size = 24),
+    #axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+    axis.text.x = element_text(
+      angle = -45,
+      hjust = 0,
+      vjust = 1,
+      size = 20,
+      margin = margin(t = 0)
+    ),
+    axis.text.y = element_text(size = 18),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 18),
+    panel.background = element_blank(),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    plot.title = element_text(hjust = 0, size = 24, face = "bold"),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  ) +
+  # reverse legend so bar order matches label order
+  guides(fill = guide_legend(reverse = TRUE))
+
+grouped_plot
+```
+
+Save the plot
+```{r}
+save_plot("proj_types_by_job.tiff", 10, 6, p=grouped_plot)
+```
+
+# A hunch: what about people who contribute to large projects relatively frequently?
+
+Just following a hunch that it might be interesting to look at people who said they contribute to large projects relatively frequently, and then look at the types of projects they contribute to. We didn't directly ask them the types of large projects they contribute to, so this is sort of circumstantial evidence. I think this would only be interesting if there's a really clear trend.
+
+```{r}
+ptypes_sizes <- cbind(ptypes_raw, sizes_raw)
+head(ptypes_sizes)
+
+ptypes_sizes_large <- subset(ptypes_sizes, Large == "Relatively frequently")
+nrow(ptypes_sizes_large)
+```
+
+Oof, the data are pretty sparse, with only 38 responses, which we'll be spreading across 7 project types. Let's beef it up a little by including folks who said they occasionally contribute to large projects.
+
+```{r}
+ptypes_sizes_medlarge <- subset(
+  ptypes_sizes,
+  Large == "Relatively frequently" | Large == "Occasionally"
+)
+nrow(ptypes_sizes_medlarge)
+```
+
+That's better.
+
+```{r}
+# We don't need the proj sizes columns anymore
+ptypes_medlarge <- ptypes_sizes_medlarge %>%
+  select(all_of(ordered_proj_types))
+
+counts_medlarge <- data.frame(colSums(ptypes_medlarge))
+names(counts_medlarge)[1] <- "count"
+counts_medlarge <- counts_medlarge %>% arrange(desc(count))
+counts_medlarge
+```
+
+Meh, not very interesting. Pretty consistent with the data from the overall pool.
+
+# Question: what's with all these students building hardware?
+
+I'd like to see what campuses these students are from. Maybe they are all friends contributing to the same project.
+
+```{r}
+big_data <- cbind(ptypes_raw, other_quant)
+students_hardware <- big_data %>%
+  filter(
+    Hardware == 1
+  ) %>%
+  filter(
+    job_category == "Undergraduate" |
+    job_category == "Grad Student"
+  )
+
+students_hardware
+```
+
+Hm, okay. Only at most three students are from the same campus and broad field of study. I'm kind of curious about their academic subfields, particularly these UCLA students. If they're all from the same subfield, that would be consistent with the possibility of sampling bias, e.g., one hardware student sent the survey link out to their friends. If they're from different subfields, that doesn't rule out the possibility of sampling bias, but it seems like sampling bias would be a bit less likely.
+
+```{r}
+big_data2 <- cbind(ptypes_raw, other_quant, qual)
+students_hardware2 <- big_data2 %>%
+  filter(
+    Hardware == 1
+  ) %>%
+  filter(
+    job_category == "Undergraduate" |
+    job_category == "Grad Student"
+  ) %>%
+    select (Hardware, campus, field_of_study, subfield)
+
+students_hardware2
+```
+
+Hm, okay, well, it doesn't scream "a bunch of friends from the same department", but it also doesn't rule out sampling bias.
+
+Can we say whether this high rate of hardware contributors is statistically significant? Let's compare them to the group with the next-highest rate of hardware contributors: faculty.
+
+## Quick statistics
+Let's start with a power analysis to see whether we have an adequate sample size.
+
+```{r}
+n_grad <- sum(ptypes_job$job_category == "Grad Student")
+n_grad_yes <- sum(
+  ptypes_job$job_category == "Grad Student" &
+    ptypes_job$Hardware == 1
+)
+
+n_faculty <- sum(ptypes_job$job_category == "Faculty")
+n_faculty_yes <- sum(
+  ptypes_job$job_category == "Faculty" &
+    ptypes_job$Hardware == 1
+)
+
+# Sanity check
+n_grad
+n_grad_yes
+n_faculty
+n_faculty_yes
+```
+
+```{r}
+p_grad_yes <- n_grad_yes / n_grad
+p_faculty_yes <- n_faculty_yes / n_faculty
+```
+
+Calculate Cohen's h, the effect size.
+```{r}
+h <- pwr::ES.h(p_grad_yes, p_faculty_yes)
+```
+
+Now, what ratio of n_faculty to n_gradstudents is needed to achieve 80% power? This one-sided test allows us to specify our unequal group sizes.
+```{r}
+pwr::pwr.2p2n.test(
+  h = h,
+  n1 = n_grad,
+  sig.level = 0.05,
+  power = 0.8,
+  alternative = "greater"
+)
+
+```
+
+So we would need 60 faculty to achieve 80% power.
+
+```{r}
+n_faculty
+```
+
+We have 59. Good enough for me.
+
+```{r}
+# Count total and 'yes' outcomes for each group
+n1 <- sum(ptypes_job[["job_category"]] == "Grad Student")
+y1 <- sum(
+  ptypes_job[["job_category"]] == "Grad Student" & ptypes_job[["Hardware"]] == 1
+)
+
+n2 <- sum(ptypes_job[["job_category"]] == "Faculty")
+y2 <- sum(
+  ptypes_job[["job_category"]] == "Faculty" & ptypes_job[["Hardware"]] == 1
+)
+
+# Perform the one-sided prop test (testing if group1 > group2)
+stats::prop.test(
+  x = c(y1, y2),
+  n = c(n1, n2),
+  alternative = "greater",
+)
+```
+
+Cool beans. The difference in proportions is statistically significant, according to a simple z-test. There is of course a difference between statistical significance and real-world signficance for practical purposes, however.
