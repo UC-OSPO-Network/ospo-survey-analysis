@@ -224,7 +224,8 @@ basic_bar_chart <- function(
         element_blank()
       },
       plot.title = element_text(
-        hjust = 0.5,
+        hjust = 0,
+        face = "bold",
         size = title_size,
         margin = margin(b = 15)
       ),

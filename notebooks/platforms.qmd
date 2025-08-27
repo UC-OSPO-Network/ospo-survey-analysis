@@ -1,0 +1,608 @@
+---
+title: "Code hosting platforms"
+---
+
+# Overview 
+
+This analysis is of Q8, "Where have you shared the code and/or hardware designs for your open-source projects?"
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Define functions
+
+get_counts_for_platform_type: Given a broad category of platform, e.g. "vc hosting service", return a df with cols platform, count, and prop. By default, prop is the proportion of total survey respondents who selected that option, but actually it just counts the rows of whatever data frame you drop in for total_df, and divides by that.
+```{r}
+get_counts_and_props_for_platform_type <- function(
+  pf_type,
+  long_df = platforms_long_labeled,
+  total_df = platforms
+) {
+  pfcounts <- long_df %>%
+    filter(platform_type == pf_type) %>%
+    group_by(platform, platform_type) %>%
+    summarise(count = n(), .groups = "drop") %>%
+    select(-platform_type)
+
+  pfcounts <- pfcounts %>% arrange(desc(count))
+
+  pfcounts$platform <- factor(
+    pfcounts$platform,
+    levels = pfcounts$platform
+  )
+
+  pfcounts$prop <- pfcounts$count / nrow(total_df)
+
+  return(pfcounts)
+}
+```
+
+
+# Load data
+```{r}
+platforms_raw <- load_qualtrics_data("clean_data/hosting_services_Q8.tsv")
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+qual_raw <- load_qualtrics_data("qual_responses.tsv")
+```
+
+# Wrangle data
+
+Bind the columns we're interested in.
+
+```{r}
+platforms <- cbind(platforms_raw, other_quant$campus, other_quant$field_of_study)
+# Rename cols
+names(platforms)[ncol(platforms)-1] <- "campus"
+names(platforms)[ncol(platforms)] <- "field_of_study"
+
+head(platforms)
+nrow(platforms)
+```
+
+Discard rows from people who didn't answer the Q about platforms. 
+```{r}
+keep <- which(rowSums(platforms_raw) != 0)
+platforms <- platforms[keep,]
+nrow(platforms)
+```
+
+Create a long data frame and label rows with category of platform (platform_type). The fact that the row exists means someone selected that combination of variables.
+```{r}
+platforms_long <- platforms %>%
+  pivot_longer(
+    cols = -c(campus, field_of_study),
+    names_to = "platform",
+    values_to = "flag"
+  ) %>%
+  filter(flag == 1) %>%
+  select(-flag)
+
+platforms_long_labeled <- platforms_long %>%
+  mutate(
+    platform_type = case_when(
+      platform %in%
+        c(
+          "GitHub",
+          "GitLab",
+          "Bitbucket",
+          "Codeberg",
+          "Gitea",
+          "Launchpad",
+          "SourceForge"
+        ) ~
+        "vc hosting service",
+      platform %in%
+        c(
+          "Zenodo",
+          "Figshare",
+          "Dryad",
+          "Dataverse",
+          "Mendeley Data",
+          "OSF",
+          "Vivli"
+        ) ~
+        "data repository",
+      platform %in% c(
+        "Custom Website"
+        ) ~ "custom website",
+      platform %in% c(
+        "Article Supplement"
+        ) ~ "article supplement",
+      TRUE ~ "other" # TRUE ~ is like "else", basically
+    )
+  )
+
+platforms_long_labeled
+```
+
+
+# Qualitative responses
+
+```{r}
+qual <- qual_raw$hosting_services_10_TEXT
+qual_clean <- qual[nzchar(qual)]
+qual_clean
+```
+
+I'm just going to manually tally the ones that I find interesting right here.
+
+A private or institutional git server: 4\
+CRAN/R: 4\
+PyPi: 2\
+Software Heritage: 2\
+SourceHut: 2\
+Printables (similar to thingiverse): 1\
+R-forge: 1\
+Wolfram Notebook Archive: 1\
+
+Well, definitely some lessons learned for the next time we run this survey. I think the omission of PyPi/CRAN and private git servers was an oversight. We should note this as a "threat to validity".
+
+# Exploration
+
+First, I'd like counts for both individual platforms and broader categories of platforms: version control hosting services, data repositories, custom website, article supplement, other.
+
+```{r}
+counts <- data.frame(colSums(platforms_raw))
+names(counts)[1] <- "count"
+counts <- counts %>% arrange(desc(count))
+counts
+
+# Includes all platforms, not just hosting services
+ordered_platforms <- rownames(counts)
+```
+
+Unsurprisingly, GitHub is very popular. Perhaps surprising, perhaps not, Custom Website is basically tied with GitLab for the second-most popular way to share code.
+
+```{r}
+counts["GitHub","count"]/nrow(platforms)
+counts["Custom Website","count"]/nrow(platforms)
+counts["GitLab","count"]/nrow(platforms)
+```
+
+# Plots: vc hosting services
+
+Get counts and proportions (of total respondents) for usage of each version control hosting service.
+
+```{r}
+hosting_platform_data <- get_counts_and_props_for_platform_type("vc hosting service")
+```
+
+```{r, fig.width=10, fig.height=8}
+basic_bar_vc <- basic_bar_chart(
+  df = hosting_platform_data,
+  x_var = "platform",
+  y_var = "prop",
+  title = "Usage of version control hosting platforms",
+  ylabel = "Percent of Respondents",
+  show_bar_labels = TRUE,
+  label_position = "above",
+  label_color = "black",
+  percent = TRUE
+) 
+
+basic_bar_vc + scale_y_continuous(
+  labels = percent, 
+  expand = expansion(mult = c(0, .15))
+  ) # Expands y-axis by 15% on the upper end
+```
+
+Save the plot
+```{r}
+save_plot("vc_hosting.tiff", 10, 6, p=basic_bar_vc)
+```
+
+## By campus
+
+Now let's do the same thing, but including campus. Let's only include campuses that have at least 10 responses from experienced contributors. 
+
+```{r}
+campus_counts <- data.frame(table(platforms$campus))
+campus_counts <- campus_counts %>%
+  rename(campus = Var1, total = Freq)
+at_least_ten <- as.character(
+  subset(campus_counts, total > 10)$campus
+)
+
+ordered_campuses <- campus_counts %>%
+  filter(campus %in% at_least_ten) %>%
+  arrange(desc(total)) %>%
+  pull(campus)
+
+platforms_campus_long_valid <- subset(platforms_long_labeled, campus %in% at_least_ten)
+
+# Reorder factor levels
+platforms_campus_long_valid$campus <- factor(
+  platforms_campus_long_valid$campus,
+  levels = ordered_campuses
+)
+
+campus_counts
+nrow(platforms_long_labeled)
+nrow(platforms_campus_long_valid)
+unique(platforms_campus_long_valid$campus)
+```
+
+Select only vc hosting services and get counts.
+
+```{r}
+hosting_campus_counts <- platforms_campus_long_valid %>%
+  filter(platform_type == "vc hosting service") %>%
+  group_by(platform, platform_type, campus) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  select(-platform_type)
+
+hosting_campus_counts <- hosting_campus_counts %>% arrange(desc(count))
+
+hosting_campus_counts
+```
+
+Get proportion of respondents from each campus that selected each platform type.
+
+```{r}
+hosting_campus_data <- hosting_campus_counts %>%
+  left_join(campus_counts, by = "campus") %>%
+  mutate(prop = count / total) %>%
+  select(platform, campus, count, prop)
+```
+
+Reorder factor levels
+
+```{r}
+hosting_campus_data$platform <- factor(
+  hosting_campus_data$platform,
+  levels = ordered_platforms
+)
+```
+
+```{r, fig.width=10, fig.height=7}
+vc_hosting_campus_plot <- ggplot(
+  hosting_campus_data,
+  aes(
+    x = platform,
+    y = prop,
+    fill = campus
+  )
+) +
+  geom_bar(stat = "identity", position = "dodge") +
+  ggtitle("Usage of hosting services by campus") +
+  labs(y = "Percent of campus\nrespondents") +
+  scale_fill_manual(values = COLORS) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 24),
+    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+    axis.text.y = element_text(size = 18),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 18),
+    panel.background = element_blank(),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    plot.title = element_text(hjust = 0, size = 24, face = "bold"),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  )
+
+vc_hosting_campus_plot
+```
+
+Save the plot
+```{r}
+save_plot("vc_hosting_campus.tiff", 10, 6, p=vc_hosting_campus_plot)
+```
+
+## By field of study
+
+Get counts of total (experienced) participants for each field of study.
+
+```{r}
+academics <- subset(platforms, field_of_study != "")
+
+field_counts <- data.frame(table(academics$field_of_study))
+field_counts <- field_counts %>%
+  rename(field_of_study = Var1, total = Freq)
+
+field_counts
+# Total number of academic experienced contributors
+sum(field_counts$total)
+
+ordered_fields <- field_counts$field_of_study
+```
+
+Limit our data to just vc hosting services and academics, and get counts.
+
+```{r}
+academics_long <- subset(platforms_long_labeled, field_of_study != "")
+
+hosting_field_counts <- academics_long %>%
+  filter(platform_type == "vc hosting service") %>%
+  group_by(platform, platform_type, field_of_study) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  select(-platform_type)
+
+hosting_field_counts <- hosting_field_counts %>% arrange(desc(count))
+
+hosting_field_counts
+```
+
+Get proportions from counts.
+
+```{r}
+hosting_field_data <- hosting_field_counts %>%
+  left_join(field_counts, by = "field_of_study") %>%
+  mutate(prop = count / total) %>%
+  select(platform, field_of_study, count, prop)
+
+# Reorder factor levels
+hosting_field_data$platform <- factor(
+  hosting_field_data$platform,
+  levels = ordered_platforms
+)
+hosting_field_data$field_of_study <- factor(
+  hosting_field_data$field_of_study,
+  levels = ordered_fields
+)
+
+head(hosting_field_data)
+```
+
+
+```{r, fig.width=10, fig.height=7}
+vc_hosting_field_plot <- ggplot(
+  hosting_field_data,
+  aes(
+    x = platform,
+    y = prop,
+    fill = field_of_study
+  )
+) +
+  geom_bar(stat = "identity", position = "dodge") +
+  ggtitle("Hosting service usage by field") +
+  labs(y = "Percent of respondents in field") +
+  scale_fill_manual(values = COLORS) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 24),
+    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+    axis.text.y = element_text(size = 18),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 18),
+    panel.background = element_blank(),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    plot.title = element_text(hjust = 0, size = 24, face = "bold"),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  )
+
+vc_hosting_field_plot
+```
+
+Meh, not super interesting.
+
+Save the plot
+```{r}
+save_plot("vc_hosting_field.tiff", 10, 6, p=vc_hosting_field_plot)
+```
+
+Side note: when I saw this, I was a bit confused about the humanities, because it doesn't total up to 100%. The reason is that I'm not showing all options here, just the VC hosting platforms. So of the 4 humanities people, 3 use GitHub, and the 4th said "Article Supplement" only. In other words, I'm just showing what percent of people in this field ticked this option, so the numbers across options don't necessarily add up to 100%, because not all options are shown.
+
+```{r}
+subset(platforms, field_of_study == "Humanities")
+```
+
+It might be interesting to show the broad category breakdown by field: vc hosting platform vs. custom website vs. article supplement?
+
+# Tables: custom website and article supplement, by field
+
+```{r}
+subset(platforms, field_of_study == "Social sciences")
+```
+
+Meh, I dunno. Maybe just custom website would be interesting.
+
+Select only custom website, and then get counts.
+```{r}
+website_field_counts <- academics_long %>%
+  filter(platform_type == "custom website") %>%
+  group_by(platform, platform_type, field_of_study) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  select(-platform_type)
+
+website_field_counts
+```
+
+Get propotion of total respondents in each field
+
+```{r}
+website_field_prop <- website_field_counts %>%
+  left_join(field_counts, by = "field_of_study") %>%
+  mutate(prop = count / total) %>%
+  select(platform, field_of_study, count, prop)
+
+website_field_prop
+
+# Also note the total proportion of academics who
+# have shared code on a custom website
+sum(website_field_prop$count)
+nrow(academics)
+sum(website_field_prop$count) / nrow(academics)
+```
+
+That's mildly interesting. On average, 32% of academics report that they've shared their code on a custom website. Math and CS people were almost twice as likely to share their code on a custom website than Physical Science or Social Science. Frequency for Life Sciences is in between. 
+
+```{r}
+website_field_prop %>%
+  left_join(field_counts, by = "field_of_study") %>%
+  select(field_of_study, count, total, prop)
+```
+
+What about article supplement, since we're here and it's easy?
+
+Select only article supplement, and then get counts.
+```{r}
+article_field_counts <- academics_long %>%
+  filter(platform_type == "article supplement") %>%
+  group_by(platform, platform_type, field_of_study) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  select(-platform_type)
+
+article_field_counts
+```
+
+Get proportion of total respondents in each field
+
+```{r}
+article_field_prop <- article_field_counts %>%
+  left_join(field_counts, by = "field_of_study") %>%
+  mutate(prop = count / total) %>%
+  select(platform, field_of_study, count, prop)
+
+article_field_prop
+```
+
+Meh, not super interesting. Math and CS people are less likely to share their code this way than other groups. Not sure if this would be "statistically significant".
+
+# Plots: data repositories
+
+Get counts and proportions (of total respondents) for usage of each data repository. Limit it to academics, since these repositories are intended for scholars.
+
+```{r}
+data_repo_platform_data <- get_counts_and_props_for_platform_type(
+  "data repository",
+  long_df = academics_long,
+  total_df = academics
+)
+```
+
+```{r, fig.width=10, fig.height=8}
+basic_bar_data_repos <- basic_bar_chart(
+  df = data_repo_platform_data,
+  x_var = "platform",
+  y_var = "prop",
+  title = "Usage of data repositories for sharing code",
+  ylabel = "Percent of Academic\nRespondents",
+  show_bar_labels = TRUE,
+  label_position = "above",
+  label_color = "black",
+  percent = TRUE
+) 
+
+basic_bar_data_repos + scale_y_continuous(
+  labels = scales::percent,
+  limits = c(0, 1)
+)
+```
+
+Save the plot
+```{r}
+save_plot("data_repos.tiff", 10, 6, p=basic_bar_data_repos)
+```
+
+Quick sanity check
+```{r}
+# Recall: total # of experienced academics
+acad <- nrow(subset(platforms, field_of_study != ""))
+
+# Academics who selected Zenodo
+acad_zenodo <- nrow(subset(platforms, field_of_study != "" & Zenodo == 1))
+
+# Total number of experienced nr staff
+nrstaff <- nrow(subset(platforms, field_of_study == ""))
+
+# NR Staff who selected Zenodo
+nrstaff_zenodo <- nrow(subset(platforms, field_of_study == "" & Zenodo == 1))
+
+acad_zenodo / acad
+
+nrstaff_zenodo / nrstaff
+```
+
+8% of non-research staff have shared code on Zenodo. I'd bet these are probably library employees.
+
+## Data repositories by campus
+
+Now let's do the same thing, but including campus. Let's only include campuses that have at least 10 responses from experienced contributors. We can use the platforms_campus_long_valid data frame we constructed earlier. Let's again limit our scope to academics.
+
+Select only data repositories and get counts.
+
+```{r}
+data_repo_campus_counts <- platforms_campus_long_valid %>%
+  filter(platform_type == "data repository" & "field_of_study" != "") %>%
+  group_by(platform, platform_type, campus) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  select(-platform_type)
+
+data_repo_campus_counts <- data_repo_campus_counts %>% arrange(desc(count))
+
+data_repo_campus_counts
+```
+
+Get proportion of respondents from each campus that selected each platform type.
+
+```{r}
+data_repo_campus_data <- data_repo_campus_counts %>%
+  left_join(campus_counts, by = "campus") %>%
+  mutate(prop = count / total) %>%
+  select(platform, campus, count, prop)
+```
+
+Reorder factor levels
+
+```{r}
+data_repo_campus_data$platform <- factor(
+  data_repo_campus_data$platform,
+  levels = ordered_platforms
+)
+```
+
+```{r, fig.width=10, fig.height=7}
+data_repo_campus_plot <- ggplot(
+  data_repo_campus_data,
+  aes(
+    x = platform,
+    y = prop,
+    fill = campus
+  )
+) +
+  geom_bar(stat = "identity", position = "dodge") +
+  ggtitle("Usage of hosting services by campus") +
+  labs(y = "Percent of campus\nrespondents") +
+  scale_fill_manual(values = COLORS) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 24),
+    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+    axis.text.y = element_text(size = 18),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 18),
+    panel.background = element_blank(),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    plot.title = element_text(hjust = 0, size = 24, face = "bold"),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  )
+
+data_repo_campus_plot
+```
+
+Save the plot
+```{r}
+save_plot("data_repos_campus.tiff", 10, 6, p=data_repo_campus_plot)
+```
+
+That's somewhat interesting. There are some differences between campuses.
+
+TODOs
+Maybe: Three-way "venn diagram": How many people share code in a data repository only, vc hosting platform only, or both?
+
+```{r}
+sessionInfo()
+```
