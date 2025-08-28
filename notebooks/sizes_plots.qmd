@@ -116,6 +116,7 @@ Save the plot
 save_plot("proj_sizes_bar.tiff", 8, 6, p=stacked_bar)
 ```
 
+
 # Incorporate job category
 
 ```{r}
@@ -143,8 +144,6 @@ ftable(xtabs(~ job_category + size + frequency, data = sizes_job_long))
 
 Maybe these data are more suited to line plots than to bar plots. Also, maybe we should fold in the smaller job categories, like we did with the regressions.
 
-# Panel of line plots
-
 ```{r}
 combined <- sizes_job_long %>%
   mutate(
@@ -164,6 +163,115 @@ combined <- combined %>%
     )
   )
 ```
+
+What if we separated this stacked bar into academics vs. non-research staff (or IT, maybe)? Maybe just do small and large, to make things visually simpler. Let's build each plot separately and then stitch them together using patchwork.
+
+```{r}
+# A version of the df where all academics
+# have been relabeled to academic
+combined_acad_nrstaff <- combined %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Students" = "Academic",
+      "Postdocs and Staff Researchers" = "Academic",
+      "Faculty" = "Academic"
+    )
+  )
+
+combined_acad_nrstaff$frequency <- factor(
+  combined_acad_nrstaff$frequency, 
+  levels = ordered_freqs
+  )
+
+acad_counts <- combined_acad_nrstaff %>%
+  filter(job_category == "Academic") %>%
+  filter(size != "Medium") %>%
+  count(size, frequency, name = "n")
+
+nrstaff_counts <- combined_acad_nrstaff %>%
+  filter(job_category != "Academic") %>%
+  filter(size != "Medium") %>%
+  count(size, frequency, name = "n")
+```
+
+
+```{r, fig.width=8, fig.height=8}
+stacked_bar_acad <- stacked_bar_chart(
+  acad_counts,
+  x_var = "size",
+  y_var = "n",
+  fill = "frequency",
+  title = "Academics",
+  ylabel = "Percent of Responses",
+  proportional = TRUE,
+  show_legend = FALSE,
+  cpalette = c(
+    "#1a7937", # dark green
+    "#acd49f", # light green
+    "#e5e5e5", # light gray
+    "#c3a4d0", # light purple
+    "#752a82" # dark purple
+  )
+)
+
+stacked_bar_acad <- stacked_bar_acad +
+  scale_y_continuous(labels = scales::percent)
+# stacked_bar_acad <- stacked_bar_acad +
+#   geom_hline(yintercept = 155.4, linetype = "dashed", color = "black") +
+#   geom_hline(yintercept = 77.7, linetype = "dashed", color = "black")
+stacked_bar_acad
+```
+
+
+```{r, fig.width=8, fig.height=8}
+stacked_bar_nrstaff <- stacked_bar_chart(
+  nrstaff_counts,
+  x_var = "size",
+  y_var = "n",
+  fill = "frequency",
+  title = "Non-research Staff",
+  ylabel = "Percent of Responses",
+  proportional = TRUE,
+  show_axis_title_y = FALSE,
+  cpalette = c(
+    "#1a7937", # dark green
+    "#acd49f", # light green
+    "#e5e5e5", # light gray
+    "#c3a4d0", # light purple
+    "#752a82" # dark purple
+  )
+)
+
+stacked_bar_nrstaff <- stacked_bar_nrstaff +
+  scale_y_continuous(labels = scales::percent)
+
+stacked_bar_nrstaff
+```
+
+Combine onto one plot
+
+```{r, fig.width=10, fig.height=6}
+p_combined <- patchwork::wrap_plots(
+  stacked_bar_acad,
+  stacked_bar_nrstaff
+) +
+  plot_annotation(
+    title = "Frequency of Contributions to Projects of a Certain Size",
+    theme = theme(plot.title = element_text(size = 24, face = "bold"))
+  )
+
+p_combined
+```
+
+Save the plot
+```{r}
+save_plot("proj_sizes_acad_nrstaff.tiff", 14, 6, p=p_combined)
+```
+
+# Panel of line plots
+
+Recycling some old code I wrote many months ago to display stacked rows of line plots. Not sure if this will look decent.
 
 Reorder factor levels
 ```{r}
