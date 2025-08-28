@@ -25,6 +25,7 @@ get_counts_and_props_for_platform_type <- function(
   long_df = platforms_long_labeled,
   total_df = platforms
 ) {
+
   pfcounts <- long_df %>%
     filter(platform_type == pf_type) %>%
     group_by(platform, platform_type) %>%
@@ -174,6 +175,15 @@ Get counts and proportions (of total respondents) for usage of each version cont
 hosting_platform_data <- get_counts_and_props_for_platform_type("vc hosting service")
 ```
 
+Since we're making a horizontal bar plot, reverse the factor level order.
+
+```{r}
+hosting_platform_data$platform <- factor(
+  hosting_platform_data$platform,
+  levels = rev(ordered_platforms)
+)
+```
+
 ```{r, fig.width=10, fig.height=8}
 basic_bar_vc <- basic_bar_chart(
   df = hosting_platform_data,
@@ -181,21 +191,29 @@ basic_bar_vc <- basic_bar_chart(
   y_var = "prop",
   title = "Usage of version control hosting platforms",
   ylabel = "Percent of Respondents",
+  show_axis_title_x = TRUE,
+  show_axis_title_y = FALSE,
   show_bar_labels = TRUE,
   label_position = "above",
   label_color = "black",
-  percent = TRUE
+  percent = TRUE,
+  horizontal = TRUE,
+  color_index = 9
 ) 
 
-basic_bar_vc + scale_y_continuous(
+basic_bar_vc <- basic_bar_vc + 
+   # Expands y-axis by 15% on the upper end
+  scale_y_continuous(
   labels = percent, 
   expand = expansion(mult = c(0, .15))
-  ) # Expands y-axis by 15% on the upper end
+  )
+
+basic_bar_vc
 ```
 
 Save the plot
 ```{r}
-save_plot("vc_hosting.tiff", 10, 6, p=basic_bar_vc)
+save_plot("vc_hosting.tiff", 12, 6, p=basic_bar_vc)
 ```
 
 ## By campus
@@ -525,6 +543,64 @@ nrstaff_zenodo / nrstaff
 ```
 
 8% of non-research staff have shared code on Zenodo. I'd bet these are probably library employees.
+
+Let's include Article Supplement and Custom Website
+
+```{r}
+article_data <- get_counts_and_props_for_platform_type(
+  "article supplement",
+  long_df = academics_long,
+  total_df = academics
+)
+
+website_data <- get_counts_and_props_for_platform_type(
+  "custom website",
+  long_df = academics_long,
+  total_df = academics
+)
+
+expanded_data_repos <- bind_rows(data_repo_platform_data, article_data, website_data)
+
+expanded_data_repos$platform <- factor(
+  expanded_data_repos$platform,
+  levels = rev(ordered_platforms)
+)
+```
+
+
+```{r, fig.width=10, fig.height=8}
+basic_bar_expanded_data_repos <- basic_bar_chart(
+  df = expanded_data_repos,
+  x_var = "platform",
+  y_var = "prop",
+  title = "Usage of data repositories for sharing code",
+  ylabel = "Percent of Academic Respondents",
+  show_axis_title_x = TRUE,
+  show_axis_title_y = FALSE,
+  show_bar_labels = TRUE,
+  label_position = "above",
+  label_color = "black",
+  percent = TRUE,
+  horizontal = TRUE,
+  color_index = 9
+) 
+
+basic_bar_expanded_data_repos <- basic_bar_expanded_data_repos +
+  scale_y_continuous(
+  labels = scales::percent,
+  limits = c(0, 1),
+  expand = expansion(mult = c(0, .1))
+)
+
+basic_bar_expanded_data_repos
+```
+
+Save the plot
+```{r}
+save_plot("expanded_data_repos.tiff", 12, 6, p=basic_bar_expanded_data_repos)
+```
+
+
 
 ## Data repositories by campus
 
