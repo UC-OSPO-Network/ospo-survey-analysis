@@ -97,6 +97,8 @@ num_roles
 
 Huh. So I guess no one role is particularly enriched for people who hold many roles. (I mean, we can't really get statistical significance with just one observation, and this doesn't feel worth modeling.) I guess bug reporters and contributors have the fewest roles, by a small margin, which makes sense.
 
+# Three-way comparison of maintainers, contributors, and bug reporters
+
 I'd be interested in the 3-way venn diagram of contributors, but reporters and maintainers. (Though, if we do plot this, an UpSet plot would probably be better than a Venn diagram)
 ```{r}
 # maintainers, contributors, and bug reporters in that order
@@ -129,6 +131,96 @@ round(three_way_counts/at_least_one*100, digits=1)
 ```
 
 Interesting. So 96% of the survey respondents identified as at least one of Maintainer, Contributor, or Bug Reporter (223/233). 50.0% of those folks identified as all three (111/223). 21.1% identified as a contributor and bug reporter, but not a maintainer, and 12.1% identified as a bug reporter only. Together, these three groups make up 50+21.1+12.2 83.3% of the total.
+
+## UpSet plot
+
+```{r}
+# turn named vector into a table of membership + counts
+comb_tbl <- tibble::enframe(three_way_counts, name = "pattern", value = "n") %>%
+  mutate(
+    M = !str_detect(pattern, "!M"),
+    C = !str_detect(pattern, "!C"),
+    B = !str_detect(pattern, "!B")
+  ) %>%
+  select(M, C, B, n)
+
+comb_tbl
+
+# expand rows by counts (one row per element)
+elem_tbl <- comb_tbl %>% uncount(n)
+
+names(elem_tbl) <- c(
+  "Maintainer",
+  "Contributor",
+  "Bug reporter"
+)
+elem_tbl
+
+m <- make_comb_mat(
+  elem_tbl[, c("Maintainer","Contributor","Bug reporter")],
+  mode = "distinct"
+  )
+# distinct is the default and indicates that the combinations are
+# mutually exclusive; each data point appears only once in the data set
+
+ordered_combs <- order(comb_size(m), decreasing = TRUE)
+```
+
+
+```{r, fig.width=10, fig.height=8}
+# Since this function call has a lot of args, I'm breaking it up into chunks
+
+# Control bars at top of plot
+top_ann_args <- ComplexHeatmap::upset_top_annotation(
+    m,
+    add_numbers = TRUE,
+    numbers_gp = gpar(fontsize = 14),  # bigger labels above bars
+    height = unit(70, "mm"), # bigger bars
+    annotation_name_gp = gpar(fontsize = 14), # bigger axis label ("Intersection size")
+    axis_param = list(gp = gpar(fontsize = 11))  # bigger axis tick labels
+)
+
+right_ann_args <- ComplexHeatmap::upset_right_annotation(
+    m,
+    width = unit(40, "mm"), # width of right bars
+    annotation_name_gp = gpar(fontsize = 14), # bigger axis label ("Set size")
+    axis_param = list(gp = gpar(fontsize = 11)) # bigger axis tick labels
+)
+
+upset_plot <- UpSet(
+  m,
+  # These args control the membership block
+  height = unit(32, "mm"),           # block height
+  pt_size = unit(3, "mm"),           # dot size in the membership matrix
+  row_names_gp = gpar(fontsize = 14), # row labels (set names)
+
+  comb_order = ordered_combs,
+  set_order = c("Maintainer","Contributor","Bug reporter"),  # control set order
+
+  top_annotation = top_ann_args,
+  right_annotation = right_ann_args,
+  column_title = "Participants' open source roles",
+  column_title_gp  = gpar(fontsize = 22, fontface = "bold")
+
+)
+
+upset_plot
+```
+
+Save the plot
+```{r}
+tiff(
+  file.path(FIGURE_PATH, "roles_upset.tiff"),
+  width = 10,
+  height = 6,
+  unit = "in",
+  res = 700
+  )
+upset_plot
+dev.off()
+```
+
+# Further exploration with maintainers
 
 Out of curiosity, how many maintainers also selected tech support?
 

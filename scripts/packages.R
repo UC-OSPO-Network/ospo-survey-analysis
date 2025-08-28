@@ -1,6 +1,8 @@
 # Edit this list to add or remove packages
 # After editing, update the lockfile by running renv::snapshot()
+library(BiocManager)
 library(cluster)
+library(ComplexHeatmap)
 library(corrplot)
 library(dplyr)
 library(emmeans)
