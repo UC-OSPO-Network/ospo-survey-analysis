@@ -58,7 +58,7 @@ myplot <- basic_bar_chart(to_plot,
   horizontal = TRUE,
   show_bar_labels = TRUE,
   show_ticks_y = FALSE,
-  color_index = 8,
+  color_index = 7,
   show_axis_title_x = TRUE,
   show_axis_title_y = FALSE,
   show_grid = TRUE
@@ -68,7 +68,7 @@ myplot
 
 Save the plot if you wish.
 ```{r}
-save_plot("future_contributors.tiff", 12, 8, p=myplot)
+save_plot("future_contributors.tiff", 13, 6, p=myplot)
 ```
 
 # Look at jobs of respondents

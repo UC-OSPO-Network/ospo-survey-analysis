@@ -163,7 +163,8 @@ faves_plot <- basic_bar_chart(
   df = fav_to_plot,
   x_var = "Var1",
   y_var = "Freq",
-  title = "Participant's favorite solution",
+  title = "Experienced contributors' favorite solutions",
+  show_axis_title_x = TRUE,
   show_axis_title_y = FALSE,
   ylabel = "Number of Respondents",
   show_bar_labels = TRUE,
@@ -178,7 +179,7 @@ The top solutions are not exactly the same in this question compared to tallying
 
 Save the plot if you wish.
 ```{r}
-save_plot("fave_solutions_simple.tiff", 10, 6, p=faves_plot)
+save_plot("fave_solutions_simple.tiff", 12, 6, p=faves_plot)
 ```
 
 # Incorporating demographics
