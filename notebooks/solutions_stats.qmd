@@ -4,6 +4,8 @@ title: "Solutions Stats"
 
 # Overview
 
+N.B.: This notebook takes a relatively long time to publish with Quarto.
+
 Some questions raised by my plots for Q10, about solutions (solutions_plots.qmd):\
 - Are solution scores by job category the same for all possible pairs of job groups?\
 - Are non-research staff significantly more likely than other groups to want a learning community?\
@@ -455,14 +457,30 @@ composite_plot
 ```
 
 ```{r}
-save_plot("solns_points.tiff", 12, 10, p=composite_plot)
+save_plot("solns_points1.tiff", 12, 10, p=composite_plot)
 ```
 
-
+Let's try combining them all on one plot.
 
 ```{r}
+soln_levels <- levels(emm_clean$solution)
+interleaved <- as.vector(rbind(paste0(soln_levels, "_sp"), soln_levels))
+interleaved[length(interleaved)+1] <- "padding_sp"
+```
+
+```{r, fig.width=9, fig.height=6}
 # Define a position dodge object to ensure points and error bars align
 pd <- position_dodge(width = 0.6)
+
+# one stripe per real category row
+bg <- tibble(cat = factor(interleaved, levels = interleaved)) %>%
+  mutate(
+    ymin = as.numeric(cat) - 0.5,
+    ymax = as.numeric(cat) + 0.5
+  )
+bg_even <- dplyr::filter(bg, row_number() %% 2 == 0)
+bg_odd  <- dplyr::filter(bg, row_number() %% 2 == 1)
+
 
 # Create the single, combined plot
 p_final <- ggplot(emm_clean, 
@@ -470,36 +488,47 @@ p_final <- ggplot(emm_clean,
            color = job_category, 
            shape = job_category,
            group = job_category)) +
+# It's important that these rectangles are above the points and
+# errors bars, so they'll the the bottom layer on the plot
+  geom_rect(data = bg_odd,
+          aes(xmin = ymin, xmax = ymax, ymin = -Inf, ymax = Inf),
+          inherit.aes = FALSE, fill = "#f8f8f8", color = NA) +
+  geom_rect(data = bg_even,
+          aes(xmin = ymin, xmax = ymax, ymin = -Inf, ymax = Inf),
+          inherit.aes = FALSE, fill = "#e6e6e6", color = NA) +
+  geom_hline(yintercept = seq(1, 3, 0.5), color = "gray90") +
   geom_errorbar(aes(ymin = lwr, ymax = upr),
                 width = 0.2, 
                 linewidth = 0.5, 
                 position = pd) +
-  geom_point(size = 3.5, position = pd) +
+  geom_point(size = 5, position = pd) +
   scale_shape_manual(values = c(16, 17, 15, 18)) +
+  scale_x_discrete(limits = interleaved, breaks = soln_levels) +
   ylim(c(1, 3)) +
   labs(
     title = "Estimated Mean Rating by Job Category",
     x = NULL,
-    y = "Estimated mean rating (0–3)"
+    y = "Estimated mean rating"
   ) +
   coord_flip() +
   theme(
-    plot.title = element_text(size = 16, hjust = 0.5),
-    axis.text.x = element_text(size = 12),
-    axis.text.y = element_text(size = 12),
+    plot.title = element_text(size = 26, hjust = 0, face = "bold"),
+    axis.text.x = element_text(size = 20),
+    axis.text.y = element_text(size = 20),
+    axis.title.x = element_text(size = 24),
     panel.background = element_blank(),
-    panel.grid.major.x = element_line(linetype = "solid", color = "gray90"),
-    panel.grid.major.y = element_line(linetype = "dashed", color = "gray95"),
+    #panel.grid.major.x = element_line(linetype = "solid", color = "gray90"),
+    #panel.grid.major.y = element_line(linetype = "dashed", color = "gray95"),
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
-    legend.position = "top", # Move legend to the top for better spacing
-    legend.title = element_blank()
+    legend.title = element_blank(),
+    legend.text=element_text(size=20)
   )
 
 p_final
 ```
 
 ```{r}
-save_plot("solns_points.tiff", 12, 10, p=p_final)
+save_plot("solns_points2.tiff", 16, 10, p=p_final)
 ```
 
 
@@ -530,7 +559,7 @@ by_job <- summary(
   pairs(emm_job, by = "job_category"),
   infer = TRUE # infer CIs
 )
-by_job
+head(by_job)
 ```
 
 Here we look at pairwise contrasts by solution. These data are sort-of-kind-of corroborated below with a Kruskal-Wallis test.
@@ -541,7 +570,7 @@ by_soln <- summary(
   infer = TRUE # infer CIs
 ) 
 
-by_soln
+head(by_soln)
 ```
 
 
@@ -561,7 +590,14 @@ sig_by_soln
 Okay, so here, the "estimate" column shows the difference in estimated marginal means for the two levels of interest, holding the other factor level constant (of my two factors, job and solution). So when the contrast is Computing environments vs. A learning community, the job_category is Faculty, and the estimate is 0.57, this indicates that the difference between the estimates of faculty's average rating of computer environments and their average rating of a learning community is 0.56, on a three-point scale.
 
 ```{r}
-subset(summary(emm), job_category=="Faculty" & solution == "Computing environments")$mean.class - subset(summary(emm), job_category=="Faculty" & solution == "A learning community")$mean.class
+subset(
+  summary(emm),
+  job_category == "Faculty" & solution == "Computing environments"
+)$mean.class -
+  subset(
+    summary(emm),
+    job_category == "Faculty" & solution == "A learning community"
+  )$mean.class
 ```
 
 Sustainability grants and Finding funding show up frequently as being significantly higher than some of the other solutions. Let's plot the distributions of responses for sustainability grants, as a sanity check.
