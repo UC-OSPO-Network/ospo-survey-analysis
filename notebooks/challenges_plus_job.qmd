@@ -48,19 +48,22 @@ challenges_and_job <- challenges_and_job %>%
   mutate(
     job_category = recode(
       job_category,
-      "Post-Doc" = "Postdocs and\nStaff Researchers",
-      "Other research staff" = "Postdocs and\nStaff Researchers"
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
     )
   )
+
+challenges_and_job$participantID <- row.names(challenges_and_job)
 
 head(challenges_and_job)
 ```
 
 Let's reshape the data from wide to long format for easier counting and plotting.
+
 ```{r}
 long_data <- challenges_and_job %>%
   pivot_longer(
-    cols = -last_col(),
+    cols = -c(participantID, job_category),
     names_to = "challenge",
     values_to = "challenge_level"
   )
@@ -70,9 +73,17 @@ long_data
 
 Since it's overwhelming to look at the distribution of challenge levels for all groups, let's just look at the proportion of that group who said "frequently" or "always".
 ```{r}
+long_data_formatted <- long_data %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Postdocs and Staff Researchers" = "Postdocs and\nStaff Researchers"
+    )
+  )
+
 # Calculate proportion of TRUEs by taking the mean of a logical vector,
 # created by %in%.
-to_plot <- long_data %>%
+to_plot <- long_data_formatted %>%
   group_by(job_category, challenge) %>%
   summarize(proportion = mean(challenge_level %in% c("Frequently", "Always"))) %>%
   ungroup()
@@ -95,6 +106,9 @@ stdev_df <- stdev_df %>%
 # Reorder factor levels
 to_plot$challenge <- factor(to_plot$challenge, levels = stdev_df$challenge)
 ```
+
+# Exploratory plots
+
 ```{r, fig.width=9, fig.height=6}
 detailed_challenges_plot <- ggplot(to_plot, aes(x = challenge, y = proportion, group = job_category, color = job_category, shape = job_category)) +
   geom_point(size = 3) +
@@ -194,3 +208,305 @@ Save, if you wish.
 ```{r}
 #save_plot("top3_challenges_by_job.tiff", 12, 10, p=job_challenge_plot)
 ```
+
+# Consider clusters
+
+In a previous notebook, we found that the distributions of responses to the various challenges could be clustered like so:
+
+Cluster 1:\
+Education time\
+Documentation time\
+Coding time\
+
+Cluster 2:\
+Securing funding\
+Hiring\
+Finding funding\
+
+Cluster 3:\
+Everthing else
+
+This makes me curious: does the distribution of job categories also vary by cluster? Before we try any statistics, let's just make a plot. This will be a variation of the detailed plot above.
+
+We're just going to subset the data to include only clusters 1 and 2, and we'll reorder the factor levels accordingly.
+
+```{r}
+clusters1and2 <- c(
+  "Education time",
+  "Documentation time",
+  "Coding time",
+  "Securing funding",
+  "Finding funding",
+  "Hiring"
+)
+
+to_plot_clusters <- subset(to_plot, challenge %in% clusters1and2)
+
+to_plot_clusters$challenge <- factor(
+  to_plot_clusters$challenge,
+  levels = clusters1and2
+)
+```
+
+```{r, fig.width=9, fig.height=6}
+challenges_plot_clusters1and2 <- ggplot(
+  to_plot_clusters,
+  aes(
+    x = challenge,
+    y = proportion,
+    group = job_category,
+    color = job_category,
+    shape = job_category
+  )
+) +
+  geom_point(size = 3) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  labs(
+    x = "Challenge",
+    y = "Proportion saying 'Frequently' or 'Always'",
+    color = "Job Category",
+    shape = "Job Category",
+    title = "Proportion of respondents frequently facing challenges"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+challenges_plot_clusters1and2
+```
+
+Hm. Well, the results for cluster 1 are a little messy, which kind of makes sense, since you'd expect these to be challenges everyone struggles with. The only obvious trend to me is that undergrads struggle less than everyone else with education time and documentation time. But this group is too small to conclude anything with confidence.
+
+Cluster 2 is a bit more interesting. It seems, at a glance, like it's pretty safe to say that faculty struggle with these challenges more than everyone else, with postdocs and staff researchers close behind.
+
+Uggggghhhhhh I guess we should do a regression to test it.
+
+# Regression for cluster 2
+
+Let's once again combine grad students and undergrads to get more statistical power.
+
+```{r}
+cluster2data <- subset(
+  long_data,
+  challenge %in% c("Securing funding", "Finding funding", "Hiring")
+)
+
+
+cluster2data <- cluster2data %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
+    )
+  )
+
+cluster2data <- cluster2data %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Students",
+      "Undergraduate" = "Students"
+    )
+  )
+
+cluster2data$challenge_level <- factor(cluster2data$challenge_level)
+
+cluster2data
+```
+
+This code is really similar to code in solutions_stats.qmd. See that notebook for commentary on these models.
+
+## Model 1: job_category * challenge interaction
+```{r}
+fit1 <- ordinal::clmm(challenge_level ~ job_category * challenge +      
+              (1 | participantID),                 
+            data = cluster2data, link = "logit", Hess = TRUE)
+```
+
+## Model 2: challenge as a random effect, no correlation between participant intercept and job effect
+```{r}
+fit2 <- ordinal::clmm(challenge_level ~ job_category +       
+              (1 | challenge) +
+              (1 | participantID) +
+              (0 + job_category | challenge),                
+            data = cluster2data, link = "logit", Hess = TRUE)
+```
+
+## Model 3: No job category
+```{r}
+fit3 <- ordinal::clmm(challenge_level ~ challenge +      
+              (1 | participantID),                 
+            data = cluster2data, link = "logit", Hess = TRUE)
+```
+
+## Model 4: No challenge category
+```{r}
+fit4 <- ordinal::clmm(challenge_level ~ job_category +      
+              (1 | participantID),                 
+            data = cluster2data, link = "logit", Hess = TRUE)
+```
+
+
+## Model 5: job_category + solution
+```{r}
+fit5 <- ordinal::clmm(challenge_level ~ job_category + challenge +
+              (1 | participantID),                 
+            data = cluster2data, link = "logit", Hess = TRUE)
+```
+
+
+## Model 6: no random effects
+```{r}
+# note clm function bc clmm is for mixed models
+fit6 <- ordinal::clm(challenge_level ~ job_category * challenge,                 
+            data = cluster2data, link = "logit", Hess = TRUE)
+```
+
+
+# Compare models
+```{r}
+models <- list(
+  "fit1"=fit1, # job_category * challenge
+  "fit2"=fit2, # challenge as random effect
+  "fit3"=fit3, # Null model: no job
+  "fit4"=fit4, # Null model: no challenge
+  "fit5"=fit5, # Null model: no interaction
+  "fit6"=fit6 # Null model: no participants
+)
+```
+
+```{r}
+sapply(models, function(x) round(stats::AIC(x)))
+```
+
+Models 1 and 5 look best in terms of AIC.
+
+Let's check the condition number of the Hessian. I don't really understand what this is, but the clmm2 tutorial says that high numbers, say larger than say 10^4 or 10^6, indicate poor fit.
+```{r}
+sapply(models, function(x) 
+summary(x)$info["cond.H"]
+)
+```
+
+All look ok.
+
+
+## Complex models vs null models
+
+Let's use an anova to compare nested models.
+```{r}
+stats::anova(fit1, fit5)
+```
+
+Interesting, that p-value is not significant. So it appears the interaction term is not needed.
+
+Let's also double-check that participants are worth including.
+```{r}
+stats::anova(fit1, fit6)
+```
+Yes, it appears they are.
+
+
+Does it matter whether we include job as a variable? Let's compare it to the model without an interaction term.
+```{r}
+stats::anova(fit3, fit5)
+```
+Yes, including job improves model fit.
+
+So far, fit5 is the one to beat.
+
+## More goodness-of-fit tests
+
+SEs of the coefficients
+```{r}
+summary(fit5$coefficients)
+summary(fit2$coefficients)
+```
+
+These look pretty similar.
+
+Let's do one more diagnostic. fit6 is the equivalent model to fit1b, but with fixed effects only. Since we can do the nominal_test and scale_test on this model, let's try it and see if it sets off any red flags.
+
+```{r}
+nominal_test(fit6)
+scale_test(fit6)
+```
+
+Boo. The model with no random effects has violations to both assumptions.
+
+Ouch. That's not ideal. Maybe we can proceed with caution, and follow up with a non-parametric test on whatever trends we find? https://www.fharrell.com/post/po/
+
+# EMMs
+
+Again, see the solutions_stats notebook for more detail on this.
+
+```{r}
+emm <- summary(emmeans(fit5, ~ challenge | job_category, mode = "mean.class"))
+emm
+```
+
+# Pairwise comparisons and p-values
+
+Here we look at pairwise contrasts by challenge.
+```{r}
+emm2 <- emmeans(fit5, ~ job_category | challenge, mode = "mean.class")
+by_chall <- summary(
+  pairs(emm2, by = "challenge"),
+  infer = TRUE # infer CIs
+) 
+
+by_chall
+```
+
+Wow, the p-values are really similar across the board. Faculty rate these challenges higher than students and NR staff, but not higher than postdocs and staff researchers.
+
+# Kruskal-Wallis test for ranking differences between groups
+
+Non-parametric test for the extent of disagreement between groups. Whereas above, we tested for differences in mean ratings, here we are testing for differences in the distributions of ratings for each solution.
+
+```{r}
+cluster2data2 <- cluster2data %>%
+  mutate(
+    challenge_score = recode(
+      challenge_level,
+      "Non-applicable" = 0L,
+      "Never" = 0L,
+      "Rarely" = 1L,
+      "Occasionally" = 2L,
+      "Frequently" = 3L,
+      "Always" = 4L
+    )
+  )
+
+kw_results <- sapply(split(cluster2data2, cluster2data2$challenge), function(df) {
+  kruskal.test(challenge_score ~ job_category, data = df)$p.value
+})
+
+p_adj_kw <- p.adjust(kw_results, "holm")
+
+p_adj_kw < 0.05
+sum(p_adj_kw < 0.05)
+```
+
+Ok, so K-W test indicates that for all three challenges, there are differences between the groups.
+
+Dunn test as a post-hoc test to see which groups are different from each other.
+
+```{r}
+pairwise_results <- lapply(unique(cluster2data2$challenge), function(chall) {
+  df <- subset(cluster2data2, challenge == chall)
+  out <- dunnTest(challenge_score ~ job_category, data = df, method = "holm")
+  cbind(challenge = chall, out$res)
+})
+pairwise_results <- do.call(rbind, pairwise_results)
+```
+
+Let's print the significant pairs.
+```{r}
+subset(pairwise_results, P.adj < 0.05)
+```
+
+And the non-significant pairs
+```{r}
+subset(pairwise_results, P.adj >= 0.05)
+```
+
+Cool. In all three cases, faculty are significantly different from NR staff and students.
