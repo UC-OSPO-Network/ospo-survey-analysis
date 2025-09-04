@@ -38,73 +38,55 @@ results <- tribble(
 results$theme <- paste0(results$theme, " (", results$count, ")")
 ```
 
-Now let's plot a treemap!
+# Plot a treemap
+
+Now let's plot a treemap! I will use the treemapify package because it integrates nicely with ggplot2.
+
+Reorder factor levels so that categories appear in the order my eye notices them on the plot.
+
 ```{r}
-my_treemap <- treemap(
-  results,
-  index = c("category", "theme"), # first level “category”, then theme
-  vSize = "count", # area of each rectangle proportional to count
-  type = "index", # color by index (i.e. category)
-  palette = c(COLORS[1], COLORS[8], COLORS[4]), # from utils.R
-
-  # Label styling
-  lowerbound.cex.labels = 0, # multiplier between 0 and 1
-  # that sets the lowerbound for the data label font sizes: 0 means draw all data labels,
-  # and 1 means only draw data labels if they fit (given fontsize.labels).
-  fontsize.labels = c(16, 11), # label size for categories, then themes
-  fontcolor.labels = c("white", "white"), # white for themes and categories
-  align.labels = list(
-    c("left", "top"),
-    c("center", "center")
-  ),
-
-  # aesthetics
-  border.col = "white", # white borders for readability
-  fontsize.title = 14,
-  bg.labels = 0 # transparent label backgrounds
+results$category <- factor(
+  results$category,
+  levels = c("Resources", "Culture", "Infrastructure")
 )
-
 ```
 
-Oof, that's unfortunate. The labels for the infrastructure category are really cramped. Try as I might, I don't see a good way of allowing them to extend outside the chart. So instead I will just produce a chart where the Infrastructure labels are absent, and I'll add them in later using PowerPoint.
+```{r, fig.width=9, fig.height=8}
+pal <- c("#1964b0", "#4db264", "#71190d")
 
-It looks like the lowerbound.cex.labels argument lets me control the plot's tolerance for ill-fitting labels. That's helpful. Also, I can hide the "category" labels by setting font size to 0. The way this plot looks is HIGHLY dependent on the size of the viewport, which in this case is controlled by the parameters of png().
-```{r}
-png(
-  filename = file.path(Sys.getenv("FIGURE_PATH"), "treemap.png"),
-  width = 1800,
-  height = 1200,
-  res = 300
-)
-
-treemap(
+ggp <- ggplot(
   results,
-  index = c("category", "theme"),
-  vSize = "count",
-  type = "index",
-  palette = c(COLORS[1], COLORS[8], COLORS[4]), # from utils.R
-  title = "Comments from Free Response Box",
+  aes(
+    area = count, # sizes
+    fill = category, # colors
+    label = theme,
+    subgroup = category
+  )
+) +
+  treemapify::geom_treemap() +
+  treemapify::geom_treemap_text(
+    reflow = TRUE,
+    place = "centre",
+    grow = FALSE, # cap label font size at 'size'
+    size = 20,
+    colour = "white"
+  ) +
+  labs(title = "Comments on Challenges and Solutions") +
+  scale_fill_manual(values = pal, guide = guide_legend(title = "Category")) +
+  theme(
+    legend.text = element_text(size = 20),
+    legend.title = element_blank(),
+    panel.background = element_blank(),
+    plot.margin = margin(1, 1, 1, 1, unit = "cm"),
+    plot.title = element_text(size = 24, hjust = 0, face = "bold")
+  )
 
-  # Label styling
-  lowerbound.cex.labels = 0.5, # multiplier between 0 and 1 that sets
-  # the lowerbound for the data label font sizes: 0 means draw all data labels,
-  # and 1 means only draw data labels if they fit (given fontsize.labels).
-  fontsize.labels = c(0, 10), # first number is for categories, second is for themes
-  fontcolor.labels = c("white", "white"), # white for themes and categories
-  align.labels = list(
-    c("center", "top"),
-    c("center", "center")
-  ),
-  inflate.labels = FALSE, # does nothing?
-  force.print.labels = FALSE, # does nothing?
+ggp
+```
 
-  # aesthetics
-  border.col = "white", # white borders for readability
-  fontsize.title = 14,
-  bg.labels = 0 # transparent label backgrounds
-)
-
-dev.off()
+Save the plot
+```{r}
+save_plot("treemap.tiff", 12, 9, p=ggp)
 ```
 
 
