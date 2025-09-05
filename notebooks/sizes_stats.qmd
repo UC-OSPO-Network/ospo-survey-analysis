@@ -324,44 +324,54 @@ After staring at this for a while, I think we can conclude that academics contri
 
 So, w.r.t. conclusion #2, I think we've mitigated the danger of the non-proportional odds violation by just looking at a single level, i.e. Large projects for different job_categories, so it doesn't matter that the effect of the interaction is different at large vs. medium, for example, because we're only looking at large. I don't think this is true for #1, where were saying that the frequency of small is higher than the frequency of large for all groups.
 
-For a little confidence boost, let's try collapsing the frequency levels into a binary of Never vs. Some frequency, and then do a logistic regression. We'll need to use glmer instead of glm since we have a mixed model, which glm doesn't support.
+# Wilcoxon test
 
-If this regression also says that all groups are more likely to contribute to small projects than large projects, then we have more confidence in that conclusion.
-
-```{r}
-combined4_2 <- within(combined4, some <- frequency != "Never")
-
-fit_bin <- lme4::glmer(
-  some ~ job_category * size + (1 | participantID),
-  family = binomial,
-  data = combined4_2
-)
-```
-
-Bah! Fails to converge
+Let's use a Wilcoxon test to confirm/deny the claim that all groups contribute to small projects more than they contribute to large projects. I'm subsetting the data to just small/large, removing medium, since I'm not making claims about contributions to medium projects. Since I'm just looking at two categories, small vs. large (for each of the 4 jobs independently), I'll use a Wilcoxon test instead of a Kruskal-Wallis test.
 
 ```{r}
-combined2_2 <- within(combined2, some <- frequency != "Never")
+# Note, no need to worry about missing data as all options were mandatory
+paired <- combined4 %>%
+  mutate(
+    freq_score = recode(
+      frequency,
+      "Never" = 0L,
+      "Relatively infrequently" = 1L,
+      "Occasionally" = 2L,
+      "Relatively frequently" = 3L
+    )
+  ) %>% 
+    select(job_category, participantID, size, freq_score) %>%
+    filter(size != "Medium") %>%
+    mutate(size = forcats::fct_relevel(size, "Small", "Large")) %>%
+    pivot_wider(names_from = size, values_from = freq_score) %>%
+    mutate(diff = Small - Large)
 
-fit_bin <- lme4::glmer(
-  some ~ job_category * size + (1 | participantID),
-  family = binomial,
-  data = combined2_2
-)
+paired
 ```
 
-Okay, had to switch to NR staff vs. academics to get the model to converge. I'm fine with this, since it's literally the same research question, conceptually, and just a different model, which is the whole point here.
 
 ```{r}
-emm_bin <- emmeans(fit_bin, ~ size * job_category, mode = "mean.class")
-summary(
-  pairs(emm_bin, by = "job_category"),
-  infer = TRUE # infer CIs
-)
-summary(
-  pairs(emm_bin, by = "size"),
-  infer = TRUE # infer CIs
-)
+# Wilcoxon test per job_category (one-sided: Small > Large)
+
+wilc_results <- lapply(split(paired, paired$job_category), function(df) {
+  wilcox.test(df$Small, df$Large, paired = TRUE, alternative = "greater", exact = FALSE, conf.int = TRUE, conf.level = 0.95)
+})
+
+# Example
+wilc_results[[1]]
 ```
 
-Bah! Ugh, this regression says that NR staff are not significantly more likely to contribute to small projects than large projects.
+Let's look at the adjusted p-values.
+```{r}
+job_cats <- names(split(paired, paired$job_category))
+wilc_results_pvals <- sapply(seq(length(job_cats)), function(i) wilc_results[[i]]$p.value)
+names(wilc_results_pvals) <- job_cats
+
+p.adjust(wilc_results_pvals, method = "holm")
+```
+
+Great. This gives us more confidence in claiming that all groups contribute to small projects more than large projects.
+
+```{r}
+sessionInfo()
+```

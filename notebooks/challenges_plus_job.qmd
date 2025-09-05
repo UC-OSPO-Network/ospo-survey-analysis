@@ -493,7 +493,7 @@ Dunn test as a post-hoc test to see which groups are different from each other.
 ```{r}
 pairwise_results <- lapply(unique(cluster2data2$challenge), function(chall) {
   df <- subset(cluster2data2, challenge == chall)
-  out <- dunnTest(challenge_score ~ job_category, data = df, method = "holm")
+  out <- FSA::dunnTest(challenge_score ~ job_category, data = df, method = "holm")
   cbind(challenge = chall, out$res)
 })
 pairwise_results <- do.call(rbind, pairwise_results)
@@ -510,3 +510,7 @@ subset(pairwise_results, P.adj >= 0.05)
 ```
 
 Cool. In all three cases, faculty are significantly different from NR staff and students.
+
+```{r}
+sessionInfo()
+```
