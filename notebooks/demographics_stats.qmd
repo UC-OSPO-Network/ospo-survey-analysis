@@ -4,7 +4,7 @@ title: "Demographics: descriptive statistics"
 
 # Overview
 
-Let's look at survey participation rates across various groups (demographics). This isn't about hypothesis testing; it's just about getting a sense of who took the survey. These are all pretty basic, descriptive statistics.
+Let's look at survey participation rates across various groups (demographics). These are mostly just basic descriptive statistics, though there are a couple plots and a z-test relating to aspiring vs. experienced contributors.
 
 # Import packages and utilities
 ```{r}
@@ -21,10 +21,11 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```{r}
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 status <- load_qualtrics_data("clean_data/contributor_status_Q3.tsv")
+qual <- load_qualtrics_data("qual_responses.tsv")
 
-data <- cbind(status, other_quant)
-nrow(data)
-head(data)
+raw_data <- cbind(status, other_quant)
+nrow(raw_data)
+head(raw_data)
 ```
 
 # Experienced vs aspiring
@@ -33,39 +34,103 @@ First, let's see how many experienced and aspiring open source contributors took
 
 Experienced:
 ```{r}
-total_expd <- nrow(subset(data, Past=="True"))
+total_expd <- nrow(subset(raw_data, Past=="True"))
 total_expd
 ```
 
 Aspiring:
 ```{r}
-total_asp <- nrow(subset(data, Past=="False" & Future=="True"))
+total_asp <- nrow(subset(raw_data, Past=="False" & Future=="True"))
 total_asp
 ```
 
-
+Filter out people who were neither past nor future contributors. We'll use this filtered data frame moving forward.
 ```{r}
 # Filter duds
-status_data <- data %>%
+data <- raw_data %>%
     filter(!(Past == "" | Future == "")) %>%
     filter(!(Past == "False" & Future == "False"))
+```
 
-status_data <- status_data %>%
-  mutate(status = if_else(Past == "True", "experienced", "aspiring")) %>%
+```{r}
+status_data <- data %>%
+  mutate(status = if_else(Past == "True", "Experienced", "Aspiring")) %>%
   select(job_category, status)
 
 stat_sum <- data.frame(
   ftable(xtabs(~ job_category + status, data = status_data))
 )
-subset(stat_sum, status == "aspiring") %>% arrange(desc(Freq))
-subset(stat_sum, status == "experienced") %>% arrange(desc(Freq))
+subset(stat_sum, status == "Aspiring") %>% arrange(desc(Freq))
+subset(stat_sum, status == "Experienced") %>% arrange(desc(Freq))
 ```
 
-## Experienced vs. aspiring by job
+Here we see that we have only 7 experienced undergraduate contributors and only 15 experienced postdocs.
 
-I think this will be easier to interpret if we combine some of these groups.
+## Experienced vs. aspiring by job: plot
+
+Prepare data for plotting
+
 ```{r}
-stat_sum_relabeled <- stat_sum %>%
+sj_counts <- status_data %>% group_by(job_category, status) %>% count()
+
+# Reorder factor levels by the highest proportion of experienced contributors
+ordered_jobs <- sj_counts %>%
+  group_by(job_category) %>%
+  summarise(
+    Aspiring = n[status=="Aspiring"],
+    Experienced = n[status=="Experienced"],
+    .groups = "drop"
+  ) %>%
+  mutate(exp_to_asp = Experienced / Aspiring) %>%
+  arrange(desc(exp_to_asp)) %>%
+  pull(job_category)
+
+sj_counts$job_category <- factor(sj_counts$job_category, levels = ordered_jobs)
+```
+
+Plot
+```{r, fig.width=9, fig.height=8}
+stack <- stacked_bar_chart(
+  df = sj_counts,
+  x_var = "job_category",
+  y_var = "n",
+  fill = "status",
+  title = "Composition of job categories by experience")
+
+stack
+```
+
+
+```{r}
+save_plot("future_contribs_stack.tiff", 12, 9, p=stack)
+```
+
+```{r, fig.width=9, fig.height=8}
+stack_prop <- stacked_bar_chart(
+  df = sj_counts,
+  x_var = "job_category",
+  y_var = "n",
+  ylabel = "Percent of Responses",
+  fill = "status",
+  title = "Composition of job categories by experience",
+  proportional = TRUE)
+
+stack_prop <- stack_prop +
+  scale_y_continuous(labels = scales::percent)
+
+stack_prop
+```
+
+
+```{r}
+save_plot("future_contribs_stack_prop.tiff", 12, 9, p=stack_prop)
+```
+
+## Experienced vs. aspiring by job: stats
+
+I think this might be easier to get a handle on if we combine some of these groups.
+```{r}
+sj_counts_relabeled <- sj_counts %>%
   mutate(
     job_category = case_when(
       job_category %in% c("Other research staff", "Post-Doc") ~
@@ -75,25 +140,118 @@ stat_sum_relabeled <- stat_sum %>%
     )
   ) %>%
   group_by(job_category, status) %>%
-  summarise(Freq = sum(Freq, na.rm = TRUE), .groups = "drop")
+  summarise(n = sum(n, na.rm = TRUE), .groups = "drop")
 
 
-asp <- subset(stat_sum_relabeled, status == "aspiring") %>% arrange(desc(Freq))
-expd <- subset(stat_sum_relabeled, status == "experienced") %>% arrange(desc(Freq))
+asp <- subset(sj_counts_relabeled, status == "Aspiring") %>% arrange(desc(n))
+expd <- subset(sj_counts_relabeled, status == "Experienced") %>% arrange(desc(n))
 
 asp
 expd
 ```
 
-Ah, that's better. We can see that students have moved way up. Let's look at the proportions, which will make this even easier to see.
+Let's look at the proportions, which will make this even easier to see.
 
 ```{r}
-asp$prop <- round(asp$Freq/total_asp * 100, digits = 1)
-expd$prop <- round(expd$Freq/total_expd * 100, digits = 1)
+sj_counts_prop <- sj_counts %>%
+  ungroup() %>%                    # drop existing grouping
+  group_by(job_category) %>%       # group only by job_category
+  mutate(
+    prop = n / sum(n),             # proportion, for statistics
+    pct  = round(prop * 100, 1)    # percent, easier to read
+  ) %>%
+  ungroup()
 
-asp
-expd
+subset(sj_counts_prop, status == "Aspiring")
 ```
+
+Undergrads and grad students both have a lot of aspiring contributors--40ish%, twice as much the next highest proportion which is staff.
+
+## Quick 2-proportion z-test
+
+Can we do a quick z-test to check whether aspiring contributors make up a higher proportion of students than they do of nr staff, the next-highest proportion?
+
+First, combine students for more statistical power. (Copying the code from previous cell, just on a relabeled data frame.)
+
+```{r}
+sj_counts_prop2 <- sj_counts_relabeled %>%
+  ungroup() %>% 
+  group_by(job_category) %>% 
+  mutate(
+    prop = n / sum(n), 
+    pct  = round(prop * 100, 1)
+  ) %>%
+  ungroup()
+
+subset(sj_counts_prop2, status == "Aspiring")
+```
+
+Let's start with a power analysis to see whether we have an adequate sample size. I could make this code more concise, but I'm sort of copy-pasting bits from other notebooks here.
+
+```{r}
+n_stud <- sum(subset(sj_counts_prop2, job_category == "Students")$n)
+n_stud_asp <- subset(
+  sj_counts_prop2,
+  job_category == "Students" & status == "Aspiring"
+)$n
+
+n_staff <- sum(subset(sj_counts_prop2, job_category == "Non-research Staff")$n)
+n_staff_asp <- subset(
+  sj_counts_prop2,
+  job_category == "Non-research Staff" & status == "Aspiring"
+)$n
+
+# Sanity check
+n_stud
+n_stud_asp
+n_staff
+n_staff_asp
+```
+
+```{r}
+p_stud_asp <- n_stud_asp / n_stud
+p_staff_asp <- n_staff_asp / n_staff
+
+p_stud_asp
+p_staff_asp
+```
+
+Calculate Cohen's h, the effect size.
+```{r}
+h <- pwr::ES.h(p_stud_asp, p_staff_asp)
+```
+
+Now, what ratio of students to nr staff is needed to achieve 80% power? This one-sided test allows us to specify our unequal group sizes.
+```{r}
+pwr::pwr.2p2n.test(
+  h = h,
+  n1 = n_stud,
+  sig.level = 0.05,
+  power = 0.8,
+  alternative = "greater"
+)
+```
+
+So we would need 46 nr staff to achieve 80% power.
+
+```{r}
+n_staff
+```
+
+We have 106!
+
+Now proceed with the z-test.
+
+```{r}
+# Perform the one-sided prop test (testing if group1 > group2)
+stats::prop.test(
+  x = c(n_stud_asp, n_staff_asp),
+  n = c(n_stud, n_staff),
+  alternative = "greater",
+)
+```
+
+Sweet. The difference in proportions is statistically significant, according to a simple z-test. 
 
 # Campus
 
@@ -102,24 +260,29 @@ I already learned while plotting the data that UCSB and UCLA are overrepresented
 unique(data$campus)
 ```
 
-Let's remove people who said "I'm not affiliated with UC".
+First, a quick glance at the raw data to see how many non-UC respondents we got.
 
 ```{r}
-data <- subset(data, campus != "I'm not affiliated with UC")
-nrow(data)
+nrow(raw_data)
+nrow(
+  subset(raw_data, campus != "I'm not affiliated with UC")
+)
 ```
 
 Only 2 respondents were not UC affiliates.
+
 ```{r}
 campus_count <- data.frame(table(data$campus))
 names(campus_count) <- c("Campus", "Count")
 total <- sum(campus_count$Count)
 ucsb <- subset(campus_count, Campus=="UC Santa Barbara")[,"Count"]
 ucla <- subset(campus_count, Campus=="UC Los Angeles")[,"Count"]
+ucsb + ucla
+total
 round((ucsb + ucla) / total * 100, digits = 1)
 ```
 
-So 48% of respondents came from these two campuses.
+So 47% of respondents came from these two campuses.
 
 # Field of study
 How many respondents were from STEM, social science, and humanities?
@@ -147,7 +310,7 @@ sosc_hum <- sum(
 )
 # sanity check
 total == stem + sosc_hum
-
+total
 field_count
 round(stem / total * 100, digits = 1)
 round(sosc_hum / total * 100, digits = 1)
@@ -236,3 +399,7 @@ sum(str_count(qual_staff, pattern = "IT"))
 ```
 
 So, seven of the free-text responses contained either the word "Library" or "IT" or both. I am looking manually, and I can see that these came from 6 people. (One person put "Library IT".)
+
+```{r}
+sessionInfo()
+```
