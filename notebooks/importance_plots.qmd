@@ -27,9 +27,10 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
     `importance_level` of more than `Moderately important`. Checks that there
     are no extra rows with an unexpected value in the importance_level column.
 - Outputs:
-  - A scalar value representing the percentage of respondents who selected an
-    `importance_level` of more than `Moderately important`, rounded to 2 decimal
-    places.
+  - A vector with three items: the number of participants who selected an
+    `importance_level` of more than `Moderately important`, the total number of 
+     eligible respondents, and a percentage: the first number / the second number
+     *100 and rounded to 2 decimal places.
 ```{r}
 get_percent_more_than_moderate <- function(df) {
   # check that df has the required column
@@ -54,7 +55,7 @@ get_percent_more_than_moderate <- function(df) {
     stop("`df` has at least one unexpected value in 'importance_level'.")
   }
   pct <- round(n_high_rows / total * 100, 2)
-  return(pct)
+  return(c(round(n_high_rows), round(total), pct))
 }
 ```
 
@@ -227,10 +228,13 @@ teaching <- long_data %>%
     importance_level != "Non-applicable"
   )
 
+# This will be useful later
+res_teachers_teaching <- get_percent_more_than_moderate(teaching)
+
 more_than_mod <- data.frame(
   job_category = "Teachers",
   importance_area = "Teaching",
-  pct = get_percent_more_than_moderate(teaching)
+  pct = res_teachers_teaching[3]
 )
 
 more_than_mod
@@ -246,12 +250,14 @@ research <- long_data %>%
     importance_level != "Non-applicable"
   )
 
+res_researchers_research <- get_percent_more_than_moderate(research)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Researchers",
     "Research",
-    get_percent_more_than_moderate(research)
+    res_researchers_research[3]
   )
 )
 ```
@@ -269,12 +275,14 @@ nrstaff <- long_data %>%
     importance_level != "Non-applicable"
   )
 
+res_staff_job <- get_percent_more_than_moderate(nrstaff)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Non-research Staff",
     "Job",
-    get_percent_more_than_moderate(nrstaff)
+    res_staff_job[3]
   )
 )
 ```
@@ -305,7 +313,7 @@ more_than_mod <- rbind(
   list(
     "Teachers",
     "Learning",
-    get_percent_more_than_moderate(teachers_learning)
+    get_percent_more_than_moderate(teachers_learning)[3]
   )
 )
 
@@ -321,7 +329,7 @@ more_than_mod <- rbind(
   list(
     "Teachers",
     "Professional Development",
-    get_percent_more_than_moderate(teachers_pd)
+    get_percent_more_than_moderate(teachers_pd)[3]
   )
 )
 more_than_mod
@@ -347,7 +355,7 @@ more_than_mod <- rbind(
   list(
     "Researchers",
     "Learning",
-    get_percent_more_than_moderate(researchers_learning)
+    get_percent_more_than_moderate(researchers_learning)[3]
   )
 )
 
@@ -363,7 +371,7 @@ more_than_mod <- rbind(
   list(
     "Researchers",
     "Professional Development",
-    get_percent_more_than_moderate(researchers_pd)
+    get_percent_more_than_moderate(researchers_pd)[3]
   )
 )
 more_than_mod
@@ -388,7 +396,7 @@ more_than_mod <- rbind(
   list(
     "Non-research Staff",
     "Learning",
-    get_percent_more_than_moderate(nrstaff_learning)
+    get_percent_more_than_moderate(nrstaff_learning)[3]
   )
 )
 
@@ -404,7 +412,7 @@ more_than_mod <- rbind(
   list(
     "Non-research Staff",
     "Professional Development",
-    get_percent_more_than_moderate(nrstaff_pd)
+    get_percent_more_than_moderate(nrstaff_pd)[3]
   )
 )
 ```
@@ -429,7 +437,7 @@ more_than_mod <- rbind(
   list(
     "Students",
     "Learning",
-    get_percent_more_than_moderate(students_learning)
+    get_percent_more_than_moderate(students_learning)[3]
   )
 )
 
@@ -445,13 +453,16 @@ more_than_mod <- rbind(
   list(
     "Students",
     "Professional Development",
-    get_percent_more_than_moderate(students_pd)
+    get_percent_more_than_moderate(students_pd)[3]
   )
 )
+
+more_than_mod
 ```
 
 FINALLY, let's plot it! 
 
+Reorder factor levels
 ```{r}
 more_than_mod$job_category <- gsub(
   "Non-research Staff",
@@ -539,6 +550,16 @@ p
 
 ```{r}
 save_plot("importance_all_pct.tiff", 12, 8, p=p)
+```
+
+# Get numbers, not just %
+
+A last-minute add-on for the manuscript: let's get the raw numbers, not just the percentages, for those categories we chose to highlight.
+
+```{r}
+res_teachers_teaching
+res_researchers_research
+res_staff_job
 ```
 
 # Session Info
