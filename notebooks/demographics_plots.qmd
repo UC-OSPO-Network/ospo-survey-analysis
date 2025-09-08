@@ -1,13 +1,10 @@
 ---
-title: "Donut plots"
+title: "Demographic (donut) plots"
 ---
 
 # Overview
 
-This script creates donut plots that show survey participation rates across
-various groups (demographics). If you want to look at just demographics for
-experienced OS contributors, you can change the `contributor_mode` variable
-to `TRUE`, around line 182(ish). 
+This script creates donut plots that show survey participation rates across various demographics. In this script, I save various data tables to files, and then I read these data files in my notebook figure2.qmd to create the final figure, where all these donut plots are stitched together.
 
 # Import packages and utilities
 ```{r}
@@ -148,49 +145,39 @@ donut_chart <- function(
 }
 ```
 
-```{r}
-filter_contribs <- function(df, cmode) {
-  if (cmode) {
-    new_df <- df %>% filter(favorite_solution != "")
-    return(new_df)
-  } else {
-    return(df)
-  }
-}
-```
 
 ## Load data
 
 ```{r}
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 status <- load_qualtrics_data("clean_data/contributor_status_Q3.tsv")
+
+raw_data <- cbind(status, other_quant)
+nrow(raw_data)
+head(raw_data)
 ```
 
-## Filter for contributors, if desired
+## Wrangle data
 
-Here, I use a boolean variable called `contributor_mode` to control whether I
-want to create donut plots for all respondents or contributors only.
-Because only experienced contributors saw the "favorite_solution" question, I
-can use this column to filter out everybody except experienced contributors.
-(Also, if this code seems weird, it's probably because `contributor_mode` used
-to be a command-line argument, before I turned this script into a notebook.)
+First, filter out people who were neither past nor future contributors. We'll use this filtered data frame moving forward.
+```{r}
+# Filter duds
+data <- raw_data %>%
+    filter(!(Past == "" | Future == "")) %>%
+    filter(!(Past == "False" & Future == "False"))
+```
 
-I generally keep this set to FALSE. Since 70% of our respondents are contributors,
-the contributor responses are fairly similar to the overall population responses.
+Record experienced vs. aspiring, which we'll plot at the end of this notebook. 
 
 ```{r}
-# EDIT ME, IF YOU WISH
-contributor_mode <- FALSE
+status_clean <- data %>%
+  mutate(status = if_else(Past == "True", "Experienced", "Aspiring")) 
+```
 
-other_quant <- filter_contribs(other_quant, contributor_mode)
+Create a "population" variable. This will make it easier to change all the plot titles if we decide to redo these plots for just the experienced contributors.
 
-population <- ""
-# For plot axis labels
-if (contributor_mode) {
-  population <- "Contributors"
-} else {
-  population <- "Respondents"
-}
+```{r}
+population <- "Respondents"
 ```
 
 # Donut charts of participation by groups
@@ -200,7 +187,7 @@ This script creates 4 plots, called `p1`-`p4`.
 Plot #1 is of campus.
 
 ```{r}
-campus_data <- create_df_for_plotting(other_quant, "campus")
+campus_data <- create_df_for_plotting(data, "campus")
 campus_data <- campus_data %>%
   filter(
     !startsWith(as.character(values), "I'm not affiliat")
@@ -226,7 +213,7 @@ Plot #2 is academics' field of study. Qualitative answers are not included in th
 plot.
 
 ```{r}
-field_data <- create_df_for_plotting(other_quant, "field_of_study")
+field_data <- create_df_for_plotting(data, "field_of_study")
 p2 <- donut_chart(field_data) +
   labs(title = sprintf("Academic %s' Fields of Study", population))
 ```
@@ -246,7 +233,7 @@ write_df_to_file(
 Plot #3 is of all respondents' job categories.
 
 ```{r}
-job_data <- create_df_for_plotting(other_quant, "job_category")
+job_data <- create_df_for_plotting(data, "job_category")
 
 p3 <- donut_chart(job_data) +
   labs(title = sprintf("%s' Job Categories", population))
@@ -268,7 +255,7 @@ complicated. I'm not using my create_df_for_plotting function for this group
 because I want to combine the jobs that have only 1 or 2 responses into the
 existing "Other" category. So the code is similar but not the same.
 ```{r}
-staff_data <- other_quant[["staff_categories"]][nzchar(other_quant[[
+staff_data <- data[["staff_categories"]][nzchar(data[[
   "staff_categories"
 ]])]
 # Count occurrences of each unique value
@@ -441,20 +428,7 @@ save_plot(
 
 # Experienced vs. aspiring contributors
 
-A last-minute add-on: let's also make a simple donut plot with aspiring vs. experienced contributors.
-
-```{r}
-# Filter duds
-status_clean <- status %>%
-    filter(!(Past == "" | Future == "")) %>%
-    filter(!(Past == "False" & Future == "False"))
-
-status_clean <- status_clean %>%
-  mutate(status = if_else(Past == "True", "Experienced", "Aspiring")) %>%
-  select(status)
-
-head(status_clean)
-```
+Let's also make a simple donut plot with aspiring vs. experienced contributors.
 
 ```{r, fig.width=9, fig.height=6}
 status_data <- create_df_for_plotting(status_clean, "status")
@@ -468,7 +442,7 @@ p5 <- donut_chart(
   ),
   title_bottom_margin = 0
   ) +
-  labs(title = sprintf("%s' Statuses as \nOpen Source Contributors", population))
+  labs(title = sprintf("%s' Statuses as\nOpen Source Contributors", population))
 
 p5
 ```

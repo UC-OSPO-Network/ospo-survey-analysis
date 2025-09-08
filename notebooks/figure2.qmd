@@ -276,7 +276,7 @@ p_combined <- patchwork::wrap_plots(
 
 ```{r}
 # Function from utils.R
-#save_plot("figure2.tiff", 32, 16, p = p_combined)
+save_plot("figure2.tiff", 32, 16, p = p_combined)
 ```
 
 
