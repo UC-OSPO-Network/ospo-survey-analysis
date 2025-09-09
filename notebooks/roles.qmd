@@ -35,6 +35,20 @@ nrow(roles)
 
 # Explore data
 
+First, some descriptive statistics on the overall number of roles per person.
+
+```{r}
+roles_by_person <- rowSums(roles)
+# This should be false
+any(roles_by_person == 0)
+
+mean(roles_by_person)
+median(roles_by_person)
+# mode
+ux <- unique(roles_by_person)
+ux[which.max(tabulate(match(roles_by_person, ux)))]
+```
+
 ```{r}
 counts <- colSums(roles)
 counts <- data.frame(Role = names(counts), Count = as.integer(counts), row.names = NULL)

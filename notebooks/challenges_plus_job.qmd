@@ -276,7 +276,7 @@ Hm. Well, the results for cluster 1 are a little messy, which kind of makes sens
 
 Cluster 2 is a bit more interesting. It seems, at a glance, like it's pretty safe to say that faculty struggle with these challenges more than everyone else, with postdocs and staff researchers close behind.
 
-Uggggghhhhhh I guess we should do a regression to test it.
+I guess we should do a regression to test it.
 
 # Regression for cluster 2
 

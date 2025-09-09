@@ -142,6 +142,41 @@ sizes_job_long <- sizes_job %>%
 ftable(xtabs(~ job_category + size + frequency, data = sizes_job_long))
 ```
 
+For each job category, what percent of respondents in that category said they contribute to large projects occasionally or relatively frequently?
+
+```{r}
+high_freq <- c("Occasionally", "Relatively frequently")
+
+pct_large_by_job <- sizes_job %>%
+  group_by(job_category) %>%
+  summarise(
+    n_total   = n(),
+    n_large   = sum(Large %in% high_freq, na.rm = TRUE),
+    pct_large = round(100 * mean(Large %in% high_freq, na.rm = TRUE), 1)
+  ) %>%
+  arrange(desc(pct_large))
+
+pct_large_by_job
+```
+
+What if we add a row for academics? (Just summing up all rows except nr staff)
+
+```{r}
+tmp <- pct_large_by_job %>%
+  filter(job_category != "Non-research Staff")
+
+rbind(
+  tmp,
+  c(
+    "Academic",
+    sum(tmp$n_total),
+    sum(tmp$n_large),
+    round(sum(tmp$n_large) / sum(tmp$n_total) * 100, 2)
+  )
+)
+
+```
+
 Maybe these data are more suited to line plots than to bar plots. Also, maybe we should fold in the smaller job categories, like we did with the regressions.
 
 ```{r}
