@@ -28,6 +28,14 @@ nrow(raw_data)
 head(raw_data)
 ```
 
+Filter out people who were neither past nor future contributors. We'll use this filtered data frame moving forward.
+```{r}
+# Filter duds
+data <- raw_data %>%
+    filter(!(Past == "" | Future == "")) %>%
+    filter(!(Past == "False" & Future == "False"))
+```
+
 # Experienced vs aspiring
 
 First, let's see how many experienced and aspiring open source contributors took the survey.
@@ -42,14 +50,6 @@ Aspiring:
 ```{r}
 total_asp <- nrow(subset(raw_data, Past=="False" & Future=="True"))
 total_asp
-```
-
-Filter out people who were neither past nor future contributors. We'll use this filtered data frame moving forward.
-```{r}
-# Filter duds
-data <- raw_data %>%
-    filter(!(Past == "" | Future == "")) %>%
-    filter(!(Past == "False" & Future == "False"))
 ```
 
 ```{r}

@@ -308,12 +308,14 @@ teachers_learning <- teachers_learn_pd %>%
   # Change the column name because our function expects it
   rename(importance_level = Learning)
 
+res_teachers_learning <- get_percent_more_than_moderate(teachers_learning)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Teachers",
     "Learning",
-    get_percent_more_than_moderate(teachers_learning)[3]
+    res_teachers_learning[3]
   )
 )
 
@@ -324,12 +326,14 @@ teachers_pd <- teachers_learn_pd %>%
   # Change the column name because our function expects it
   rename(importance_level = `Professional Development`)
 
+res_teachers_pd <- get_percent_more_than_moderate(teachers_pd)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Teachers",
     "Professional Development",
-    get_percent_more_than_moderate(teachers_pd)[3]
+    res_teachers_pd[3]
   )
 )
 more_than_mod
@@ -350,12 +354,14 @@ researchers_learning <- researchers_learn_pd %>%
   # Change the column name because our function expects it
   rename(importance_level = Learning)
 
+res_researchers_learning <- get_percent_more_than_moderate(researchers_learning)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Researchers",
     "Learning",
-    get_percent_more_than_moderate(researchers_learning)[3]
+    res_researchers_learning[3]
   )
 )
 
@@ -366,12 +372,14 @@ researchers_pd <- researchers_learn_pd %>%
   # Change the column name because our function expects it
   rename(importance_level = `Professional Development`)
 
+res_researchers_pd <- get_percent_more_than_moderate(researchers_pd)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Researchers",
     "Professional Development",
-    get_percent_more_than_moderate(researchers_pd)[3]
+    res_researchers_pd[3]
   )
 )
 more_than_mod
@@ -391,12 +399,14 @@ nrstaff_learning <- nrstaff_learn_pd %>%
   # Change the column name because our function expects it
   rename(importance_level = Learning)
 
+res_staff_learning <- get_percent_more_than_moderate(nrstaff_learning)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Non-research Staff",
     "Learning",
-    get_percent_more_than_moderate(nrstaff_learning)[3]
+    res_staff_learning[3]
   )
 )
 
@@ -407,12 +417,14 @@ nrstaff_pd <- nrstaff_learn_pd %>%
   # Change the column name because our function expects it
   rename(importance_level = `Professional Development`)
 
+res_staff_pd <- get_percent_more_than_moderate(nrstaff_pd)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Non-research Staff",
     "Professional Development",
-    get_percent_more_than_moderate(nrstaff_pd)[3]
+    res_staff_pd[3]
   )
 )
 ```
@@ -432,12 +444,14 @@ students_learning <- students_learn_pd %>%
   # Change the column name because our function expects it
   rename(importance_level = Learning)
 
+res_students_learning <- get_percent_more_than_moderate(students_learning)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Students",
     "Learning",
-    get_percent_more_than_moderate(students_learning)[3]
+    res_students_learning[3]
   )
 )
 
@@ -448,12 +462,14 @@ students_pd <- students_learn_pd %>%
   # Change the column name because our function expects it
   rename(importance_level = `Professional Development`)
 
+res_students_pd <- get_percent_more_than_moderate(students_pd)
+
 more_than_mod <- rbind(
   more_than_mod,
   list(
     "Students",
     "Professional Development",
-    get_percent_more_than_moderate(students_pd)[3]
+    res_students_pd[3]
   )
 )
 
@@ -557,9 +573,38 @@ save_plot("importance_all_pct.tiff", 12, 8, p=p)
 A last-minute add-on for the manuscript: let's get the raw numbers, not just the percentages, for those categories we chose to highlight.
 
 ```{r}
-res_teachers_teaching
-res_researchers_research
-res_staff_job
+res_teachers_teaching2 <- c("Teachers", "Teaching", res_teachers_teaching)
+res_teachers_learning2 <- c("Teachers", "Learning", res_teachers_learning)
+res_teachers_pd2 <- c("Teachers", "Professional Development", res_teachers_pd)
+res_researchers_research2 <- c("Researchers", "Research", res_researchers_research)
+res_researchers_learning2 <- c("Researchers", "Learning", res_researchers_learning)
+res_researchers_pd2 <- c("Researchers", "Professional Development", res_researchers_pd)
+res_staff_job2 <- c("Non-research staff", "Job", res_staff_job)
+res_staff_learning2 <- c("Non-research staff", "Learning", res_staff_learning)
+res_staff_pd2 <- c("Non-research staff", "Professional Development", res_staff_pd)
+res_students_learning2 <- c("Students", "Learning", res_students_learning)
+res_students_pd2 <- c("Students", "Professional Development", res_students_pd)
+
+more_than_mod2 <- as.data.frame(rbind(
+  res_teachers_teaching2,
+  res_teachers_learning2,
+  res_teachers_pd2,
+  res_researchers_research2,
+  res_researchers_learning2,
+  res_researchers_pd2,
+  res_staff_job2,
+  res_staff_learning2,
+  res_staff_pd2,
+  res_students_learning2,
+  res_students_pd2
+  )
+)
+
+names(more_than_mod2) <- c("job_category", "importance_area", "more_than_mod", "total_participants", "perc_more_than_mod")
+rownames(more_than_mod2) <- NULL
+more_than_mod2
+
+write_df_to_file(more_than_mod2, "importance.tsv")
 ```
 
 # Session Info
