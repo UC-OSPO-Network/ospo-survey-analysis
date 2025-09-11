@@ -318,14 +318,14 @@ Let's do a quick regression to see whether the IT/Academic groups improve the mo
 
 ```{r}
 # run a separate model for each outcome (motivation)
-models <- lapply(motivation_cols, function(x) {
+models_it_acad <- lapply(motivation_cols, function(x) {
   # wrap the column name in backticks so "My Column" becomes `My Column`
   f_text <- paste0("`", x, "`", " ~ Role")
   f <- as.formula(f_text)
   stats::glm(f, family = "binomial", data = it_acad)
 })
 
-null_models <- lapply(motivation_cols, function(x) {
+null_models_it_acad <- lapply(motivation_cols, function(x) {
   # wrap the column name in backticks so "My Column" becomes `My Column`
   f_text <- paste0("`", x, "`", " ~ 1")
   f <- as.formula(f_text)
@@ -336,27 +336,27 @@ null_models <- lapply(motivation_cols, function(x) {
 If I wanted to (borderline) p-hack, I could just test "Job" and avoid multiple test correction, since the plot suggested that was the biggest difference. But I want to report robust differences that can withstand correction. So let's test them all and do the correction.
 
 ```{r}
-anova_results <- mapply(
+anova_results_it_acad <- mapply(
   FUN = function(null_m, full_m) {
     stats::anova(null_m, full_m)
   },
-  null_models,
-  models,
+  null_models_it_acad,
+  models_it_acad,
   SIMPLIFY = FALSE
 )
 
-p_vals <- c()
+p_vals_it_acad <- c()
 for (i in seq_along(motivation_cols)) {
-  p_vals[i] <- anova_results[[i]]$`Pr(>Chi)`[2]
+  p_vals_it_acad[i] <- anova_results_it_acad[[i]]$`Pr(>Chi)`[2]
 }
 
-p_fdr  <- p.adjust(p_vals, method = "BH")
-for (i in seq_along(p_fdr)) {
+p_fdr_it_acad  <- p.adjust(p_vals_it_acad, method = "BH")
+for (i in seq_along(p_fdr_it_acad)) {
   cat(
     sprintf(
       "%s  %.3f\n",
       motivation_cols[i],
-      p_fdr[i] # p‑value rounded to 3 decimals
+      p_fdr_it_acad[i] # p‑value rounded to 3 decimals
     )
   )
 }
@@ -365,7 +365,7 @@ for (i in seq_along(p_fdr)) {
 Great. Once again, the results are in accordance with the earlier mvabund analysis. Only Job is significant. Let's look at the model.
 
 ```{r}
-it_acad_job_model <- models[[which(motivation_cols=="Job")]]
+it_acad_job_model <- models_it_acad[[which(motivation_cols=="Job")]]
 it_acad_job_model
 ```
 
@@ -374,12 +374,12 @@ I believe the negative coefficient indicates that the IT are less likely to sele
 And here's the full p-value from the ANOVA:
 
 ```{r}
-p_fdr[[which(motivation_cols=="Job")]]
+p_fdr_it_acad[[which(motivation_cols=="Job")]]
 ```
 
 ```{r}
-emm <- emmeans(it_acad_job_model, ~ Role, type="response")
-pairs(emm, type="response", infer = TRUE)  
+emm_it_acad <- emmeans(it_acad_job_model, ~ Role, type="response")
+pairs(emm_it_acad, type="response", infer = TRUE)  
 ```
 
 We can interpret that odds ratio as: The odds that an academic selects ‘Yes’ are 3.57× the odds for IT staff.
@@ -395,4 +395,148 @@ rev_model <- stats::glm(Job ~ Role, family = "binomial", data = it_acad)
 rev_model
 
 exp(stats::confint(rev_model)) # exp to get it on the odds-ratio scale
+```
+
+# Last-minute add-on: NR staff vs academics
+So, the previous analysis of IT vs. academics is pretty different from the rest of the analyses in this paper, in that I normally look at non-research staff, not just IT alone. If the trend still holds, I'd rather report the trend for academics vs. nr staff, for consistency with the rest of the paper. Let's see if academics are more likely to select "it's part of my job" than non-research staff.
+
+I see two possible approaches. We could look at nr staff vs. each academic group in turn, and see if all p-values are below 0.05; OR we could lump all academics into one group, and compare the two groups, as we did for IT vs. academics. The first approach is presumably more stringent, since we'll have less power to detect subtle differences. We kind of already know that it won't be significant, since we saw above that including job category as a fixed effect didn't significantly improve model fit, when job category had 4 levels. Let's check, just to be sure.
+
+## Approach #1: 4 job categories
+
+```{r}
+job_model <- models[[which(motivation_cols=="Job")]]
+job_model
+
+p_fdr[[which(motivation_cols=="Job")]]
+```
+
+```{r}
+emm_job <- emmeans(job_model, ~ job_category, type="response")
+pairs(emm_job, type="response", infer = TRUE)  
+```
+
+As expected, none of the differences between these smaller groups are significant. Let's try the larger groups (approach #1). (We'll report both results!)
+
+## Approach #2: 2 job categories
+
+```{r}
+combined_relabeled <- combined %>%
+    mutate(
+    job_category = recode(
+      job_category,
+      "Students" = "Academic",
+      "Postdocs and Staff Researchers" = "Academic",
+      "Faculty" = "Academic"
+    )
+  )
+
+unique(combined_relabeled$job_category)
+```
+
+Copying code from above
+
+```{r}
+# run a separate model for each outcome (motivation)
+models_nr_acad <- lapply(motivation_cols, function(x) {
+  # wrap the column name in backticks so "My Column" becomes `My Column`
+  f_text <- paste0("`", x, "`", " ~ job_category")
+  f <- as.formula(f_text)
+  stats::glm(f, family = "binomial", data = combined_relabeled)
+})
+
+null_models_nr_acad <- lapply(motivation_cols, function(x) {
+  # wrap the column name in backticks so "My Column" becomes `My Column`
+  f_text <- paste0("`", x, "`", " ~ 1")
+  f <- as.formula(f_text)
+  stats::glm(f, family = "binomial", data = combined_relabeled)
+})
+```
+
+If I wanted to (borderline) p-hack, I could just test "Job" and avoid multiple test correction, since the plot suggested that was the biggest difference. But I want to report robust differences that can withstand correction. So let's test them all and do the correction.
+
+```{r}
+anova_results_nr_acad <- mapply(
+  FUN = function(null_m, full_m) {
+    stats::anova(null_m, full_m)
+  },
+  null_models_nr_acad,
+  models_nr_acad,
+  SIMPLIFY = FALSE
+)
+
+p_vals_nr_acad <- c()
+for (i in seq_along(motivation_cols)) {
+  p_vals_nr_acad[i] <- anova_results_nr_acad[[i]]$`Pr(>Chi)`[2]
+}
+
+# Just to get a sense of the range pre-correction
+p_vals_nr_acad
+
+p_fdr_nr_acad  <- p.adjust(p_vals_nr_acad, method = "BH")
+for (i in seq_along(p_fdr_nr_acad)) {
+  cat(
+    sprintf(
+      "%s  %.3f\n",
+      motivation_cols[i],
+      p_fdr_nr_acad[i] # p‑value rounded to 3 decimals
+    )
+  )
+}
+```
+
+Okay, so even with just two job categories, and thus bigger sample sizes, including job_category as a fixed effect does not improve the model for the "it's part of my job" question. So it's only significant for IT vs. academics, not nr staff vs. academics.
+
+Out of curiosity, what proportion of each group selected yes?
+
+```{r}
+combined_job <- combined %>%
+  select(Job, job_category)
+
+job_summary <- combined_job %>%
+  group_by(job_category) %>%
+  summarise(
+    n_yes = sum(Job),
+    total = length(Job),
+    pct_yes = round(100 * sum(Job)/length(Job), 2)
+  ) %>%
+    ungroup()
+
+job_summary
+```
+
+Hm. Well, that's probably at least part of the reason why it's only significant when we group all the academics into one category. The percent of faculty who said yes is actually lower than the percent of NR staff who said yes.
+
+We can get the same stats for just IT.
+
+```{r}
+job_summary <- rbind(
+  job_summary,
+  c(
+    "IT",
+    sum(it$Job),
+    length(it$Job),
+    round(sum(it$Job) / length(it$Job) * 100, 2)
+  )
+)
+
+job_summary
+```
+
+Okay, so most of the discrepancy is indeed driven by IT.
+
+Why not round it out with a row for academics, too.
+
+```{r}
+job_summary <- rbind(
+  job_summary,
+  c(
+    "Academics",
+    sum(academics$Job),
+    length(academics$Job),
+    round(sum(academics$Job) / length(academics$Job) * 100, 2)
+  )
+)
+
+job_summary
 ```
