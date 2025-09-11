@@ -177,7 +177,7 @@ rbind(
 
 ```
 
-Maybe these data are more suited to line plots than to bar plots. Also, maybe we should fold in the smaller job categories, like we did with the regressions.
+Maybe we should fold in the smaller job categories, like we did with the regressions.
 
 ```{r}
 combined <- sizes_job_long %>%
@@ -304,9 +304,88 @@ Save the plot
 save_plot("proj_sizes_acad_nrstaff.tiff", 14, 6, p=p_combined)
 ```
 
-# Panel of line plots
+What if we include IT? Start with non-research staff.
 
-Recycling some old code I wrote many months ago to display stacked rows of line plots. Not sure if this will look decent.
+```{r}
+sizes_staff <- cbind(sizes_raw, other_quant$staff_categories)
+# Rename column
+names(sizes_staff)[ncol(sizes_staff)] <- "staff_categories"
+# Filter out people who didn't answer either question
+sizes_staff <- exclude_empty_rows(sizes_staff, strict = TRUE)
+
+nrow(sizes_staff)
+head(sizes_staff)
+```
+
+Now limit to just IT.
+
+```{r}
+sizes_it <- sizes_staff %>%
+  filter(staff_categories == "Information Technology (IT)")
+
+nrow(sizes_it)
+```
+
+```{r}
+sizes_it_long <- sizes_it %>%
+  pivot_longer(
+    cols = -staff_categories,
+    names_to = "size",
+    values_to = "frequency"
+  ) %>%
+    select(-staff_categories)
+
+sizes_it_long
+```
+
+```{r}
+it_counts <- sizes_it_long %>%
+  filter(size != "Medium") %>%
+  count(size, frequency, name = "n")
+
+# Re-order factor levels
+#it_counts$size <- factor(it_counts$size, levels = c("Small", "Large"))
+it_counts$frequency <- factor(it_counts$frequency, levels = ordered_freqs)
+it_counts
+```
+
+
+```{r, fig.width=8, fig.height=8}
+stacked_bar_it <- stacked_bar_chart(
+  it_counts,
+  x_var = "size",
+  y_var = "n",
+  fill = "frequency",
+  title = "IT Staff",
+  ylabel = "Percent of Responses",
+  proportional = TRUE,
+  show_axis_title_y = FALSE,
+  cpalette = c(
+    "#1a7937", # dark green
+    "#acd49f", # light green
+    "#e5e5e5", # light gray
+    "#c3a4d0", # light purple
+    "#752a82" # dark purple
+  )
+)
+
+stacked_bar_it <- stacked_bar_it +
+  scale_y_continuous(labels = scales::percent)
+
+stacked_bar_it
+```
+
+Meh, not that interesting. Looks very similar to the plot for non-research staff. Save it anyway.
+
+Save the plot
+```{r}
+save_plot("proj_sizes_it.tiff", 14, 6, p=stacked_bar_it)
+```
+
+
+
+
+# Line plots
 
 Reorder factor levels
 ```{r}
@@ -352,110 +431,6 @@ combined_scores$size <- factor(combined_scores$size, levels = ordered_sizes)
 combined_scores
 ```
 
-Recycling some old code to create a stack of line plots.
-
-```{r}
-labeled_colors <- setNames(as.list(COLORS), ordered_jobs)
-
-lineplot <- function(df, current_job_cat) {
-  x <- ggplot(
-    subset(df, job_category == current_job_cat),
-    aes(x = size, y = total_score, group = job_category, color = job_category)
-  ) +
-    geom_line() +
-    geom_point() +
-    ylim(0, 175) +
-    scale_x_discrete(expand = c(0.025, 0.025)) +
-    ylab(current_job_cat) +
-    xlab("Project Size") +
-    ggtitle("Frequent Contributions by Project Size") +
-    scale_color_manual(values = c(labeled_colors[[current_job_cat]])) +
-    # Use different theme options depending on whether this is
-    # the first plot, a middle plot, or the last plot in the stack
-    # I know this code is painfully "wet" as opposed to "d.r.y" but it gets the job done
-    {
-      if (current_job_cat == ordered_jobs[[1]]) {
-        theme(
-          axis.title.y = element_text(
-            angle = 0,
-            vjust = 0.5,
-            color = labeled_colors[[current_job_cat]],
-            size = 12,
-            face = "bold"
-          ),
-          axis.title.x = element_blank(),
-          axis.text.x = element_blank(),
-          axis.ticks.x = element_blank(),
-          panel.background = element_blank(),
-          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
-          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
-          plot.margin = unit(c(0.3, 0.5, 0, 0), "cm"),
-          plot.title = element_text(hjust = 0.5, size = 16),
-          legend.position = "none"
-        )
-      }
-    } +
-    {
-      if (
-        current_job_cat != ordered_jobs[[length(ordered_jobs)]] &
-          current_job_cat != ordered_jobs[[1]]) {
-        theme(
-          axis.title.y = element_text(
-            angle = 0,
-            vjust = 0.5,
-            color = labeled_colors[[current_job_cat]],
-            size = 12,
-            face = "bold"
-          ),
-          axis.title.x = element_blank(),
-          axis.text.x = element_blank(),
-          axis.ticks.x = element_blank(),
-          panel.background = element_blank(),
-          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
-          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
-          plot.margin = unit(c(0.3, 0.5, 0, 0), "cm"),
-          plot.title = element_blank(),
-          legend.position = "none"
-        )
-      }
-    } +
-    {
-      if (current_job_cat == ordered_jobs[[length(ordered_jobs)]]) {
-        theme(
-          axis.title.y = element_text(
-            angle = 0,
-            vjust = 0.5,
-            color = labeled_colors[[current_job_cat]],
-            size = 12,
-            face = "bold"
-          ),
-          axis.title.x = element_text(size = 14, vjust = -0.5),
-          axis.text.x = element_text(size = 12),
-          panel.background = element_blank(),
-          panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
-          panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
-          plot.margin = unit(c(0.3, 0.5, 0.3, 0), "cm"),
-          plot.title = element_blank(),
-          legend.position = "none"
-        )
-      }
-    }
-}
-```
-
-
-```{r, fig.width=8, fig.height=8}
-plotlist <- lapply(
-  ordered_jobs,
-  function(x) lineplot(combined_scores, x)
-)
-
-patchwork::wrap_plots(plotlist, nrow = 4, ncol = 1)
-```
-
-Eh, I think they would look better if they were all on the same plot. 
-
-# Normal line plot
 
 ```{r, fig.width=8, fig.height=8}
 ggplot(
