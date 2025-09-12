@@ -423,7 +423,7 @@ I guess we should do a regression to test it.
 
 # Regression for cluster 2
 
-Let's once again combine grad students and undergrads to get more statistical power.
+Let's once again combine the smaller groups to get more statistical power.
 
 ```{r}
 cluster2data <- subset(
@@ -531,7 +531,6 @@ summary(x)$info["cond.H"]
 
 All look ok.
 
-
 ## Complex models vs null models
 
 Let's use an anova to compare nested models.
@@ -606,7 +605,7 @@ Wow, the p-values are really similar across the board. Faculty rate these challe
 Non-parametric test for the extent of disagreement between groups. Whereas above, we tested for differences in mean ratings, here we are testing for differences in the distributions of ratings for each solution.
 
 ```{r}
-cluster2data2 <- cluster2data %>%
+cluster2data_numcoded <- cluster2data %>%
   mutate(
     challenge_score = recode(
       challenge_level,
@@ -619,7 +618,9 @@ cluster2data2 <- cluster2data %>%
     )
   )
 
-kw_results <- sapply(split(cluster2data2, cluster2data2$challenge), function(df) {
+cluster2data_numcoded$job_category <- factor(cluster2data_numcoded$job_category)
+
+kw_results <- sapply(split(cluster2data_numcoded, cluster2data_numcoded$challenge), function(df) {
   kruskal.test(challenge_score ~ job_category, data = df)$p.value
 })
 
@@ -634,8 +635,8 @@ Ok, so K-W test indicates that for all three challenges, there are differences b
 Dunn test as a post-hoc test to see which groups are different from each other.
 
 ```{r}
-pairwise_results <- lapply(unique(cluster2data2$challenge), function(chall) {
-  df <- subset(cluster2data2, challenge == chall)
+pairwise_results <- lapply(unique(cluster2data_numcoded$challenge), function(chall) {
+  df <- subset(cluster2data_numcoded, challenge == chall)
   out <- FSA::dunnTest(challenge_score ~ job_category, data = df, method = "holm")
   cbind(challenge = chall, out$res)
 })
