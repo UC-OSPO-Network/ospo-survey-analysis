@@ -128,6 +128,21 @@ summary_df
 
 Cool! It looks like finding the time for documentation, coding, and self-education are the challenges encountered most frequently. These are the only responses that had a mode of 3 ("Frequently") and a mean of __greater__ than 2 ("Occasionally").
 
+```{r}
+# Prettify
+summary_df_to_print <- summary_df %>%
+  rename(
+    `Challenge` = `challenge`,
+    `Total` = `total`,
+    `Mean` = `mean`,
+    `Median` = `median`,
+    `Mode` = `mode`,
+    `Standard Deviation` = `st_dev`
+  )
+
+write_df_to_file(summary_df_to_print, "challenges.tsv")
+```
+
 Out of curiosity, how does it look when we order by variability?
 ```{r}
 sd_df <- summary_df %>%
@@ -564,30 +579,6 @@ combined_hor
 save_plot("challenge_stacks_horizontal.tiff", 36, 8, p=combined_hor)
 ```
 
-
-
-# PCA (Abandoned)
-In the above sections, I was clustering challenges into groups. Here, I started clustering people into groups. However, this didn't seem too promising, and I don't know if I care enough to pursue it.
-NOTE THE DIFFERENT CODING SCHEME
-```{r, fig.width=6, fig.height=6}
-challnumeric <- challenges %>%
-  mutate(
-    across(
-      everything(),
-      ~ recode(
-        .x,
-        "Never" = 0L,
-        "Non-applicable" = -1L, # THIS IS DIFFERENT (-1, not 0)
-        "Rarely" = 1L,
-        "Occasionally" = 2L,
-        "Frequently" = 3L,
-        "Always" = 4L
-      )
-    )
-  )
-
-
-pca <- prcomp(challnumeric, scale = TRUE)
-summary(pca)
-biplot(pca)
+```{r}
+sessionInfo()
 ```

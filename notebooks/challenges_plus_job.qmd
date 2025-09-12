@@ -42,7 +42,7 @@ nrow(challenges_and_job)
 ```
 
 
-For visual clarity in our plots, let's combine postdocs and other staff researchers.
+For visual clarity in our plots, let's combine postdocs and other staff researchers, as well as undergrads and grad students.
 ```{r}
 challenges_and_job <- challenges_and_job %>%
   mutate(
@@ -50,6 +50,15 @@ challenges_and_job <- challenges_and_job %>%
       job_category,
       "Post-Doc" = "Postdocs and Staff Researchers",
       "Other research staff" = "Postdocs and Staff Researchers"
+    )
+  )
+
+challenges_and_job <- challenges_and_job %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Students",
+      "Undergraduate" = "Students"
     )
   )
 
@@ -71,122 +80,141 @@ long_data <- challenges_and_job %>%
 long_data
 ```
 
-Since it's overwhelming to look at the distribution of challenge levels for all groups, let's just look at the proportion of that group who said "frequently" or "always".
+# Top 5 challenges per group, by "points"
+
 ```{r}
-long_data_formatted <- long_data %>%
+long_data <- long_data %>%
+  mutate(
+    challenge_score = recode(
+      challenge_level,
+      "Never"           = 0L,
+      "Non-applicable"  = 0L,
+      "Rarely"          = 1L,
+      "Occasionally"    = 2L,
+      "Frequently"      = 3L,
+      "Always"          = 4L
+    )
+  )
+# Using interger literals 0L, 1L, etc., ensures that
+# the new column will be integers, not doubles.
+
+long_data
+```
+
+Let's just inspect all the basic stats for all the challenges for each group.
+
+```{r}
+# Helper to compute the (numeric) mode
+get_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+get_summary_df <- function(job_str, df) {
+  res <- df %>%
+    filter(job_category == job_str) %>%
+    group_by(challenge) %>%
+    summarise(
+      total = sum(challenge_score),
+      mean = mean(challenge_score, na.rm = TRUE),
+      median = median(challenge_score),
+      mode = get_mode(challenge_score),
+      st_dev = sd(challenge_score, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    arrange(desc(total))
+  return(res)
+}
+```
+
+```{r}
+jobs_ordered <- c(
+  "Faculty",
+  "Postdocs and Staff Researchers",
+  "Students",
+  "Non-research Staff"
+)
+
+summary_tables <- lapply(jobs_ordered, function(j) get_summary_df(j, long_data))
+names(summary_tables) <- jobs_ordered
+summary_tables
+```
+
+Let's plot the top 5. First, a little data wrangling.
+
+```{r}
+all_tbl <- bind_rows(summary_tables, .id = "job_category")
+
+top5_by_job <- all_tbl %>%
+  group_by(job_category) %>%
+  slice_max(mean, n = 5, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(job_category, challenge, mean) %>%
+  mutate(job_category = factor(job_category, levels = jobs_ordered))
+
+# Reorder factor levels for visual clarity
+ordered_challenges_top5_by_points <- c(
+  "Documentation time",
+  "Coding time",
+  "Education time",
+  "Educational resources",
+  "Securing funding",
+  "Finding funding",
+  "Managing issues",
+  "Attracting users"
+)                                                
+
+top5_by_job$challenge <- factor(
+  top5_by_job$challenge,
+  levels = ordered_challenges_top5_by_points
+)
+```
+
+Let's add a whitespace in this long job category name
+
+```{r}
+top5_by_job <- top5_by_job %>%
   mutate(
     job_category = recode(
       job_category,
-      "Postdocs and Staff Researchers" = "Postdocs and\nStaff Researchers"
+      "Postdocs and Staff Researchers" = "Postdocs and\nStaff Researchers",
     )
   )
-
-# Calculate proportion of TRUEs by taking the mean of a logical vector,
-# created by %in%.
-to_plot <- long_data_formatted %>%
-  group_by(job_category, challenge) %>%
-  summarize(proportion = mean(challenge_level %in% c("Frequently", "Always"))) %>%
-  ungroup()
-to_plot
 ```
 
-Calculate the standard deviation for each challenge and reorder the factor levels by stdev in our plot. (It looks nicer.)
+Let's hard-code a color palette that is tailored to these data. This will be useful in the next section, when we plot almost the same set of challenges, and we'll want the challenges to correspond to the same colors in the legend.
 ```{r}
-stdev_df <- to_plot %>%
-  group_by(challenge) %>%
-  summarise(
-    st_dev = sd(proportion, na.rm = TRUE)
-  ) %>%
-  ungroup()
-
-# Order by stdev
-stdev_df <- stdev_df %>%
-    arrange(desc(st_dev))
-
-# Reorder factor levels
-to_plot$challenge <- factor(to_plot$challenge, levels = stdev_df$challenge)
-```
-
-# Exploratory plots
-
-```{r, fig.width=9, fig.height=6}
-detailed_challenges_plot <- ggplot(to_plot, aes(x = challenge, y = proportion, group = job_category, color = job_category, shape = job_category)) +
-  geom_point(size = 3) +
-  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
-  labs(
-    x = "Challenge",
-    y = "Proportion saying 'Frequently' or 'Always'",
-    color = "Job Category",
-    shape = "Job Category",
-    title = "Proportion of respondents frequently facing challenges"
-  ) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-detailed_challenges_plot
-```
-
-Save, if you wish.
-```{r}
-#save_plot("detailed_challenges_by_job.tiff", 12, 10, p=detailed_challenges_plot)
-```
-
-That's a nice plot, but it's probably too information-dense for a presentation, or even a paper. Let's just look at the top 3 challenges for each group.
-```{r}
-top3 <- to_plot %>%
-  group_by(job_category) %>%
-  slice_max(order_by = proportion, n = 3)
-```
-
-```{r}
-# Filter to include only challenges present in the top3 dataframe 
-filtered_plot <- to_plot %>%
-  semi_join(top3, by = c("job_category", "challenge"))
-```
-
-```{r}
-# Reorder fill factor levels so legend items are in order of appearance
-desired_levels <- top3 %>% 
-  pull(challenge) %>% 
-  unique()
-
-filtered_plot <- filtered_plot %>%
-  mutate(
-    challenge = factor(challenge, levels = desired_levels)
-  )
-```
-
-```{r}
-# Reorder x-axis factor levels to match academic advancement
-job_level_order <- c(
-  "Faculty",
-  "Postdocs and\nStaff Researchers",
-  "Grad Student",
-  "Undergraduate",
-  "Non-research Staff"
+# I'm just including the names here for my own reference,
+# but they're not actually used in the code.
+chall_colors <- list(
+  # modified from https://sronpersonalpages.nl/~pault/
+  "Documentation time" = "#332288",
+  "Coding time" = "#88CCEE",
+  "Education time" = "#44AA99",
+  "Educational resources" = "#117733",
+  "Securing funding" = "#999933",
+  "Finding funding" = "#DDCC77",
+  "Managing issues" = "#CC6677",
+  "Attracting users" = "#882255"
 )
-filtered_plot$job_category <- factor(
-  filtered_plot$job_category, 
-  levels = job_level_order
-  )
 ```
 
-
 ```{r, fig.width=9, fig.height=6}
-job_challenge_plot <- ggplot(
-  filtered_plot,
+top5_by_points_plot <- ggplot(
+  top5_by_job,
   aes(
     x = job_category,
-    y = proportion,
+    y = mean,
     fill = challenge
   )
 ) +
   geom_col(position = position_dodge()) +
-  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
-  scale_fill_manual(values = COLORS) +
+  scale_fill_manual(values = chall_colors) +
   labs(
     x = "Job Category",
-    y = "Proportion saying\n'Frequently' or 'Always'",
+    y = "Mean Observed Rating\nFrom Coded Categories",
     fill = "Challenge",
-    title = "Top 3 Challenges by Job Category"
+    title = "Top 5 Challenges by Job Category (Points)"
   ) +
   theme(
     axis.title.x = element_blank(),
@@ -201,15 +229,130 @@ job_challenge_plot <- ggplot(
     plot.title = element_text(hjust = 0.5, size = 24),
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
   )
-job_challenge_plot
+top5_by_points_plot
 ```
 
-Save, if you wish.
 ```{r}
-#save_plot("top3_challenges_by_job.tiff", 12, 10, p=job_challenge_plot)
+save_plot("top5_challenges_by_job_points.tiff", 12, 10, p=top5_by_points_plot)
+```
+
+
+# Top 5 challenges per group, by proportion frequently or always
+
+As another way of confirming/exploring these trends, let's look at the proportion of each group who said "frequently" or "always".
+```{r}
+# Calculate proportion of TRUEs by taking the mean of a logical vector,
+# created by %in%.
+proportions <- long_data %>%
+  group_by(job_category, challenge) %>%
+  summarize(proportion = mean(challenge_level %in% c("Frequently", "Always"))) %>%
+  ungroup()
+proportions
+```
+
+```{r}
+top5_by_prop <- proportions %>%
+  group_by(job_category) %>%
+  slice_max(order_by = proportion, n = 5)
+```
+
+```{r}
+# Filter to include only challenges present in the top5 dataframe 
+filtered_props <- proportions %>%
+  semi_join(top5_by_prop, by = c("job_category", "challenge"))
+```
+
+Let's inspect the challenges that made the cut. Are they the same as the challenges from calculating the top 5 the other way (by points)?
+```{r}
+ordered_challenges_top5_by_points
+unique(filtered_props$challenge)
+```
+
+They are not the same. In this case, educational resources didn't make the cut. We can still use the same order of factor levels.
+
+```{r}
+# Reorder factor levels
+filtered_props$challenge <- factor(
+  filtered_props$challenge,
+  levels = ordered_challenges_top5_by_points
+)
+
+filtered_props$job_category <- factor(
+  filtered_props$job_category,
+  levels = jobs_ordered
+)
+```
+
+Let's add a whitespace in this long job category name
+
+```{r}
+filtered_props <- filtered_props %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Postdocs and Staff Researchers" = "Postdocs and\nStaff Researchers",
+    )
+  )
+```
+
+Custom color palette, which doesn't contain "Educational resources"
+```{r}
+# I'm just including the names here for my own reference,
+# but they're not actually used in the code.
+chall_colors2 <- list(
+  # modified from https://sronpersonalpages.nl/~pault/
+  "Documentation time" = "#332288",
+  "Coding time" = "#88CCEE",
+  "Education time" = "#44AA99",
+  #"Educational resources" = "#117733",
+  "Securing funding" = "#999933",
+  "Finding funding" = "#DDCC77",
+  "Managing issues" = "#CC6677",
+  "Attracting users" = "#882255"
+)
+```
+
+```{r, fig.width=9, fig.height=6}
+top5_by_perc_plot <- ggplot(
+  filtered_props,
+  aes(
+    x = job_category,
+    y = proportion,
+    fill = challenge
+  )
+) +
+  geom_col(position = position_dodge()) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_fill_manual(values = chall_colors2) +
+  labs(
+    x = "Job Category",
+    y = "Proportion saying\n'Frequently' or 'Always'",
+    fill = "Challenge",
+    title = "Top 5 Challenges by Job Category (Percent)"
+  ) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 24),
+    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+    axis.text.y = element_text(size = 18),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 18),
+    panel.background = element_blank(),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    plot.title = element_text(hjust = 0.5, size = 24),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  )
+top5_by_perc_plot
+```
+
+```{r}
+save_plot("top5_challenges_by_job_percent.tiff", 12, 10, p=top5_by_perc_plot)
 ```
 
 # Consider clusters
+
+## Exploratory plot
 
 In a previous notebook, we found that the distributions of responses to the various challenges could be clustered like so:
 
@@ -228,7 +371,7 @@ Everthing else
 
 This makes me curious: does the distribution of job categories also vary by cluster? Before we try any statistics, let's just make a plot. This will be a variation of the detailed plot above.
 
-We're just going to subset the data to include only clusters 1 and 2, and we'll reorder the factor levels accordingly.
+We're just going to subset the "frequently" or "always" data to include only clusters 1 and 2, and we'll reorder the factor levels accordingly.
 
 ```{r}
 clusters1and2 <- c(
@@ -240,7 +383,7 @@ clusters1and2 <- c(
   "Hiring"
 )
 
-to_plot_clusters <- subset(to_plot, challenge %in% clusters1and2)
+to_plot_clusters <- subset(filtered_props, challenge %in% clusters1and2)
 
 to_plot_clusters$challenge <- factor(
   to_plot_clusters$challenge,

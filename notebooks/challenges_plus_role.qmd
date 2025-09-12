@@ -1,0 +1,311 @@
+---
+title: "Challenges + role"
+---
+
+# Overview
+
+Secondary analysis of survey Q9: "How frequently have you encountered the following challenges while working on open-source projects?"
+
+In this script, I am considering challenges in light of role, focusing on maintainers. Basically, I want to confirm/refute my suspicion that the people who selected "managing issues" and "attracting users" are largely maintainers, and these are common challenges among maintainers.
+
+## Import packages and utilities
+
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+
+## Load data
+```{r}
+challenges_raw <- load_qualtrics_data("clean_data/challenges_Q9.tsv")
+roles_raw <- load_qualtrics_data("clean_data/contributor_roles_Q4.tsv")
+```
+
+## Wrangle data
+
+```{r}
+roles_and_chall <- cbind(roles_raw, challenges_raw)
+```
+
+
+Remove rows that contain any empty entries.
+```{r}
+nrow(roles_and_chall)
+roles_and_chall <- exclude_empty_rows(roles_and_chall, strict = TRUE) # from scripts/utils.R
+nrow(roles_and_chall)
+```
+
+
+Double-check that none of the rows sum to 0 for the roles columns, which would indicate that the participant didn't answer the question.
+
+```{r}
+roles_vec <- names(roles_raw)
+roles_and_chall %>%
+    select(all_of(roles_vec)) %>%
+    filter(rowSums(across(where(is.numeric))) == 0)
+```
+
+Let's reshape these data frames to long data.
+
+```{r}
+maintainers <- roles_and_chall %>%
+  filter(Maintainer == 1) %>%
+  select(-one_of(roles_vec))
+non_maintainers <- roles_and_chall %>%
+  filter(Maintainer == 0) %>%
+  select(-one_of(roles_vec))
+
+maintainers_long <- maintainers %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "challenge",
+    values_to = "frequency"
+  )
+
+non_maintainers_long <- non_maintainers %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "challenge",
+    values_to = "frequency"
+  )
+
+```
+
+# Exploratory stats
+
+## Maintainers
+
+First, let's look at the maintainers' top challenges, using a coded "points" system.
+
+```{r}
+maintainers_long <- maintainers_long %>%
+  mutate(
+    score = recode(
+      frequency,
+      "Never"           = 0L,
+      "Non-applicable"  = 0L,
+      "Rarely"          = 1L,
+      "Occasionally"    = 2L,
+      "Frequently"      = 3L,
+      "Always"          = 4L
+    )
+  )
+# Using interger literals 0L, 1L, etc., ensures that
+# the new column will be integers, not doubles.
+```
+
+```{r}
+# Helper to compute the (numeric) mode
+get_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+summary_df_maint <- maintainers_long %>%
+  group_by(challenge) %>%
+  summarise(
+    total  = sum(score),
+    mean   = mean(score, na.rm = TRUE),
+    median = median(score),
+    mode   = get_mode(score),
+    st_dev = sd(score, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Order by highest total "score"
+summary_df_maint <- summary_df_maint %>%
+    arrange(desc(total))
+
+summary_df_maint
+```
+
+What percent of maintainers selected "frequently" or "always" for these two issues?
+
+```{r}
+maint_counts <- maintainers_long %>%
+  count(challenge, frequency, name = "n")
+
+maint_counts <- maint_counts %>%
+  group_by(challenge) %>%
+  mutate(perc_total = round(100 * n / sum(n), 1)) %>%
+  ungroup()
+
+# Total number of maintainers
+nrow(maintainers)
+
+maint_counts
+```
+
+```{r}
+maint_concise <- maintainers_long %>%
+    select(-score) %>%
+    mutate(
+        frequency = recode(
+            frequency,
+            "Always" = "Always or Frequently",
+            "Frequently" = "Always or Frequently",
+            "Rarely" = "Never or Rarely",
+            "Never" = "Never or Rarely"
+        )
+        )
+    
+maint_concise <- maint_concise %>%
+  count(challenge, frequency, name = "n")
+
+maint_concise <- maint_concise %>%
+  group_by(challenge) %>%
+  mutate(perc_total = round(100 * n / sum(n), 1)) %>%
+  ungroup()
+
+# Total number of maintainers
+nrow(maintainers)
+
+maint_concise
+```
+
+## Non-maintainers
+
+Let's look at the same data for non-maintainers.
+
+```{r}
+non_maintainers_long <- non_maintainers_long %>%
+  mutate(
+    score = recode(
+      frequency,
+      "Never"           = 0L,
+      "Non-applicable"  = 0L,
+      "Rarely"          = 1L,
+      "Occasionally"    = 2L,
+      "Frequently"      = 3L,
+      "Always"          = 4L
+    )
+  )
+# Using interger literals 0L, 1L, etc., ensures that
+# the new column will be integers, not doubles.
+```
+
+```{r}
+summary_df_non_maint <- non_maintainers_long %>%
+  group_by(challenge) %>%
+  summarise(
+    total  = sum(score),
+    mean   = mean(score, na.rm = TRUE),
+    median = median(score),
+    mode   = get_mode(score),
+    st_dev = sd(score, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+# Order by highest total "score"
+summary_df_non_maint <- summary_df_non_maint %>%
+    arrange(desc(total))
+
+summary_df_non_maint
+```
+
+As we would expect, "Managing issues" and "Attracting users" are not as high on the list as they were for maintainers. (Actually, in my opinion, they're still surprisingly high.)
+
+```{r}
+non_maint_counts <- non_maintainers_long %>%
+  count(challenge, frequency, name = "n")
+
+non_maint_counts <- non_maint_counts %>%
+  group_by(challenge) %>%
+  mutate(perc_total = round(100 * n / sum(n), 1)) %>%
+  ungroup()
+
+# Total number of non-maintainers
+nrow(non_maintainers)
+
+non_maint_counts
+```
+
+```{r}
+non_maint_concise <- non_maintainers_long %>%
+    select(-score) %>%
+    mutate(
+        frequency = recode(
+            frequency,
+            "Always" = "Always or Frequently",
+            "Frequently" = "Always or Frequently",
+            "Rarely" = "Never or Rarely",
+            "Never" = "Never or Rarely"
+        )
+        )
+    
+non_maint_concise <- non_maint_concise %>%
+  count(challenge, frequency, name = "n")
+
+non_maint_concise <- non_maint_concise %>%
+  group_by(challenge) %>%
+  mutate(perc_total = round(100 * n / sum(n), 1)) %>%
+  ungroup()
+
+non_maint_concise
+```
+
+
+# Write results to file
+
+Let's combine these results into one pretty data table.
+
+```{r}
+out <- bind_rows(
+  maint_concise %>% mutate(group = "Maintainers"),
+  non_maint_concise %>% mutate(group = "Non-maintainers")
+) %>%
+  # Capitalize titles
+  rename(Challenge = challenge, Frequency = frequency) %>%
+  pivot_wider(
+    id_cols = c(Challenge, Frequency),
+    names_from = group,
+    values_from = c(n, perc_total),
+    values_fill = list(n = 0L, perc_total = 0),
+    # Lets you format the new column names with a Glue string
+    # e.g. n + Maintainers = n Maintainers
+    names_glue = "{.value} {group}"
+  ) %>%
+  # Prettify
+  rename(
+    `N Maintainers` = `n Maintainers`,
+    `N Non-maintainers` = `n Non-maintainers`,
+    `Percent of Maintainers` = `perc_total Maintainers`,
+    `Percent of Non-Maintainers` = `perc_total Non-maintainers`
+  ) %>%
+  # Re-order factor levels
+  mutate(
+    Frequency = factor(
+      Frequency,
+      levels = c(
+        "Always or Frequently",
+        "Occasionally",
+        "Never or Rarely",
+        "Non-applicable"
+      )
+    )
+  ) %>%
+  arrange(Challenge, Frequency)
+
+# Sanity check: should be 0 rows
+# Keeps rows in x (e.g. maint_concise)
+# that do not have a match in y (e.g. non_maint_concise)
+# on the keys in by
+anti_join(maint_concise, non_maint_concise, by = c("challenge", "frequency"))
+anti_join(non_maint_concise, maint_concise, by = c("challenge", "frequency"))
+
+out
+```
+
+```{r}
+write_df_to_file(out, "maintainer_challenges.tsv")
+```
+
+
+```{r}
+sessionInfo()
+```
