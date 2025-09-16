@@ -368,31 +368,69 @@ sapply(c("equal", "prop", "outer", "cells", "flat"), \(w)
     emmeans(fit1b, ~ solution, weights = w) |> predict()) |> head()
 ```
 
-We only get two sets of estimates: equal/flat gives us the estimates where all means are given equal weight. Prop, outer, and cells give us another set of estimates, where each prediction is given the same weight as occurs in the model. At least, I think that's how it works. 
+We only get two sets of estimates: equal/flat gives us the estimates where all means are given equal weight. Prop, outer, and cells give us another set of estimates, where each prediction is given the weights proportional to sample size. At least, I think that's how it works. 
 
 Let's look at the average ratings by job category (our weighting scheme here doesn't matter, because we're splitting it up by job, not averaging over job).
 
 ```{r}
-summary(emmeans(fit1b, ~ solution | job_category, mode="mean.class")) %>%
+all_means <- emmeans(fit1b, ~ solution | job_category, mode="mean.class")
+summary(all_means) %>%
  arrange(desc(mean.class))
 ```
 
 Here, we see that "a learning community" is more popular among non-research staff than among other groups. So, we expect that if all groups are weighted equally, "a learning community" will be less popular than if we weight the means by sample size.
 
-Hmm. I'm not sure why the following commands fail when we include mode="mean.class". It says no weighting information is given. Maybe it's just not possible to estimate the mean of the underlying probability distribution AND weight that mean at the same time?
+Hmm. When I try running the command below, to get global solution ratings averaged over job, the command fails when I include mode="mean.class". It says no weighting information is available.
 ```{r}
-summary(emmeans(fit1b, ~ solution, weights = "equal")) %>% 
+summary(emmeans(fit1b, ~ solution, weights = "equal", mode = "mean.class")) %>% 
+  arrange(desc(mean.class))
+```
+
+I think we can achieve the same result by running emmeans() on an emmGrid object, which doesn't do any predictions, it just collapses/averages the means already obtained in the first emmeans call. Let's check this without the mean.class argument.
+
+```{r}
+t <- emmeans(fit1b, ~ solution | job_category)
+t2 <- emmeans(t, ~ solution)
+t3 <- emmeans(fit1b, ~ solution)
+
+head(summary(t2))
+head(summary(t3))
+```
+
+The results are the same. So I think we can use this method to get weighted global means on the mean.class scale. Let's try it.
+
+```{r}
+overall_equal <- emmeans(all_means, ~ solution, weights = "equal")
+```
+
+Still getting the error. Here are some hail mary attempts to troubleshoot. (Read: I have no idea what I'm doing.)
+
+```{r}
+head(summary(emmeans(all_means, ~ solution, by = NULL)))
+head(summary(emmeans(all_means, ~ solution, weights = NULL)))
+head(summary(emmeans(all_means, ~ solution, weights = "prop")))
+head(summary(emmeans(all_means, ~ solution, weights = ref_grid(fit1b)@grid)))
+head(summary(emmeans(all_means, ~ solution, weights = "show.levels")))
+```
+
+Okay, so I'm having a really hard time getting emmeans to incorporate weights when averaging over the estimates made in mean.class mode. I guess I will just use the default log scale. Maybe it's just not possible to incorporate weights when using the mean.class scale, because of math that I don't understand.
+
+```{r}
+overall_equal <- emmeans(fit1b, ~ solution, weights = "equal")
+summary(overall_equal) %>% 
   arrange(desc(emmean))
 ```
 
+
 ```{r}
-summary(emmeans(fit1b, ~ solution, weights = "prop")) %>% 
+overall_prop <- emmeans(fit1b, ~ solution, weights = "prop")
+summary(overall_prop) %>% 
   arrange(desc(emmean))
 ```
 
-Indeed, when we use the default weighting of "equal", "A learning community" is #8, but with "prop" weighting, it rises to #6. So now we know what the weights do.
+When we use the default weighting of "equal", "A learning community" is #8, but with "prop" weighting, it rises to #6. This makes sense, as discussed above.
 
-In fact, the more that I think about it, the more I feel like we shouldn't even report the global emms--just emms by job. It may do more harm than good to average over a factor that we've already established is important. So let's look at emms by job.
+The more that I think about it, the more I feel like we shouldn't even report the global emms--just emms by job. It may do more harm than good to average over a factor that we've already established is important. So let's look at emms by job.
 
 ```{r}
 # This yields the same results: emmeans(fit1b, ~ solution | job_category, mode = "mean.class")
@@ -573,6 +611,17 @@ by_soln <- summary(
 head(by_soln)
 ```
 
+Save results for supplement.
+
+```{r}
+# From utils.R
+write_df_to_file(by_job, "solutions_pairwise_contrasts_byjob.tsv")
+```
+
+```{r}
+# From utils.R
+write_df_to_file(by_soln, "solutions_pairwise_contrasts_bysoln.tsv")
+```
 
 Let's glance at the significant differences.
 ```{r}
@@ -642,146 +691,7 @@ p_adj_kw < 0.05
 sum(p_adj_kw < 0.05)
 ```
 
-Hm. The results are a little surprising. 
-
-
-# Heat map (Unfinished/Abandoned)
-
-I'd like to plot these data as a heat map. However, I find it really confusing to rely on the sign of the estimate (+/-) to tell me which solution is preferred. I'd rather have only positive values, and instead of using the sign to indicate which solution is preferred, we'll use the order of the solutions to indicate which solution is preferred. Let's say that the solution on the y-axis is always the preferred solution, so that the color/value merely indicates the extent to which respondents prefer the solution on the y-axis. 
-
-To keep things simple for now, let's just look at non-research staff.
-
-```{r}
-nr <- subset(by_job, job_category == "Non-research Staff")
-nr$contrast <- as.character(nr$contrast)
-soln1 <- unname(sapply(nr$contrast, function(x) strsplit(x, " - ")[[1]][1]))
-soln2 <- unname(sapply(nr$contrast, function(x) strsplit(x, " - ")[[1]][2]))
-nr2 <- data.frame(
-  soln1 = soln1,
-  soln2 = soln2,
-  value = nr$estimate,
-  pval = nr$p.value,
-  significant = ifelse(nr$p.value < 0.05, "*", "")
-)
-head(nr2)
-```
-
-```{r}
-nr2_clean <- nr2 %>%
-  # if value < 0 swap soln1/soln2 and flip the sign--one step at a time
-  mutate(
-    soln_pref = if_else(value < 0, soln2, soln1),   # preferred solution
-    soln_other = if_else(value < 0, soln1, soln2),  # the other solution
-    value_pos  = if_else(value < 0, -value, value)  # positive magnitude
-  ) %>% 
-  
-  # keep only the modified columns
-  select(
-    soln1 = soln_pref,
-    soln2 = soln_other,
-    value = value_pos,
-    significant
-  )
-
-#Check the before and after
-tail(nr2)
-tail(nr2_clean)
-```
-
-In this new data frame, soln1 is the preferred solution.
-
-Let's reorder the factor levels and make them the same for both solution columns. This ensures that all solutions appear on both axes, in the same order.
-
-```{r}
-sol_levels <- sort(unique(c(nr2_clean$soln1, nr2_clean$soln2)))
-
-plot_df <- nr2_clean %>% 
-  mutate(
-    soln1 = factor(soln1, levels = sol_levels),
-    soln2 = factor(soln2, levels = sol_levels)
-  ) %>% 
-  # complete fills in missing combinations
-  # as new rows with NA values
-  complete(soln1, soln2)
-
-plot_df
-```
-
-```{r, fig.width=12, fig.height=10}
-nr_heatmap <- ggplot(
-  data = plot_df,
-  aes(x = soln2, y = soln1, fill = value)
-) +
-  geom_tile(width = 0.97, height = 0.97) +   # gaps for the grid to show
-  geom_text(aes(label = significant), color = "black", size = 8) +
-  # Reverse x‑axis order and put it on top
-  scale_x_discrete(limits = rev(sol_levels), position = "top") +
-  scale_fill_gradient(low = "white", high = "darkred", na.value = "#e6e6e6") +
-  ggtitle("Solutions preferred by non-research staff") +
-  labs(
-    fill = "Extent to which\ny-axis solution is\npreferred (difference in\nestimated mean rating)"
-  ) +
-  theme(
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    axis.text.x = element_text(
-      angle = 46,
-      vjust = 0,
-      hjust = 0,
-      size = 20
-    ),
-    axis.text.y = element_text(size = 20),
-    axis.ticks.x = element_blank(),
-    axis.ticks.y = element_blank(),
-    legend.title = element_text(size = 15),
-    panel.background = element_blank(),
-    panel.grid = element_line(linetype = "solid", color = "gray90"),
-    plot.title = element_text(
-      hjust = 0.5,
-      size = 24,
-      margin = margin(b = 15)
-    ),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
-  )
-
-#nr_heatmap
-```
-
-Presumably, those warnings are just because our data frame contains a bunch of NA values, for combinations where the x-axis solution is preferred, and so we have no data.
-```{r}
-save_plot("solns_heatmap_nrstaff.tiff", 12, 10, p=nr_heatmap)
-```
-
-I'd like to "validate" this result by eyeballing a plot of the number of "Not very useful", "Useful", and "Very useful" results for non-research staff for a couple of solutions, say, sustainability grants and a learning community. The "favorite" solution question suggested that a learning community was more popular than grants among research staff, so the result here, which suggests grants are the most popular solution, is somewhat surprising.
-
-```{r}
-t <- long_data %>%
-  filter(job_category == "Non-research Staff") %>%
-  filter(solution == "Computing environments" |
-        solution == "A learning community" |
-        solution == "Sustainability grants" |
-        solution == "Publicity")
-
-```
-
-```{r, fig.width=12, fig.height=10}
-gbc <- grouped_bar_chart(
-  df = t,
-  x_var = "solution",
-  fill_var = "utility",
-  title = "Non-research staff solution preferences")
-
-gbc
-```
-
-```{r}
-save_plot("solns_sanity_check_nrstaff.tiff", 12, 10, p=gbc)
-```
-
-This looks reasonably consistent with the model. From this bar chart, only Sustainability grants and Computing environments have a strong, linear slope with "very useful" being the most common response; and of the two, that trend is more pronounced for Sustainability grants. Previously, I found that "A learning community" was the number 1 solution from non-research staff when we asked them to choose their top solution (see solutions_plots.qmd), but apparently when they were allowed to rate solutions on a Likert scale, Sustainability grants was more popular, basically.
-
-This plot is pretty complicated and convoluted. If I do want to publish it, I'll probably want to use a diverging color scheme for positive and negative differences, and keep only squares on the diagonal gray. 
-
+Hm. The results are a little surprising. Only five solutions are "divisive" according to this test. But maybe it's not surprising, if the whole point of doing ordinal regression is that it's more sensitive than a non-parametric test.
 
 # Session Info
 ```{r}

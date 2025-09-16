@@ -17,15 +17,15 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 
 # Load data
 ```{r}
-solutions <- load_qualtrics_data("clean_data/solutions_Q10.tsv")
+solutions_raw <- load_qualtrics_data("clean_data/solutions_Q10.tsv")
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 ```
 
 ## Wrangle data
 First, remove empty rows, i.e. rows from respondents who didn't receive this question. As with many questions in this survey, we can cut some corners in the code because the question was mandatory. For example, no need to worry about incomplete answers.
 ```{r}
-nrow(solutions)
-solutions <- exclude_empty_rows(solutions) # from scripts/utils.R
+nrow(solutions_raw)
+solutions <- exclude_empty_rows(solutions_raw) # from scripts/utils.R
 nrow(solutions)
 ```
 
@@ -333,7 +333,11 @@ campus_totals %>% mutate( compute_perc = 100*compute_n / campus_total)
 
 So, anywhere from 12% to 33% of respondents selected this as their favorite solution, when we break it down by campus. The numbers from UCSD (33%) and UC Merced (25%) should probably be taken with a grain of salt, since those campuses had really low participation rates.
 
-## For each job category, what are the top 3 favorite solutions?
+## For each job category, what are the top 5 favorite solutions?
+
+### From the "choose one" question
+
+First, calculate the result based on Q11, the "choose one" question, where participants had to choose their favorite solution.
 
 ```{r}
 job_fave <- campus_job_fave %>% select(-campus)
@@ -353,56 +357,333 @@ job_fave_counts <- job_fave %>%
     name = "count"
   )
 
-# 2) For each job_category, keep only the top 3 solutions by count
-top3_solutions <- job_fave_counts %>%
+# 2) For each job_category, keep only the top 5 solutions by count
+top_solutions <- job_fave_counts %>%
   group_by(job_category) %>%
   # slice_max() picks the rows with the highest `count`
-  slice_max(order_by = count, n = 3, with_ties = TRUE) %>%
+  slice_max(order_by = count, n = 5, with_ties = TRUE) %>%
   ungroup()
 
-top3_solutions
+top_solutions
 ```
 
-This looks like it's worth plotting. Let's go back to the big data frame, since my grouped_bar_chart function doesn't want counts (it will count rows itself); drop all job/solution combinations except those that appear in the top3_solutions data frame.
+This looks like it's worth plotting. Let's go back to the big data frame, since my grouped_bar_chart function doesn't want counts (it will count rows itself); drop all job/solution combinations except those that appear in the top_solutions data frame.
 ```{r}
-job_fave_top3 <- job_fave %>%
+job_fave_top <- job_fave %>%
   semi_join(
-    top3_solutions,
+    top_solutions,
     by = c("job_category", "favorite_solution")
   )
 
-head(job_fave_top3)
+head(job_fave_top)
 ```
 
 ```{r}
 # Reorder factor levels so legend items are in order of appearance
-job_fave_top3 <- job_fave_top3 %>%
+job_fave_top <- job_fave_top %>%
   mutate(favorite_solution = fct_inorder(favorite_solution))
 ```
 
 ```{r, fig.width=9, fig.height=6}
-top3_plot <- grouped_bar_chart(
-  df = job_fave_top3,
+top_plot <- grouped_bar_chart(
+  df = job_fave_top,
   x_var = "job_category",
   fill_var = "favorite_solution",
-  title = "Top three most popular solutions\nfor each job category",
-  color_palette = rev(COLORS) #from utils.R
+  title = "Top 5 Solutions by Job Category ('choose one')",
+  color_palette = rev(c(COLORS, "#000000")) #from utils.R
 )
-top3_plot
+top_plot
 ```
 
 ```{r}
-save_plot("top3_solutions_by_job.tiff", 12, 10, p=top3_plot)
+save_plot("top_solutions_by_job.tiff", 12, 10, p=top_plot)
 ```
 
-So, I think these are the takeaways:
+### Likert points
 
-- Dedicated grants for OS project sustainability is the most popular solution. This solution was in the top3 for all but undergrads.
-- The other top solutions depend on how you look at the data. For non-research staff, the most popular solution is a learning community, though grants and access to free, feature-rich computing environments are close behind.
-- I was surprised that access to computing environments was in second place. Upon inspection, this seems to be because this choice is popular among non-research staff, and we had a lot of non-research staff in our participant pool. About 12-33% of respondents said this was their top choice, depending on the campus.
-- Undergraduates were the only group in which nobody selected grants as their top choice.
-- Grad students and undergraduates were the only groups for whom a mentoring program was in their top 3. 
-- Researchers and non-research staff have very distinct needs.
+Now we ask the same question (top 5 per job category), but we get the result by tallying up the Likert scale  "points" from Q10.
+
+```{r}
+solutions_job_raw <- cbind(solutions_raw, other_quant$job_category)
+# Rename last column
+names(solutions_job_raw)[ncol(solutions_job_raw)] <- "job_category"
+```
+
+Remove rows that contain any empty entries.
+```{r}
+nrow(solutions_job_raw)
+solutions_job <- exclude_empty_rows(solutions_job_raw, strict = TRUE) # from scripts/utils.R
+nrow(solutions_job)
+```
+
+For visual clarity in our plots, let's combine postdocs and other staff researchers, as well as undergrads and grad students.
+```{r}
+solutions_job <- solutions_job %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Post-Doc" = "Postdocs and Staff Researchers",
+      "Other research staff" = "Postdocs and Staff Researchers"
+    )
+  )
+
+solutions_job <- solutions_job %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Students",
+      "Undergraduate" = "Students"
+    )
+  )
+
+solutions_job$participantID <- row.names(solutions_job)
+
+head(solutions_job)
+```
+
+Let's reshape the data from wide to long format for easier counting and plotting.
+
+```{r}
+long_data_job <- solutions_job %>%
+  pivot_longer(
+    cols = -c(participantID, job_category),
+    names_to = "solution",
+    values_to = "utility"
+  )
+
+long_data_job <- long_data_job %>%
+  mutate(
+    utility_score = recode(
+      utility,
+      "Non-applicable" = 0L,
+      "Not very useful" = 0L,
+      "Useful" = 1L,
+      "Very useful" = 2L
+    )
+  )
+
+long_data_job
+```
+
+Modifying some code I copied from challenges_plus_job.qmd.
+
+```{r}
+get_summary_df <- function(job_str, df) {
+  res <- df %>%
+    filter(job_category == job_str) %>%
+    group_by(solution) %>%
+    summarise(
+      total = sum(utility_score),
+      mean = mean(utility_score, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    arrange(desc(total))
+  return(res)
+}
+```
+
+```{r}
+jobs_ordered <- c(
+  "Faculty",
+  "Postdocs and Staff Researchers",
+  "Students",
+  "Non-research Staff"
+)
+
+summary_tables <- lapply(jobs_ordered, function(j) get_summary_df(j, long_data_job))
+names(summary_tables) <- jobs_ordered
+summary_tables
+```
+
+Let's plot the top 5. First, a little data wrangling.
+
+```{r}
+all_tbl <- bind_rows(summary_tables, .id = "job_category")
+
+top_by_job_points <- all_tbl %>%
+  group_by(job_category) %>%
+  slice_max(mean, n = 5, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(job_category, solution, mean) %>%
+  mutate(job_category = factor(job_category, levels = jobs_ordered))
+
+# Reorder factor levels for visual clarity
+
+ordered_solns_top_by_points <- c(
+  "Sustainability grants",
+  "Help finding funding",
+  "Computing environments",
+  "Industry partnerships",
+  "Publicity",
+  "Documentation help",
+  "Legal support",
+  "A learning community",
+  "Mentoring programs"
+)                                                
+
+top_by_job_points$solution <- factor(
+  top_by_job_points$solution,
+  levels = ordered_solns_top_by_points
+)
+```
+
+Let's add a whitespace in this long job category name
+
+```{r}
+top_by_job_points <- top_by_job_points %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Postdocs and Staff Researchers" = "Postdocs and\nStaff Researchers",
+    )
+  )
+```
+
+Let's hard-code a color palette that is tailored to these data. This will be useful in the next section, when we plot almost the same set of challenges, and we'll want the challenges to correspond to the same colors in the legend.
+```{r}
+# I'm just including the names here for my own reference,
+# but they're not actually used in the code.
+# chall_colors <- list(
+#   # modified from https://sronpersonalpages.nl/~pault/
+#   "Documentation time" = "#332288",
+#   "Coding time" = "#88CCEE",
+#   "Education time" = "#44AA99",
+#   "Educational resources" = "#117733",
+#   "Securing funding" = "#999933",
+#   "Finding funding" = "#DDCC77",
+#   "Managing issues" = "#CC6677",
+#   "Attracting users" = "#882255"
+# )
+```
+
+```{r, fig.width=9, fig.height=6}
+top_points_plot <- ggplot(
+  top_by_job_points,
+  aes(
+    x = job_category,
+    y = mean,
+    fill = solution
+  )
+) +
+  geom_col(position = position_dodge()) +
+  scale_fill_manual(values = COLORS) +
+  labs(
+    x = "Job Category",
+    y = "Mean Observed Rating\nFrom Coded Categories",
+    fill = "Solution",
+    title = "Top 5 Solutions by Job Category (Points)"
+  ) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 24),
+    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+    axis.text.y = element_text(size = 18),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 18),
+    panel.background = element_blank(),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    plot.title = element_text(hjust = 0.5, size = 24),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  )
+top_points_plot
+```
+
+```{r}
+save_plot("top5_solutions_by_job_points.tiff", 12, 10, p=top_points_plot)
+```
+
+### Proportion useful or very useful
+
+As another way of confirming/exploring these trends, let's look at the proportion of each group who said "useful" or "very useful".
+```{r}
+# Calculate proportion of TRUEs by taking the mean of a logical vector,
+# created by %in%.
+proportions <- long_data_job %>%
+  group_by(job_category, solution) %>%
+  summarize(proportion = mean(utility %in% c("Useful", "Very useful"))) %>%
+  ungroup()
+proportions
+```
+
+```{r}
+top_by_prop <- proportions %>%
+  group_by(job_category) %>%
+  slice_max(order_by = proportion, n = 5)
+```
+
+```{r}
+# Filter to include only challenges present in the top n dataframe 
+filtered_props <- proportions %>%
+  semi_join(top_by_prop, by = c("job_category", "solution"))
+```
+
+```{r}
+# Reorder factor levels
+filtered_props$solution <- factor(
+  filtered_props$solution,
+  levels = ordered_solns_top_by_points
+)
+
+filtered_props$job_category <- factor(
+  filtered_props$job_category,
+  levels = jobs_ordered
+)
+```
+
+
+Let's add a whitespace in this long job category name
+
+```{r}
+filtered_props <- filtered_props %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Postdocs and Staff Researchers" = "Postdocs and\nStaff Researchers",
+    )
+  )
+```
+
+
+```{r, fig.width=9, fig.height=6}
+top_perc_plot <- ggplot(
+  filtered_props,
+  aes(
+    x = job_category,
+    y = proportion,
+    fill = solution
+  )
+) +
+  geom_col(position = position_dodge()) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  scale_fill_manual(values = COLORS) +
+  labs(
+    x = "Job Category",
+    y = "Proportion saying\n'Useful' or 'Very useful'",
+    fill = "Challenge",
+    title = "Top 5 Solutions by Job Category (Percent)"
+  ) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 24),
+    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
+    axis.text.y = element_text(size = 18),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 18),
+    panel.background = element_blank(),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    plot.title = element_text(hjust = 0.5, size = 24),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+  )
+top_perc_plot
+```
+
+```{r}
+save_plot("top5_solns_by_job_percent.tiff", 12, 10, p=top_perc_plot)
+```
+
+
 
 # A Learning Community
 Let's make a plot similar to the one before, where we plotted the percent of folks in each job category who selected "computing environments" as their favorite solution. This time, though, we'll look at "A learning community".
