@@ -602,6 +602,8 @@ head(by_job)
 
 Here we look at pairwise contrasts by solution. These data are sort-of-kind-of corroborated below with a Kruskal-Wallis test.
 ```{r}
+# Same results as:
+# emm_soln <- emmeans(fit1b, ~ job_category * solution)
 emm_soln <- emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
 by_soln <- summary(
   pairs(emm_soln, by = "solution"),
@@ -610,6 +612,8 @@ by_soln <- summary(
 
 head(by_soln)
 ```
+
+Ugh, once again, mean.class is ignored! Annoying.
 
 Save results for supplement.
 
