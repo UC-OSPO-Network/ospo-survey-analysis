@@ -16,6 +16,22 @@ suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```
 
+# Define functions
+```{r}
+get_mode <- function(v) {
+  # Get unique values
+  uniques <- unique(v)
+  
+  # Tabulate the frequencies of unique values
+  freqs <- tabulate(match(v, uniques))
+  
+  # Find the value(s) with the maximum frequency
+  modes <- uniques[freqs == max(freqs)]
+  
+  return(modes)
+}
+```
+
 # Load data
 ```{r}
 roles_raw <- load_qualtrics_data("clean_data/contributor_roles_Q4.tsv")
@@ -44,9 +60,7 @@ any(roles_by_person == 0)
 
 mean(roles_by_person)
 median(roles_by_person)
-# mode
-ux <- unique(roles_by_person)
-ux[which.max(tabulate(match(roles_by_person, ux)))]
+get_mode(roles_by_person)
 ```
 
 ```{r}
@@ -97,22 +111,59 @@ get_mean_num_roles <- function(df, colnum) {
         mean(filtered$total_roles)
     )
 }
+
+# Get median number of roles per column (role)
+get_median_num_roles <- function(df, colnum) {
+    # drop rows where the entry in this col is 0
+    filtered <- df[df[[colnum]] != 0, ]
+    return(
+        median(filtered$total_roles)
+    )
+}
+
+# Get mode number of roles per column (role)
+get_mode_num_roles <- function(df, colnum) {
+    # drop rows where the entry in this col is 0
+    filtered <- df[df[[colnum]] != 0, ]
+    # Some roles have multiple modes.
+    # Make this a character col, and group the multiple
+    # modes into a single string. This is awful for math,
+    # but we're just printing it for the supplement.
+    return(
+      paste(get_mode(filtered$total_roles), collapse = ", ")
+    )
+}
+
 num_roles <- data.frame(
   role = names(roles),
-  avg_num_roles_per_participant = sapply(
+  mean_num_roles_per_participant = sapply(
     seq(ncol(roles)),
     function(x) get_mean_num_roles(roles2, x)
+  ),
+  median_num_roles_per_participant = sapply(
+    seq(ncol(roles)),
+    function(x) get_median_num_roles(roles2, x)
+  ),
+  mode_num_roles_per_participant = sapply(
+    seq(ncol(roles)),
+    function(x) get_mode_num_roles(roles2, x)    
   )
 )
 
 num_roles <- num_roles[
   order(
-    num_roles$avg_num_roles_per_participant,
+    num_roles$mean_num_roles_per_participant,
     decreasing = TRUE
   ),
 ]
 
 num_roles
+```
+
+Save a file for supplement
+
+```{r}
+write_df_to_file(num_roles, "supplementary_tables/roles_per_person.tsv")
 ```
 
 Huh. So I guess no one role is particularly enriched for people who hold many roles. (I mean, we can't really get statistical significance with just one observation, and this doesn't feel worth modeling.) I guess bug reporters and contributors have the fewest roles, by a small margin, which makes sense.
@@ -353,3 +404,49 @@ subset(maint_by_campus, n_rows > 10)
 ```
 
 That's a little clearer.
+
+# Job category
+
+There are many ways we could slice and dice these data, but mainly I'd like to know whether the % of maintainers is similar between academics and non-research staff.
+
+```{r}
+roles_job_raw <- cbind(roles_raw, other_quant$job_category)
+# Rename column
+names(roles_job_raw)[ncol(roles_job_raw)] <- "job_category"
+# Filter out people who didn't answer the job_category question
+roles_job_raw <- roles_job_raw %>%
+    filter(job_category != "")
+
+nrow(roles_job_raw)
+
+# Remove people who did not select any role
+roles_job <- roles_job_raw[rowSums(roles_job_raw[, -ncol(roles_job_raw)]) != 0,]
+
+nrow(roles_job)
+
+# Sanity check: make sure none of the rows sums to 0
+unname(rowSums(roles_job %>% select(-job_category)))
+
+head(roles_job)
+```
+
+First, let's explore the % maintainers for all 5 job categories.
+
+```{r}
+by_job <- roles_job %>%
+  group_by(job_category) %>%
+  summarise(
+    n_yes   = sum(Maintainer == 1),
+    n_total = n(),
+    pct_yes = round(100 * n_yes/n_total, 2)
+  ) %>%
+  ungroup()
+
+by_job
+```
+
+Eh, I think this is pretty interesting. I see no need to dig deeper. Let's save it.
+
+```{r}
+write_df_to_file(by_job, "supplementary_tables/maintainer_perc_by_job.tsv")
+```
