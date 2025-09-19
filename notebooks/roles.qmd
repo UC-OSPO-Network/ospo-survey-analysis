@@ -58,6 +58,12 @@ counts <- counts %>%
 counts
 ```
 
+Save a file for supplement
+
+```{r}
+write_df_to_file(counts, "supplementary_tables/role_counts.tsv")
+```
+
 That's mildly interesting. There's about 2.7-3 maintainers for every community manager, sys admin, or UI designer (keeping in mind that people might be both). I'm curious how many people are EXCLUSIVELY one thing. Mainly interested in how many people are EXCLUSIVELY a maintainer, contributor, bug reporter, or supervisor.
 
 ```{r}

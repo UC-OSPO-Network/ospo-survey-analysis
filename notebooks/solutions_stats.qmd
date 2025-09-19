@@ -619,12 +619,12 @@ Save results for supplement.
 
 ```{r}
 # From utils.R
-write_df_to_file(by_job, "solutions_pairwise_contrasts_byjob.tsv")
+write_df_to_file(by_job, "supplementary_tables/solutions_pairwise_contrasts_byjob.tsv")
 ```
 
 ```{r}
 # From utils.R
-write_df_to_file(by_soln, "solutions_pairwise_contrasts_bysoln.tsv")
+write_df_to_file(by_soln, "supplementary_tables/solutions_pairwise_contrasts_bysoln.tsv")
 ```
 
 Let's glance at the significant differences.

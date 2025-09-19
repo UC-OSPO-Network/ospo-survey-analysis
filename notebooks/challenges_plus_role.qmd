@@ -302,7 +302,7 @@ out
 ```
 
 ```{r}
-write_df_to_file(out, "maintainer_challenges.tsv")
+write_df_to_file(out, "supplementary_tables/maintainer_challenges.tsv")
 ```
 
 

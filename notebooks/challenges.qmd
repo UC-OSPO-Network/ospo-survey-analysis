@@ -140,7 +140,7 @@ summary_df_to_print <- summary_df %>%
     `Standard Deviation` = `st_dev`
   )
 
-write_df_to_file(summary_df_to_print, "challenges.tsv")
+write_df_to_file(summary_df_to_print, "supplementary_tables/challenges.tsv")
 ```
 
 Out of curiosity, how does it look when we order by variability?

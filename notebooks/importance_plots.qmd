@@ -604,7 +604,7 @@ names(more_than_mod2) <- c("job_category", "importance_area", "more_than_mod", "
 rownames(more_than_mod2) <- NULL
 more_than_mod2
 
-write_df_to_file(more_than_mod2, "importance.tsv")
+write_df_to_file(more_than_mod2, "supplementary_tables/importance.tsv")
 ```
 
 # Session Info

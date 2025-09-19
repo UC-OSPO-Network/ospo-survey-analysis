@@ -36,4 +36,7 @@ data_wide <- data %>%
 data_wide_shuffled <- data_wide[sample.int(nrow(data_wide)), , drop = FALSE]
 
 # utils.R
-write_df_to_file(data_wide_shuffled, "q12_comments_all.tsv")
+write_df_to_file(
+  data_wide_shuffled,
+  "supplementary_tables/q12_comments_all.tsv"
+)
