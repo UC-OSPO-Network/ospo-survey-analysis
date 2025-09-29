@@ -159,6 +159,40 @@ pct_large_by_job <- sizes_job %>%
 pct_large_by_job
 ```
 
+Let's do the same for small projects.
+
+```{r}
+pct_small_by_job <- sizes_job %>%
+  group_by(job_category) %>%
+  summarise(
+    n_total   = n(),
+    n_small   = sum(Small %in% high_freq, na.rm = TRUE),
+    pct_small = round(100 * mean(Small %in% high_freq, na.rm = TRUE), 1)
+  ) %>%
+  arrange(desc(pct_small))
+
+pct_small_by_job
+```
+
+Merge the two data frames.
+
+```{r}
+merged <- inner_join(
+  pct_small_by_job,
+  pct_large_by_job,
+  by = c("job_category", "n_total")
+) %>%
+  select(job_category, n_total, n_small, pct_small, n_large, pct_large)
+
+merged
+```
+
+Save for supplement.
+
+```{r}
+write_df_to_file(merged, "supplementary_tables/project_sizes_perc_by_job.tsv")
+```
+
 What if we add a row for academics? (Just summing up all rows except nr staff)
 
 ```{r}

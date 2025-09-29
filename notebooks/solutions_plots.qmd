@@ -89,6 +89,12 @@ summary_df
 
 Cool. It looks like sustainability grants are by far the most popular, with assistance identifying funding sources and free computing environments in second and third place. These were the only three solutions that had a mode of 2.
 
+Save for supplement.
+
+```{r}
+write_df_to_file(summary_df, "supplementary_tables/solutions_overview.tsv")
+```
+
 Out of curiosity, how does it look when we order by variability?
 ```{r}
 summary_df %>%

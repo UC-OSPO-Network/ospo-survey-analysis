@@ -354,7 +354,7 @@ paired
 # Wilcoxon test per job_category (one-sided: Small > Large)
 
 wilc_results <- lapply(split(paired, paired$job_category), function(df) {
-  wilcox.test(
+  stats::wilcox.test(
     df$Small,
     df$Large,
     paired = TRUE,
@@ -374,7 +374,7 @@ job_cats <- names(split(paired, paired$job_category))
 wilc_results_pvals <- sapply(seq(length(job_cats)), function(i) wilc_results[[i]]$p.value)
 names(wilc_results_pvals) <- job_cats
 
-p.adjust(wilc_results_pvals, method = "holm")
+stats::p.adjust(wilc_results_pvals, method = "holm")
 ```
 
 Great. This gives us more confidence in claiming that all groups contribute to small projects more than large projects.

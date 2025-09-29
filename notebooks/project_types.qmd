@@ -55,6 +55,15 @@ counts <- counts %>% arrange(desc(count))
 counts
 
 ordered_proj_types <- rownames(counts)
+
+to_print <- cbind(ordered_proj_types, counts)
+names(to_print)[1] <- "Project type"
+```
+
+Save for supplement
+
+```{r}
+write_df_to_file(to_print, "supplementary_tables/proj_type_counts.tsv")
 ```
 
 On average, how many project types does each person contribute to?
