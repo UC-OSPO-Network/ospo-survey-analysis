@@ -188,6 +188,11 @@ Save the plot if you wish.
 save_plot("fave_solutions_simple.tiff", 12, 6, p=faves_plot)
 ```
 
+```{r}
+# SVG is higher quality
+svglite::svglite(file.path(FIGURE_PATH, "fave_solutions_simple.svg"), width = 13, height = 6.5); print(faves_plot); dev.off()
+```
+
 # Incorporating demographics
 
 ## Plots

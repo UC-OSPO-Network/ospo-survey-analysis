@@ -71,6 +71,11 @@ Save the plot if you wish.
 save_plot("future_contributors.tiff", 13, 6, p=myplot)
 ```
 
+Save as SVG for the infographic.
+```{r}
+svglite::svglite(file.path(FIGURE_PATH, "future_contributors.svg"), width = 13, height = 6.5); print(myplot); dev.off()
+```
+
 # Look at jobs of respondents
 NOW let's remove rows where the participant never saw the question. Also, remove rows where we have no data on the participant's job.
 ```{r}

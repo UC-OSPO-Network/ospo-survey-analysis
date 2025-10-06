@@ -1,8 +1,22 @@
 # ospo-survey-analysis
 
-This is my repo for analyzing the 2025 multi-campus UC open source survey.
+## Abstract
 
-It's very much a work in progress.
+In the technology industry, the Open Source Program Office (OSPO) is a common
+way to centralize a company’s open source strategy, knowledge, and diligence.
+Meanwhile, OSPOs are just beginning to take root in academia. While guidance for
+university OSPOs is emerging, many questions remain about how OSPOs best support
+their university’s strategic priorities and their community’s needs.
+
+The [University of California (UC) OSPO Network](https://ucospo.net) is working
+to develop infrastructure for open source education, discovery, and
+sustainability at UC by pooling our resources and knowledge. To develop our
+strategic priorities and to assess the state of UC open source, we conducted a
+survey in April 2025 of more than 230 UC-affiliated open source contributors.
+This survey sheds light on how and why academics contribute to open source
+projects, as well as some of the barriers holding them back.
+
+We anticipate releasing a preprint in November 2025. Stay tuned!
 
 ## Survey instrument
 
@@ -13,8 +27,8 @@ file rather than a PDF, please email me at virginiascarlett@ucsb.edu.
 ## Data
 
 The survey data are not in this repo (yet). I will release the de-identified
-data eventually. Until then, the scripts in this repo are only runnable by me,
-because only I have the data.
+data shortly before releasing the preprint. Until then, the scripts in this repo
+are only runnable by me, because only I have the data.
 
 ## Dependencies
 
