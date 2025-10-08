@@ -266,7 +266,7 @@ p_job <- ggplot(job_data) +
 
 
 ```{r}
-top_row <- (p_campus + p_status)
+top_row <- (p_status + p_campus)
 bottom_row <- (p_field + p_job + p_staff)
 p_combined <- patchwork::wrap_plots(
   top_row / bottom_row

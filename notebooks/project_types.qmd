@@ -392,6 +392,7 @@ p_faculty_yes <- n_faculty_yes / n_faculty
 Calculate Cohen's h, the effect size.
 ```{r}
 h <- pwr::ES.h(p_grad_yes, p_faculty_yes)
+h
 ```
 
 Now, what ratio of n_faculty to n_gradstudents is needed to achieve 80% power? This one-sided test allows us to specify our unequal group sizes.

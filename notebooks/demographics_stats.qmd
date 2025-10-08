@@ -219,6 +219,7 @@ p_staff_asp
 Calculate Cohen's h, the effect size.
 ```{r}
 h <- pwr::ES.h(p_stud_asp, p_staff_asp)
+h
 ```
 
 Now, what ratio of students to nr staff is needed to achieve 80% power? This one-sided test allows us to specify our unequal group sizes.

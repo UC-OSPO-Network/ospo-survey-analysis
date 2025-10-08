@@ -247,6 +247,8 @@ stats::prop.trend.test(
 
 I'm honestly not sure whether this is a one-tailed or two-tailed test... I would assume one-tailed, but the documentation is terse. Anyway, even if we divide that p-value by two it's still well under p=0.05. So, yes, there is a trend of skills declining as a motivator.
 
+Unfortunately, this function does not give estimates or confidence intervals. If a reviewer asks for these, I think we can calculate them using the prop.test function in a pairwise manner with correction.
+
 # By popular demand: IT vs. Academics
 Greg raised an interesting question: what about IT staff vs. academics? Let's play around with this.
 

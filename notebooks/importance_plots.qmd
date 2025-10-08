@@ -79,6 +79,49 @@ demographic questions.
 importance_and_job <- exclude_empty_rows(importance_and_job, strict = TRUE)
 ```
 
+Across the board, how many respondents said OS was important for their learning and/or PD?
+
+```{r}
+learning_global_vi <- nrow(importance_and_job %>% filter(Learning == "Very important"))
+pd_global_vi <- nrow(importance_and_job %>% filter(`Professional Development` == "Very important"))
+
+learning_global_vi/nrow(importance_and_job)*100
+pd_global_vi/nrow(importance_and_job)*100
+```
+
+186/294 and 187/294, or about 63%.
+
+How about the same statistics, but this time counting "more than moderately important".
+
+```{r}
+learning_global_mmi <- nrow(
+  importance_and_job %>%
+    filter(Learning == "Very important" | Learning == "Important")
+)
+
+pd_global_mmi <- nrow(
+  importance_and_job %>%
+    filter(
+      `Professional Development` == "Very important" |
+        `Professional Development` == "Important"
+    )
+)
+
+learning_global_mmi/nrow(importance_and_job)*100
+pd_global_mmi/nrow(importance_and_job)*100
+```
+
+Sanity check: what's the "venn diagram" of people who answered for the "job" category but aren't NR staff?
+
+```{r}
+nrow(importance_and_job %>% filter(job_category == "Non-research Staff"))
+nrow(importance_and_job %>% filter(job_category == "Non-research Staff" & Job != "Non-applicable"))
+nrow(importance_and_job %>% filter(job_category != "Non-research Staff" & Job != "Non-applicable"))
+
+```
+
+Okay, so 104 out of 106 nr staff answered that question. 83 people who are not nr staff also answered that Q. I will discard those 83, since that question was never intended for them, based on pre-test feedback that it's hard for researchers to know what work counts as "job" but not "research".
+
 Let's reshape the data from wide to long format.
 ```{r}
 long_data <- importance_and_job %>%
@@ -523,7 +566,7 @@ p <- ggplot(
   geom_hline(yintercept = 80, linetype = "dashed", color = "black") +
   ggtitle("Perceived Importance of Open Source\nfor Different Kinds of Work") +
   labs(
-    y = "Percent of Respondents Who Said OS\nIs More than Moderately Important"
+    y = "Percent of Respondents Who Said OS\nIs above Moderate Importance"
   ) +
   scale_y_continuous(labels = function(x) paste0(x, "%")) +
   coord_cartesian(ylim = c(50, 100)) +
