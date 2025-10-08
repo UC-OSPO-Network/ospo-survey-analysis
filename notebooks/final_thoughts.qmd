@@ -4,6 +4,8 @@ title: "Final Thoughts"
 
 # Overview
 
+IMPORTANT NOTE: THIS SCRIPT IS NOT REPRODUCIBLE. QUALTRICS SCREWED UP THE EXPORT ON COMMENTS THAT CONTAIN A NEWLINE CHARACTER. SEE, E.G., ROW 272 IN RAW DATA/ROW 126 IN MY QUAL_RESPONSES FILE.
+
 Plotting results of coding analysis of Q12: "Are there any other challenges you’ve encountered in open source, or types of support that you would find helpful?"
 
 ## Import packages and utilities

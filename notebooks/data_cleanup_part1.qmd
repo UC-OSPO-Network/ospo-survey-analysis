@@ -74,6 +74,10 @@ data <- data %>% select(-all_of(pii_cols))
 
 # Write qualitative responses to a file
 Note that I am curating the data a bit here. Some people hit 'return' in their text responses, which wreaked havoc on my parsing. So I am replacing tabs and newlines with a space.
+
+PARTICIPANTS WHO DIVULGED PERSONAL INFO THAT MUST BE MANUALLY CLEANED UP AFTER RUNNING THIS SCRIPT:
+75
+114
 ```{r}
 qual_cols <- c(
   "final_thoughts",

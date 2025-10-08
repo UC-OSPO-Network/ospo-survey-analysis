@@ -32,11 +32,20 @@ data_wide <- data %>%
 
 
 #For additional privacy, I'm rearranging the rows into a random order.
-
 data_wide_shuffled <- data_wide[sample.int(nrow(data_wide)), , drop = FALSE]
+
+# sort columns (codes) alphabetically,
+# except for the "content" col, which is the survey comment.
+final_data <- data_wide_shuffled %>%
+  select(-content) %>%
+  select(gtools::mixedsort(names(.)))
+final_data <- cbind(data_wide_shuffled$content, final_data)
+#rename this col
+names(final_data)[1] <- "content"
 
 # utils.R
 write_df_to_file(
-  data_wide_shuffled,
-  "supplementary_tables/q12_comments_all.tsv"
+  final_data,
+  #"supplementary_tables/q12_comments_all.tsv"
+  "supplementary_tables/q6_comments_all.tsv"
 )
