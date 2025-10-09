@@ -357,7 +357,8 @@ sapply(
 )
 ```
 
-First, let's explore the outcomes with different weighting schemes. I'm not cherry picking here, I'm just trying to understand the options.
+## "Global" emms: averaging over job category
+First, let's explore the "overall" ratings with different weighting schemes. I'm not cherry picking here, I'm just trying to understand the options.
 Let's calculate estimated marginal means for each solution, while holding job category constant. These will be really rough estimates, since we're averaging all the job categories, either equally or in proportion to their sample sizes. 
 
 (Here's a somewhat helpful explanation of weights in emmeans: https://stackoverflow.com/questions/66748520/what-is-the-difference-between-weights-cell-and-weights-proportional-in-r-pa)
@@ -370,15 +371,7 @@ sapply(c("equal", "prop", "outer", "cells", "flat"), \(w)
 
 We only get two sets of estimates: equal/flat gives us the estimates where all means are given equal weight. Prop, outer, and cells give us another set of estimates, where each prediction is given the weights proportional to sample size. At least, I think that's how it works. 
 
-Let's look at the average ratings by job category (our weighting scheme here doesn't matter, because we're splitting it up by job, not averaging over job).
-
-```{r}
-all_means <- emmeans(fit1b, ~ solution | job_category, mode="mean.class")
-summary(all_means) %>%
- arrange(desc(mean.class))
-```
-
-Here, we see that "a learning community" is more popular among non-research staff than among other groups. So, we expect that if all groups are weighted equally, "a learning community" will be less popular than if we weight the means by sample size.
+We know from the descriptive statistics and exploratory plots that "a learning community" is more popular among non-research staff than among other groups. So, we expect that if all groups are weighted equally, "a learning community" will be less popular than if we weight the means by sample size.
 
 Hmm. When I try running the command below, to get global solution ratings averaged over job, the command fails when I include mode="mean.class". It says no weighting information is available.
 ```{r}
@@ -386,63 +379,164 @@ summary(emmeans(fit1b, ~ solution, weights = "equal", mode = "mean.class")) %>%
   arrange(desc(mean.class))
 ```
 
-I think we can achieve the same result by running emmeans() on an emmGrid object, which doesn't do any predictions, it just collapses/averages the means already obtained in the first emmeans call. Let's check this without the mean.class argument.
+UPDATE: This was indeed a bug that will be fixed in the next version of emmeans. https://github.com/rvlenth/emmeans/issues/553
+
+Below is Russ Lenth's suggested workaround to "manually" calculate weighted means on the mean.class scale.
 
 ```{r}
-t <- emmeans(fit1b, ~ solution | job_category)
-t2 <- emmeans(t, ~ solution)
-t3 <- emmeans(fit1b, ~ solution)
-
-head(summary(t2))
-head(summary(t3))
+# Just for fun -- will not report
+emm.pr <- emmeans(fit1b, ~ utility|solution, weights = "prop", mode = "prob")
+contrast(emm.pr, list(mc = 1:3)) |> confint(by=NULL) |> arrange(desc(estimate))
 ```
-
-The results are the same. So I think we can use this method to get weighted global means on the mean.class scale. Let's try it.
+```{r}
+# Use this one for supplement
+emm.eq <- emmeans(fit1b, ~ utility|solution, weights = "equal", mode = "prob")
+emm.eq.res <- contrast(emm.eq, list(mc = 1:3)) |> confint(by=NULL) |> arrange(desc(estimate))
+emm.eq.res
+```
 
 ```{r}
-overall_equal <- emmeans(all_means, ~ solution, weights = "equal")
+# From utils.R
+write_df_to_file(emm.eq.res, "supplementary_tables/solns_global_mean_ratings.tsv")
 ```
 
-Still getting the error. Here are some hail mary attempts to troubleshoot. (Read: I have no idea what I'm doing.)
+When we use the default weighting of "equal", "A learning community" is #8, but with "prop" weighting, it rises to #5. This makes sense, as discussed above.
+
+It's not great to average over a factor that we've already established is important. I'll report it, but with big caveats in the text. I like prop weighting since this is an observational study--the samples are not equal. For lack of a better idea (e.g. weighting groups by expected population size), we are "correcting" for the differences in sample size, so that all groups get equal weight.
+
+## Emms for each solution, for each job category
+Here, we get the mean ratings for each job, ordered by job. 
+```{r}
+all_means <- emmeans(fit1b, ~ solution | job_category, mode="mean.class")
+summary(all_means) %>%
+ arrange(desc(mean.class))
+```
+
+The same data, but ordered by solution.
+```{r}
+all_means2 <- emmeans(fit1b, ~ job_category | solution, mode="mean.class")
+summary(all_means2) %>%
+ arrange(desc(mean.class))
+```
+
+## Pairwise comparisons
+Here, we are looking at all possible pairwise comparisons. Again, we are no longer averaging over job category.
+
+I'm using Russ's workaround again because I was playing around with different weighting schemes. In the end, I decided on equal, the default.
 
 ```{r}
-head(summary(emmeans(all_means, ~ solution, by = NULL)))
-head(summary(emmeans(all_means, ~ solution, weights = NULL)))
-head(summary(emmeans(all_means, ~ solution, weights = "prop")))
-head(summary(emmeans(all_means, ~ solution, weights = ref_grid(fit1b)@grid)))
-head(summary(emmeans(all_means, ~ solution, weights = "show.levels")))
+emm.eq.job <- emmeans(fit1b, ~ utility | job_category * solution, mode = "prob")
+emm.eq.job.res <- contrast(emm.eq.job, list(mc=1:3))
+emm.eq.job.res |> confint(by=NULL)
 ```
 
-Okay, so I'm having a really hard time getting emmeans to incorporate weights when averaging over the estimates made in mean.class mode. I guess I will just use the default log scale. Maybe it's just not possible to incorporate weights when using the mean.class scale, because of math that I don't understand.
+Here, we get all pairwise comparisons, with p-values. The "estimate" here is the difference between the estimated means above.
+```{r}
+by_job <- summary(
+  pairs(emm.eq.job.res, by = "job_category"),
+  infer = TRUE # infer CIs
+)
+by_job
+```
+
+Save results for supplement.
+```{r}
+# From utils.R
+write_df_to_file(by_job, "supplementary_tables/solutions_pairwise_contrasts_byjob.tsv")
+```
+
+And do the same, but sorting by solution.
+```{r}
+by_soln <- summary(
+  pairs(emm.eq.job.res, by = "solution"),
+  infer = TRUE # infer CIs
+)
+by_soln
+```
+
+Save results for supplement.
+```{r}
+# From utils.R
+write_df_to_file(by_soln, "supplementary_tables/solutions_pairwise_contrasts_bysoln.tsv")
+```
+
+
+Let's glance at the significant differences.
+```{r}
+# Because there are so many significant comparisons,
+# let's be stringent
+sig_by_job <- subset(by_job, p.value < 0.0005)
+sig_by_job
+```
 
 ```{r}
-overall_equal <- emmeans(fit1b, ~ solution, weights = "equal")
-summary(overall_equal) %>% 
-  arrange(desc(emmean))
+sig_by_soln <- subset(by_soln, p.value < 0.05)
+sig_by_soln
 ```
 
+Okay, so here, the "estimate" column shows the difference in estimated marginal means for the two levels of interest, holding the other factor level constant (of my two factors, job and solution). So when the contrast is Computing environments vs. A learning community, the job_category is Faculty, and the estimate is 0.57, this indicates that the difference between the estimates of faculty's average rating of computer environments and their average rating of a learning community is 0.56, on a three-point scale.
 
 ```{r}
-overall_prop <- emmeans(fit1b, ~ solution, weights = "prop")
-summary(overall_prop) %>% 
-  arrange(desc(emmean))
+subset(
+  summary(all_means),
+  job_category == "Faculty" & solution == "Computing environments"
+)$mean.class -
+  subset(
+    summary(all_means),
+    job_category == "Faculty" & solution == "A learning community"
+  )$mean.class
 ```
 
-When we use the default weighting of "equal", "A learning community" is #8, but with "prop" weighting, it rises to #6. This makes sense, as discussed above.
+Sustainability grants and Finding funding show up frequently as being significantly higher than some of the other solutions. Let's plot the distributions of responses for sustainability grants, as a sanity check.
 
-The more that I think about it, the more I feel like we shouldn't even report the global emms--just emms by job. It may do more harm than good to average over a factor that we've already established is important. So let's look at emms by job.
+```{r, fig.width=10, fig.height=8}
+grant_ratings <- grouped_bar_chart(
+  df = subset(combined, solution=="Sustainability grants"),
+  x_var = "job_category",
+  fill_var = "utility",
+  title = "Ratings for 'Sustainability grants'")
+grant_ratings
+```
 
 ```{r}
-# This yields the same results: emmeans(fit1b, ~ solution | job_category, mode = "mean.class")
-emm <- summary(emmeans(fit1b, ~ solution * job_category, mode = "mean.class"))
-emm
+save_plot("solns_grants.tiff", 12, 10, p=grant_ratings)
 ```
+
+
+# Kruskal-Wallis test for ranking differences between groups
+
+Non-parametric corroboration of the extent of disagreement between groups. Whereas above, we tested for differences in mean ratings, here we are testing for differences in the distributions of ratings for each solution.
+
+```{r}
+combined2 <- combined %>%
+  mutate(
+    utility_score = recode(
+      utility,
+      "Non-applicable" = 0L,
+      "Not very useful" = 0L,
+      "Useful" = 1L,
+      "Very useful" = 2L
+    )
+  )
+
+kw_results <- sapply(split(combined2, combined2$solution), function(df) {
+  kruskal.test(utility_score ~ job_category, data = df)$p.value
+})
+
+p_adj_kw <- p.adjust(kw_results, "holm")
+
+p_adj_kw < 0.05
+sum(p_adj_kw < 0.05)
+```
+
+Hm. The results are a little surprising. Only five solutions are "divisive" according to this test. But maybe it's not surprising, if the whole point of doing ordinal regression is that it's more sensitive than a non-parametric test.
+
 
 # Plot emms
 Plot the results.
 
 ```{r}
-emm_clean <- emm %>% 
+emm_clean <- summary(all_means) %>% 
   rename(mean = mean.class,
          lwr  = asymp.LCL,
          upr  = asymp.UCL) %>% 
@@ -589,113 +683,6 @@ save_plot("solns_learning_comm.tiff", 12, 10, p=learning_ratings)
 
 Ok, it's a messy plot but whatever. It shows that a lot of non-research staff selected "useful" or "very useful".
 
-# Pairwise comparisons and p-values
-
-```{r}
-emm_job <- emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
-by_job <- summary(
-  pairs(emm_job, by = "job_category"),
-  infer = TRUE # infer CIs
-)
-head(by_job)
-```
-
-Here we look at pairwise contrasts by solution. These data are sort-of-kind-of corroborated below with a Kruskal-Wallis test.
-```{r}
-# Same results as:
-# emm_soln <- emmeans(fit1b, ~ job_category * solution)
-emm_soln <- emmeans(fit1b, ~ job_category * solution, mode = "mean.class")
-by_soln <- summary(
-  pairs(emm_soln, by = "solution"),
-  infer = TRUE # infer CIs
-) 
-
-head(by_soln)
-```
-
-Ugh, once again, mean.class is ignored! Annoying.
-
-Save results for supplement.
-
-```{r}
-# From utils.R
-write_df_to_file(by_job, "supplementary_tables/solutions_pairwise_contrasts_byjob.tsv")
-```
-
-```{r}
-# From utils.R
-write_df_to_file(by_soln, "supplementary_tables/solutions_pairwise_contrasts_bysoln.tsv")
-```
-
-Let's glance at the significant differences.
-```{r}
-# Because there are so many significant comparisons,
-# let's be stringent
-sig_by_job <- subset(by_job, p.value < 0.0005)
-sig_by_job
-```
-
-```{r}
-sig_by_soln <- subset(by_soln, p.value < 0.05)
-sig_by_soln
-```
-
-Okay, so here, the "estimate" column shows the difference in estimated marginal means for the two levels of interest, holding the other factor level constant (of my two factors, job and solution). So when the contrast is Computing environments vs. A learning community, the job_category is Faculty, and the estimate is 0.57, this indicates that the difference between the estimates of faculty's average rating of computer environments and their average rating of a learning community is 0.56, on a three-point scale.
-
-```{r}
-subset(
-  summary(emm),
-  job_category == "Faculty" & solution == "Computing environments"
-)$mean.class -
-  subset(
-    summary(emm),
-    job_category == "Faculty" & solution == "A learning community"
-  )$mean.class
-```
-
-Sustainability grants and Finding funding show up frequently as being significantly higher than some of the other solutions. Let's plot the distributions of responses for sustainability grants, as a sanity check.
-
-```{r, fig.width=10, fig.height=8}
-grant_ratings <- grouped_bar_chart(
-  df = subset(combined, solution=="Sustainability grants"),
-  x_var = "job_category",
-  fill_var = "utility",
-  title = "Ratings for 'Sustainability grants'")
-grant_ratings
-```
-
-```{r}
-save_plot("solns_grants.tiff", 12, 10, p=grant_ratings)
-```
-
-
-# Kruskal-Wallis test for ranking differences between groups
-
-Non-parametric corroboration of the extent of disagreement between groups. Whereas above, we tested for differences in mean ratings, here we are testing for differences in the distributions of ratings for each solution.
-
-```{r}
-combined2 <- combined %>%
-  mutate(
-    utility_score = recode(
-      utility,
-      "Non-applicable" = 0L,
-      "Not very useful" = 0L,
-      "Useful" = 1L,
-      "Very useful" = 2L
-    )
-  )
-
-kw_results <- sapply(split(combined2, combined2$solution), function(df) {
-  kruskal.test(utility_score ~ job_category, data = df)$p.value
-})
-
-p_adj_kw <- p.adjust(kw_results, "holm")
-
-p_adj_kw < 0.05
-sum(p_adj_kw < 0.05)
-```
-
-Hm. The results are a little surprising. Only five solutions are "divisive" according to this test. But maybe it's not surprising, if the whole point of doing ordinal regression is that it's more sensitive than a non-parametric test.
 
 # Session Info
 ```{r}
