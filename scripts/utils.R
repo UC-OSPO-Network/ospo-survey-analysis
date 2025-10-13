@@ -174,7 +174,8 @@ basic_bar_chart <- function(
   label_position = c("inside", "above"),
   label_color = "white",
   show_grid = TRUE,
-  percent = FALSE
+  percent = FALSE,
+  margin_vals = c(0.3, 0.3, 0.3, 0.3)
 ) {
   label_position <- match.arg(label_position)
 
@@ -229,7 +230,7 @@ basic_bar_chart <- function(
         size = title_size,
         margin = margin(b = 15)
       ),
-      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+      plot.margin = unit(margin_vals, "cm")
     )
 
   # Convert y-axis values from proportion to percent (optional)

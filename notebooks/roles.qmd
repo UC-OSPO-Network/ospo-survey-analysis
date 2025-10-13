@@ -430,6 +430,7 @@ unname(rowSums(roles_job %>% select(-job_category)))
 head(roles_job)
 ```
 
+## Table
 First, let's explore the % maintainers for all 5 job categories.
 
 ```{r}
@@ -445,8 +446,90 @@ by_job <- roles_job %>%
 by_job
 ```
 
-Eh, I think this is pretty interesting. I see no need to dig deeper. Let's save it.
+## Plots
+```{r}
+job_maint_to_plot <- roles_job %>%
+  group_by(job_category) %>%
+  summarise(
+    maintainer = sum(Maintainer == 1),
+    not_maintainer = sum(Maintainer == 0)
+  ) %>%
+  ungroup()
+
+job_maint_to_plot <- job_maint_to_plot %>%
+  pivot_longer(
+    cols = -c(job_category),
+    names_to = "Maintainer",
+    values_to = "n"
+  )
+```
 
 ```{r}
-write_df_to_file(by_job, "supplementary_tables/maintainer_perc_by_job.tsv")
+# Reorder factor levels by the highest proportion of maintainers
+ordered_jobs <- job_maint_to_plot %>%
+  group_by(job_category) %>%
+  summarise(
+    maintainer = n[Maintainer=="maintainer"],
+    not_maintainer = n[Maintainer=="not_maintainer"],
+    .groups = "drop"
+  ) %>%
+  mutate(ratio = maintainer / not_maintainer) %>%
+  arrange(desc(ratio)) %>%
+  pull(job_category)
+
+job_maint_to_plot$job_category <- factor(job_maint_to_plot$job_category, levels = ordered_jobs)
+
+job_maint_to_plot$Maintainer <- factor(job_maint_to_plot$Maintainer, levels = c("not_maintainer", "maintainer"))
+
+# Make the labels prettier for legend
+legend_labs <- stringr::str_to_sentence(gsub("_", " ", levels(job_maint_to_plot$Maintainer)))
 ```
+
+Plot
+```{r, fig.width=9, fig.height=8}
+stack <- stacked_bar_chart(
+  df = job_maint_to_plot,
+  x_var = "job_category",
+  y_var = "n",
+  fill = "Maintainer",
+  title = "Proportion of maintainers by job category")
+
+# COLORS from utils.R
+stack <- stack +
+  scale_fill_manual(labels = legend_labs, values = COLORS)
+
+stack
+```
+
+
+```{r, fig.width=9, fig.height=8}
+stack_prop <- stacked_bar_chart(
+  df = job_maint_to_plot,
+  x_var = "job_category",
+  y_var = "n",
+  ylabel = "Percent Maintainers",
+  fill = "Maintainer",
+  title = "Proportion of maintainers by job category",
+  proportional = TRUE
+)
+
+stack_prop <- stack_prop +
+  scale_y_continuous(labels = scales::percent)
+
+# COLORS from utils.R
+stack_prop <- stack_prop +
+  scale_fill_manual(labels = legend_labs, values = COLORS)
+
+stack_prop
+```
+
+
+```{r}
+p_combined <- stack + stack_prop & theme(plot.margin = unit(c(1, 1, 1, 1), "cm"))
+```
+
+
+```{r}
+svglite::svglite(file.path(FIGURE_PATH, "figure4.svg"), width = 16, height = 8); print(p_combined); dev.off()
+```
+

@@ -381,7 +381,7 @@ vc_hosting_field_plot <- ggplot(
   )
 ) +
   geom_bar(stat = "identity", position = "dodge") +
-  ggtitle("Hosting service usage by field") +
+  ggtitle("Usage of hosting services by field") +
   labs(y = "Percent of respondents in field") +
   scale_fill_manual(values = COLORS) +
   scale_y_continuous(labels = scales::percent) +
@@ -648,7 +648,7 @@ data_repo_campus_plot <- ggplot(
   )
 ) +
   geom_bar(stat = "identity", position = "dodge") +
-  ggtitle("Usage of hosting services by campus") +
+  ggtitle("Usage of data repositories by campus") +
   labs(y = "Percent of campus\nrespondents") +
   scale_fill_manual(values = COLORS) +
   scale_y_continuous(labels = scales::percent) +
@@ -676,8 +676,20 @@ save_plot("data_repos_campus.tiff", 10, 6, p=data_repo_campus_plot)
 
 That's somewhat interesting. There are some differences between campuses.
 
-TODOs
-Maybe: Three-way "venn diagram": How many people share code in a data repository only, vc hosting platform only, or both?
+# Create a composite figure
+
+```{r}
+# From the patchwork package
+platforms_supp_fig <-
+  vc_hosting_field_plot +
+  vc_hosting_campus_plot +
+  data_repo_campus_plot +
+  plot_layout(ncol = 2)
+```
+
+```{r}
+svglite::svglite(file.path(FIGURE_PATH, "platforms_supp.svg"), width = 20, height = 12); print(platforms_supp_fig); dev.off()
+```
 
 ```{r}
 sessionInfo()

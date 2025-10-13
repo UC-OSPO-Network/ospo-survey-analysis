@@ -294,12 +294,20 @@ emm <- emmeans(fit6, ~ size * job_category, mode = "mean.class")
 ```
 
 ```{r}
-summary(emm) %>% 
+res <- summary(emm) %>% 
   arrange(desc(mean.class))
+res
 ```
 
 Hmm. Mildly interesting. As suggested by the exploratory plots, the results are fairly clean for small and large projects, but more muddled for medium projects.
 
+Save results for supplement.
+```{r}
+# From utils.R
+write_df_to_file(res, "supplementary_tables/projsizes_means.tsv")
+```
+
+## Pairwise differences
 ```{r}
 by_job <- summary(
   pairs(emm, by = "job_category"),
@@ -312,12 +320,23 @@ Wow, okay, still a lot of parameters to interpret.
 
 After staring at this for a while, I think the main conclusion is that everyone is more likely to contribute to small projects than large projects.
 
+Save results for supplement.
+```{r}
+# From utils.R
+write_df_to_file(by_job, "supplementary_tables/projsizes_by_job.tsv")
+```
+
 ```{r}
 by_size <- summary(
   pairs(emm, by = "size"),
   infer = TRUE # infer CIs
 )
 by_size
+```
+
+```{r}
+# From utils.R
+write_df_to_file(by_size, "supplementary_tables/projsizes_by_size.tsv")
 ```
 
 After staring at this for a while, I think we can conclude that academics contribute to large projects less frequently than non-research staff, but there is very little evidence to support the reverse--that academics are more likely to contribute to small projects than NR staff. (Only true for postdocs and staff researchers.)

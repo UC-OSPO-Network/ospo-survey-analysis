@@ -32,8 +32,13 @@ line_plot <- function(df, x_var, y_var, title) {
       axis.ticks.x = element_blank(),
       axis.ticks.y = element_blank(),
       legend.title = element_blank(),
-      plot.title = element_text(hjust = 0.5, size = 24),
-      plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
+      plot.title = element_text(
+        hjust = 0,
+        face = "bold",
+        size = 24,
+        margin = margin(b = 15)
+      ),
+      plot.margin = unit(c(1, 1, 1, 3), "cm"),
       panel.grid = element_line(linetype = "solid", color = "gray90"),
       panel.background = element_blank()
     )
@@ -90,26 +95,35 @@ motivations_to_plot <- motivations_to_plot %>%
 
 And make a plot, using a function in utils.R.
 ```{r, fig.width=9, fig.height=6}
-myplot <- basic_bar_chart(motivations_to_plot,
+basic_plot <- basic_bar_chart(motivations_to_plot,
   x_var = "Motivation",
   y_var = "Count",
-  title = "Reasons for Contributing to Open Source",
+  title = "Reasons for Contributing to\nOpen Source",
   horizontal = TRUE,
   show_bar_labels = TRUE,
   show_ticks_y = FALSE,
   color_index = 3,
   show_axis_title_x = TRUE,
   show_axis_title_y = FALSE,
-  show_grid = TRUE
+  show_grid = TRUE,
+  margin_vals = c(1, 1, 1, 1)
 )
-
-myplot
 ```
 
 Save the plot if you wish.
 ```{r}
-save_plot("motivations_overall.tiff", 10, 6, p=myplot)
+save_plot("motivations_overall.tiff", 10, 6, p=basic_plot)
 ```
+
+Save the data to a file for fine-tuning of plot.
+```{r}
+write_df_to_file(
+  motivations_to_plot,
+  file.path("data_for_plots/motivations_basic_bar.tsv")
+)
+```
+
+
 
 # Stacked bar plots of motivations by role
 Now let's make some stacked bar plots of motivations by role (job category). We'll make two: one with the absolute number of responses, and one where all roles are normalized to 1, so we can see the relative proportions of each motivation.
@@ -259,10 +273,70 @@ Save
 save_plot("motivations_stacks_it_academics.tiff", 8, 8, p=stacked_plot_proportional_it)
 ```
 
+## Simple bar plot of just "doing my job"
 
-# Line plots for particular motivations
+```{r}
+it_job <- it %>%
+  select("Job")
+it_job$Role <- "IT"
+head(it_job)
+dim(it_job)
+```
+
+```{r}
+# Everyone except non-research staff
+academics_job <- academics %>%
+  select("Job")
+academics_job$Role <- "Academic"
+head(academics_job)
+dim(academics_job)
+```
+
+```{r}
+it_job_prop_yes <- sum(it_job$Job) / nrow(it_job)
+acad_job_prop_yes <- sum(academics_job$Job) / nrow(academics_job)
+
+it_acad_job_data <- data.frame(
+  role = c("IT", "Academic"),
+  proportion_yes = c(
+    it_job_prop_yes,
+    acad_job_prop_yes
+  )
+)
+```
+
+```{r}
+it_acad_job_plot <- basic_bar_chart(it_acad_job_data,
+  x_var = "role",
+  y_var = "proportion_yes",
+  title = "Percent of Respondents who said\n'Developing open source products\nis part of my job'",
+  show_bar_labels = FALSE,
+  show_ticks_y = FALSE,
+  show_axis_title_y = FALSE,
+  show_axis_title_x = FALSE,
+  show_grid = TRUE,
+  percent = TRUE,
+  margin_vals = c(3, 1, 1, 1)
+)
+```
+
+```{r}
+save_plot("acad_it_simple.tiff", 10, 8, p=it_acad_job_plot)
+```
+
+Save the data to a file for fine-tuning of plot.
+```{r}
+write_df_to_file(
+  it_acad_job_data,
+  file.path("data_for_plots/motivations_it_acad.tsv")
+)
+```
+
+# Scatter plots for particular motivations
 
 All 7 undergraduates selected "Skills" and "Give back" as motivations. This made me curious about whether these motivations decrease as we get older and advance in our careers. Let's make some line plots to investigate.
+
+## Skills
 ```{r}
 # Drop staff categories (e.g. IT)
 motivations_job <- subset(motivations_job_staff, select=-staff_category)
@@ -313,6 +387,15 @@ Save
 save_plot("motivations_skill_by_role.tiff", 10, 8, p=skills_plot)
 ```
 
+Save the data to a file for fine-tuning of plot.
+```{r}
+write_df_to_file(
+  skills_by_role_grouped,
+  file.path("data_for_plots/motivations_skills.tsv")
+)
+```
+
+## Give back
 What about giving back?
 ```{r}
 give_by_role_grouped <- motivations_job_clean %>%
@@ -343,6 +426,7 @@ give_by_role_grouped <- give_by_role_grouped %>%
 
 Plot and visualize
 ```{r fig.width=9, fig.height=8}
+ #Function defined in this notebook
 give_plot <- line_plot(give_by_role_grouped,
   x_var = "job_category",
   y_var = "Proportion",
