@@ -1,10 +1,10 @@
-Lessons learned
+# Lessons learned
 
 For anyone who is looking to replicate our survey, or parts of it, please
 consider improving on our survey instrument with these “lessons learned”.
 Hindsight is 20/20…
 
-General thoughts
+## General thoughts
 
 - Making nearly all questions mandatory was a good choice–it makes the
   statistics much easier.
@@ -21,6 +21,7 @@ General thoughts
   “Graduate Student” and “Undergraduate Student” instead of “Grad Student” and
   “Undergraduate”, and “Postdoc” instead of “Post-Doc”, and that we had used
   consistent capitalization for “Non-research Staff” and “Other research staff”.
+  It just makes the analysis easier.
 - There is a demographic of people who used to do OS work in industry. Consider
   rereading the survey with these folks in mind, and make sure they’re able to
   answer all Qs.
@@ -29,7 +30,7 @@ General thoughts
   contributed to that tool. (jQuery, Drupal, etc.) Ask Patrick Masson of Apereo
   about this—he has some preliminary data.
 
-Specific Qs
+## Specific Qs
 
 - Maybe Q2 should have had an “I don’t know” option
 - For Q2, perhaps we should have directly asked researchers whether they feel

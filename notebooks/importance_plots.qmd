@@ -190,7 +190,7 @@ basic_bar_chart(
 
 Save the plot using a function that lives in my utilities script (`scripts/utils.R`).
 ```{r}
-#save_plot("importance_teachers.tiff", 8, 5)
+save_plot("importance_teachers.tiff", 8, 5)
 ```
 
 
@@ -226,7 +226,7 @@ grouped_bar_chart(
 ```
 
 ```{r}
-#save_plot("importance_researchers.tiff", 10, 5)
+save_plot("importance_researchers.tiff", 10, 5)
 ```
 
 
@@ -251,7 +251,7 @@ grouped_bar_chart(
 ```
 
 ```{r}
-#save_plot("importance_nrstaff.tiff", 10, 5)
+save_plot("importance_nrstaff.tiff", 10, 5)
 ```
 
 
@@ -607,9 +607,78 @@ p
 
 ```
 
+This is the version I've used for powerpoint presentations
 ```{r}
 save_plot("importance_all_pct.tiff", 12, 8, p=p)
 ```
+
+This is the version for the journal, meeting their submission requirements.
+```{r fig.width=16, fig.height=8}
+p2 <- ggplot(
+  more_than_mod,
+  aes(
+    x = job_category,
+    y = pct,
+    fill = importance_area
+  )
+) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_hline(yintercept = 80, linetype = "dashed", color = "black") +
+  ggtitle("Perceived Importance of Open Source\nfor Different Kinds of Work") +
+  labs(
+    y = "Percent of Respondents Who Said OS\nIs above Moderate Importance"
+  ) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  coord_cartesian(ylim = c(50, 100)) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 10),
+    axis.text.x = element_text(
+      angle = 60,
+      vjust = 1,
+      hjust = 1,
+      size = 8,
+      margin = margin(t = 12)
+    ),
+    axis.text.y = element_text(
+      size = 7,
+      margin = margin(l = 8)
+    ),
+    axis.ticks.x = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 8),
+    panel.background = element_blank(),
+    plot.title = element_text(hjust = 0, size = 10, face = "bold"),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
+    panel.grid = element_line(linetype = "solid", color = "gray90")
+  ) +
+  #https://sronpersonalpages.nl/~pault/
+  scale_fill_manual(
+    values = c(
+      '#4477AA',
+      '#EE6677',
+      '#228833',
+      '#CCBB44',
+      '#66CCEE'
+    )
+  )
+
+p2
+
+```
+
+```{r}
+# FIGURE_PATH is in .Renviron file
+ggsave(
+  file.path(FIGURE_PATH, "fig3.tif"), p2,
+  width  = 5.2,
+  height = 5.2 * (8/12),   # = 3.4667 in
+  units = "in",
+  dpi = 600
+)
+```
+
+
 
 # Get numbers, not just %
 
