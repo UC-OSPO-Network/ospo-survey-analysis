@@ -1,0 +1,135 @@
+---
+title: "Figure 8"
+---
+
+# Overview
+
+This script takes a data frame produced by challenges.qmd and outputs a figure that adheres to PLOS submission guidelines.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+
+```{r}
+# This poorly named function from utils.R
+# is basically just read.csv with my data path in there
+clust1 <- load_qualtrics_data(file.path("data_for_plots/chall_cluster1.tsv"))
+clust2 <- load_qualtrics_data(file.path("data_for_plots/chall_cluster2.tsv"))
+clust3 <- load_qualtrics_data(file.path("data_for_plots/chall_cluster3.tsv"))
+```
+
+```{r}
+# Paul Tol's sunset theme
+#https://sronpersonalpages.nl/~pault/
+sunset <- c(
+  "#A50026",
+  "#F67E4B",
+  "#FEDA8B",
+  "#C2E4EF",
+  "#6EA6CD",
+  "#364B9A"
+)
+```
+
+
+```{r}
+p1 <- stacked_bar_chart(
+  df = clust1,
+  x_var = "challenge",
+  y_var = "total",
+  fill = "challenge_level",
+  title = "Cluster 1",
+  ylabel = NULL,
+  show_axis_title_y = FALSE,
+  show_x_axis_text = FALSE,
+  show_grid = TRUE,
+  show_legend = FALSE, # don't show legend
+  horizontal = TRUE,
+  proportional = TRUE,
+  cpalette = sunset,
+  legend_text_size = 7,
+  margin_vals = c(0.3, 0.3, 0.3, 0.3),
+  plot_title_size = 8,
+  x_axis_text_size = 7,
+  y_axis_text_size = 7,
+  y_axis_title_size = 7
+)
+
+p2 <- stacked_bar_chart(
+  df = clust2,
+  x_var = "challenge",
+  y_var = "total",
+  fill = "challenge_level",
+  title = "Cluster 2",
+  ylabel = NULL,
+  legend_left_margin = 15, # show legend, with a wide margin
+  show_axis_title_y = FALSE,
+  show_x_axis_text = FALSE,
+  show_grid = TRUE,
+  horizontal = TRUE,
+  proportional = TRUE,
+  cpalette = sunset,
+  legend_text_size = 7,
+  margin_vals = c(0.3, 0.3, 0.3, 0.3),
+  plot_title_size = 8,
+  x_axis_text_size = 7,
+  y_axis_text_size = 7,
+  y_axis_title_size = 7
+)
+
+p3 <- stacked_bar_chart(
+  df = clust3,
+  x_var = "challenge",
+  y_var = "total",
+  fill = "challenge_level",
+  title = "Cluster 3",
+  ylabel = NULL,
+  show_axis_title_y = FALSE,
+  show_x_axis_text = FALSE,
+  show_grid = TRUE,
+  show_legend = FALSE, # don't show legend
+  horizontal = TRUE,
+  proportional = TRUE,
+  cpalette = sunset,
+  legend_text_size = 7,
+  margin_vals = c(0.3, 0.3, 0.3, 0.3),
+  plot_title_size = 8,
+  x_axis_text_size = 7,
+  y_axis_text_size = 7,
+  y_axis_title_size = 7
+)
+```
+
+
+```{r, fig.width=14, fig.height=12}
+p_combined <- patchwork::wrap_plots(p1, p2, p3, ncol = 1) +
+  patchwork::plot_layout(heights = c(1, 1, 2)) +
+  patchwork::plot_annotation(
+    title = "Frequency of Open Source Challenges",
+    theme = theme(plot.title = element_text(
+      size = 8,
+      face = "bold",
+      margin = margin(t = 15),
+      hjust = 0.5)
+      )
+  )
+
+ggsave(
+  filename = file.path(FIGURE_PATH, "fig8.tif"),
+  plot = p_combined + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 7)),
+  device = "tiff",
+  width = 5.2, height = 5.2, units = "in",
+  dpi = 300,                
+  compression = "none",    
+  bg = "white"
+)
+```
+

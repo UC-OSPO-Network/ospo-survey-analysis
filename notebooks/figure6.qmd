@@ -1,0 +1,135 @@
+---
+title: "Figure 6"
+---
+
+# Overview
+
+This script takes a data frame produced by platforms.qmd and outputs a figure that adheres to PLOS submission guidelines.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+
+```{r}
+platforms_raw <- load_qualtrics_data("clean_data/hosting_services_Q8.tsv")
+
+# This poorly named function from utils.R
+# is basically just read.csv with my data path in there
+vc <- load_qualtrics_data(file.path("data_for_plots/vc_platforms.tsv"))
+data_repos <- load_qualtrics_data(file.path("data_for_plots/data_repo_platforms.tsv"))
+```
+
+```{r}
+counts <- data.frame(colSums(platforms_raw))
+names(counts)[1] <- "count"
+counts <- counts %>% arrange(desc(count))
+counts
+
+# Includes all platforms
+ordered_platforms <- rownames(counts)
+```
+
+
+```{r}
+vc$platform <- factor(
+  vc$platform,
+  levels = rev(ordered_platforms)
+)
+
+data_repos$platform <- factor(
+  data_repos$platform,
+  levels = rev(ordered_platforms)
+)
+```
+
+
+```{r}
+p_vc <- basic_bar_chart(
+  df = vc,
+  x_var = "platform",
+  y_var = "prop",
+  title = "Usage of version control\nhosting platforms",
+  ylabel = "Percent of Respondents",
+  axis_title_size_x = 6,
+  axis_title_size_y = 6,
+  axis_text_size_x = 6,
+  axis_text_size_y = 6,
+  title_size = 7,
+  show_axis_title_x = TRUE,
+  show_axis_title_y = FALSE,
+  show_bar_labels = TRUE,
+  label_position = "above",
+  label_color = "black",
+  label_size = 2.1,
+  plot_title_margin_b = 2,
+  percent = TRUE,
+  horizontal = TRUE,
+  color_index = 9,
+  x_axis_title_margin_t = 5
+) 
+
+p_vc <- p_vc + 
+   # Expands y-axis by 15% on the upper end
+  scale_y_continuous(
+  labels = percent, 
+  expand = expansion(mult = c(0, .15))
+  )
+
+p_data <- basic_bar_chart(
+  df = data_repos,
+  x_var = "platform",
+  y_var = "prop",
+  title = "Usage of data repositories",
+  ylabel = "Percent of Academic Respondents",
+  axis_title_size_x = 6,
+  axis_title_size_y = 6,
+  axis_text_size_x = 6,
+  axis_text_size_y = 6,
+  title_size = 7,
+  show_axis_title_x = TRUE,
+  show_axis_title_y = FALSE,
+  show_bar_labels = TRUE,
+  label_position = "above",
+  label_color = "black",
+  label_size = 2.1,
+  plot_title_margin_b = 2,
+  percent = TRUE,
+  horizontal = TRUE,
+  color_index = 9,
+  x_axis_title_margin_t = 5
+) 
+
+p_data <- p_data +
+  scale_y_continuous(
+  labels = scales::percent,
+  limits = c(0, 1),
+  expand = expansion(mult = c(0, .1))
+)
+```
+
+```{r}
+p_combined <- patchwork::wrap_plots(
+  p_vc,
+  plot_spacer(),
+  p_data
+) + 
+  plot_layout(widths = c(1, 0.01, 1))
+
+ggsave(
+  filename = file.path(FIGURE_PATH, "fig6.tif"),
+  plot = p_combined + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 7)),
+  device = "tiff",
+  width = 5.2, height = 2.5, units = "in",
+  dpi = 450,                
+  compression = "none",    
+  bg = "white"
+)
+```

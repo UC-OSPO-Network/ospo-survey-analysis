@@ -1,0 +1,135 @@
+---
+title: "Figure 5"
+---
+
+# Overview
+
+This script takes a data frame produced by sizes_plots.qmd and outputs a figure that adheres to PLOS submission guidelines.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+
+```{r}
+# This poorly named function from utils.R
+# is basically just read.csv with my data path in there
+acad_counts <- load_qualtrics_data(file.path("data_for_plots/project_sizes_acad.tsv"))
+staff_counts <- load_qualtrics_data(file.path("data_for_plots/project_sizes_staff.tsv"))
+```
+
+```{r}
+my_colors <- c("#D6604D", "#FDDBC7", "#D1E5F0", "#4393C3")
+```
+
+# Reorder factor levels
+
+```{r}
+ordered_freqs <- c(
+  "Never",
+  "Relatively infrequently",
+  "Occasionally",
+  "Relatively frequently"
+)
+
+ordered_sizes <- c(
+  "Small",
+  "Medium",
+  "Large"
+)
+
+acad_counts$frequency <- factor(
+  acad_counts$frequency,
+  levels = ordered_freqs
+)
+
+acad_counts$size <- factor(
+  acad_counts$size,
+  levels = ordered_sizes
+)
+
+staff_counts$frequency <- factor(
+  staff_counts$frequency,
+  levels = ordered_freqs
+)
+
+staff_counts$size <- factor(
+  staff_counts$size,
+  levels = ordered_sizes
+)
+```
+
+# Plot
+
+```{r}
+p_acad <- stacked_bar_chart(
+  acad_counts,
+  x_var = "size",
+  y_var = "n",
+  fill = "frequency",
+  title = "Frequency of Contribution by\nProject Size: Academics",
+  ylabel = "Percent of Responses",
+  proportional = TRUE,
+  show_legend = FALSE,
+  legend_text_size = 6,
+  margin_vals = c(0.1, 0.1, 0.1, 0.1),
+  plot_title_size = 7,
+  y_axis_text_size = 6,
+  y_axis_title_size = 6,
+  x_axis_text_size = 6,
+  cpalette = my_colors
+)
+
+p_acad <- p_acad +
+  scale_y_continuous(labels = scales::percent)
+
+
+p_staff <- stacked_bar_chart(
+  staff_counts,
+  x_var = "size",
+  y_var = "n",
+  fill = "frequency",
+  title = "Frequency of Contribution by\nProject Size: Non-research Staff",
+  ylabel = "Percent of Responses",
+  proportional = TRUE,
+  show_axis_title_y = FALSE,
+  legend_text_size = 6,
+  margin_vals = c(0.1, 0.1, 0.1, 0.1),
+  plot_title_size = 7,
+  y_axis_text_size = 6,
+  y_axis_title_size = 6,
+  x_axis_text_size = 6,
+  cpalette = my_colors
+)
+
+p_staff <- p_staff +
+  scale_y_continuous(labels = scales::percent)
+```
+
+Combine onto one plot and save
+
+```{r}
+p_combined <- patchwork::wrap_plots(
+  p_acad,
+  plot_spacer(),
+  p_staff
+) + 
+  plot_layout(widths = c(1, 0.1, 1))
+
+ggsave(
+  filename = file.path(FIGURE_PATH, "fig5.tif"),
+  plot = p_combined + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 7)),
+  device = "tiff",
+  width = 5.2, height = 2.5, units = "in",
+  dpi = 450,                
+  compression = "none",    
+  bg = "white"
+)
+```

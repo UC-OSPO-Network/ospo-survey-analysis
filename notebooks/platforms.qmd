@@ -184,6 +184,12 @@ hosting_platform_data$platform <- factor(
 )
 ```
 
+Save the data frame for tweaking the final figure
+```{r}
+write_df_to_file(hosting_platform_data, "data_for_plots/vc_platforms.tsv")
+```
+
+
 ```{r, fig.width=10, fig.height=8}
 basic_bar_vc <- basic_bar_chart(
   df = hosting_platform_data,
@@ -565,6 +571,11 @@ expanded_data_repos$platform <- factor(
   expanded_data_repos$platform,
   levels = rev(ordered_platforms)
 )
+```
+
+Save the data frame for tweaking the final figure
+```{r}
+write_df_to_file(expanded_data_repos, "data_for_plots/data_repo_platforms.tsv")
 ```
 
 

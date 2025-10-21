@@ -272,7 +272,6 @@ p_job <- ggplot(job_data) +
 Since patchwork does not have functionality to draw lines across panels, I will draw them by hand in an image editor.
 ```{r}
 #patchwork package
-#ps2 <- p_status + theme(plot.background = element_rect(color = "black", linewidth = 1))
 top_row <- plot_spacer() + p_status + plot_spacer() + p_campus + plot_spacer() + plot_layout(widths = c(0.5, 1, 0.2, 1, 0.5) ) 
 bottom_row <- p_field + p_job + p_staff
 p_combined <- patchwork::wrap_plots(

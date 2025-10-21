@@ -1,0 +1,177 @@
+---
+title: "Figure 9"
+---
+
+# Overview
+
+This script takes data frames produced by solutions_plots.qmd, solutions_stats.qmd, and future_contributors_plots.qmd and outputs a figure that adheres to PLOS submission guidelines.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+
+# Load data
+
+```{r}
+# This poorly named function from utils.R
+# is basically just read.csv with my data path in there
+exp <- load_qualtrics_data(file.path("data_for_plots/exp_fave_solns.tsv"))
+emm <- load_qualtrics_data(file.path("data_for_plots/emms_solns.tsv"))
+asp <- load_qualtrics_data(file.path("data_for_plots/asp_fave_solns.tsv"))
+# Note these solutions are deliberately in reverse order; 
+# these will be flipped later w coord_flip()
+solns_ordered <- load_qualtrics_data(file.path("data_for_plots/solns_ordered.tsv"))$soln
+```
+
+# Plot
+
+```{r}
+# from scripts/utils.R
+exp <- reorder_factor_by_column(
+  df = exp,
+  factor_col = Var1,
+  value_col = Freq,
+  descending = FALSE
+)
+
+p_exp <- basic_bar_chart(
+  df = exp,
+  x_var = "Var1",
+  y_var = "Freq",
+  title = "Experienced Contributors'\nFavorite Solutions",
+  show_axis_title_x = TRUE,
+  show_axis_title_y = FALSE,
+  ylabel = "Number of Respondents",
+  show_bar_labels = TRUE,
+  color_index = 11,
+  horizontal = TRUE,
+  axis_title_size_x = 6,
+  axis_title_size_y = 6,
+  axis_text_size_x = 6,
+  axis_text_size_y = 6,
+  title_size = 7,
+  label_size = 2,
+  x_axis_title_margin_t = 5,
+  plot_title_margin_b = 5,
+  margin_vals = c(0.3, 0.3, 0, 0.3)
+)
+```
+
+```{r}
+emm <- emm %>% 
+  mutate(solution = factor(solution, levels = solns_ordered))
+
+interleaved <- as.vector(rbind(paste0(solns_ordered, "_sp"), solns_ordered))
+interleaved[length(interleaved)+1] <- "padding_sp"
+
+# Define a position dodge object to ensure points and error bars align
+pd <- position_dodge(width = 0.5)
+
+# one stripe per real category row
+bg <- tibble(cat = factor(interleaved, levels = interleaved)) %>%
+  mutate(
+    ymin = as.numeric(cat) - 0.5,
+    ymax = as.numeric(cat) + 0.5
+  )
+bg_even <- dplyr::filter(bg, row_number() %% 2 == 0)
+bg_odd  <- dplyr::filter(bg, row_number() %% 2 == 1)
+
+
+# Create the single, combined plot
+p_emm <- ggplot(emm, 
+       aes(x = solution, y = mean, 
+           color = job_category, 
+           shape = job_category,
+           group = job_category)) +
+# It's important that these rectangles are above the points and
+# errors bars, so they'll the the bottom layer on the plot
+  geom_rect(data = bg_odd,
+          aes(xmin = ymin, xmax = ymax, ymin = -Inf, ymax = Inf),
+          inherit.aes = FALSE, fill = "#f8f8f8", color = NA) +
+  geom_rect(data = bg_even,
+          aes(xmin = ymin, xmax = ymax, ymin = -Inf, ymax = Inf),
+          inherit.aes = FALSE, fill = "#e6e6e6", color = NA) +
+  geom_hline(yintercept = seq(1, 3, 0.5), color = "gray90") +
+  geom_errorbar(aes(ymin = lwr, ymax = upr),
+                width = 0.2, 
+                linewidth = 0.2, 
+                position = pd) +
+  geom_point(size = 1.5, position = pd) +
+  scale_shape_manual(values = c(16, 17, 15, 18)) +
+  scale_x_discrete(limits = interleaved, breaks = solns_ordered) +
+  ylim(c(1, 3)) +
+  labs(
+    title = "Estimated Mean Rating by Job Category",
+    x = NULL,
+    y = "Estimated mean rating"
+  ) +
+  coord_flip() +
+  theme(
+    plot.title = element_text(size = 7, hjust = 0, face = "bold"),
+    axis.text.x = element_text(size = 6),
+    axis.text.y = element_text(size = 6),
+    axis.title.x = element_text(size = 7),
+    panel.background = element_blank(),
+    #panel.grid.major.x = element_line(linetype = "solid", color = "gray90"),
+    #panel.grid.major.y = element_line(linetype = "dashed", color = "gray95"),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
+    legend.title = element_blank(),
+    legend.text=element_text(size=6)
+  )
+```
+
+
+
+```{r}
+asp <- asp %>%
+  mutate(Solution = fct_reorder(Solution, Count, .desc = FALSE))
+
+p_asp <- basic_bar_chart(asp,
+  x_var = "Solution",
+  y_var = "Count",
+  title = "What Would Help Aspiring\nContributors Get Started",
+  horizontal = TRUE,
+  show_bar_labels = TRUE,
+  show_ticks_y = FALSE,
+  color_index = 12,
+  show_axis_title_x = TRUE,
+  show_axis_title_y = FALSE,
+  show_grid = TRUE,
+  axis_title_size_x = 6,
+  axis_title_size_y = 6,
+  axis_text_size_x = 6,
+  axis_text_size_y = 6,
+  title_size = 7,
+  label_size = 2,
+  x_axis_title_margin_t = 5,
+  plot_title_margin_b = 5
+)
+```
+
+```{r}
+# From the patchwork package
+layout <- "
+AABB
+CCBB
+"
+p_combined <- p_exp + p_emm + p_asp +
+  plot_layout(design = layout)
+
+
+ggsave(
+  filename = file.path(FIGURE_PATH, "fig9.tif"),
+  plot = p_combined + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 7)),
+  device = "tiff",
+  width = 7.5, height = 4, units = "in",
+  dpi = 300,                
+  compression = "none",    
+  bg = "white"
+)
+```

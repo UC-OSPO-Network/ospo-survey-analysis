@@ -1,7 +1,0 @@
----
-title: "Figure 3"
----
-
-# Overview
-
-Combine several figure panels from disparate scripts into one plot: figure 3.

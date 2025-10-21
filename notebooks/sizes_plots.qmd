@@ -264,6 +264,11 @@ nrstaff_counts <- combined_acad_nrstaff %>%
   count(size, frequency, name = "n")
 ```
 
+Save data frames for fine-tuning of figure in a separate script.
+```{r}
+write_df_to_file(acad_counts, "data_for_plots/project_sizes_acad.tsv")
+write_df_to_file(nrstaff_counts, "data_for_plots/project_sizes_staff.tsv")
+```
 
 ```{r, fig.width=8, fig.height=8}
 stacked_bar_acad <- stacked_bar_chart(

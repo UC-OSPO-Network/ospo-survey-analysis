@@ -76,6 +76,13 @@ Save as SVG for the infographic.
 svglite::svglite(file.path(FIGURE_PATH, "future_contributors.svg"), width = 13, height = 6.5); print(myplot); dev.off()
 ```
 
+Save the data to file for tweaking the final figure. 
+
+```{r}
+write_df_to_file(to_plot, "data_for_plots/asp_fave_solns.tsv")
+```
+
+
 # Look at jobs of respondents
 NOW let's remove rows where the participant never saw the question. Also, remove rows where we have no data on the participant's job.
 ```{r}

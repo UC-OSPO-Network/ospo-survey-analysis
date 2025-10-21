@@ -193,6 +193,12 @@ save_plot("fave_solutions_simple.tiff", 12, 6, p=faves_plot)
 svglite::svglite(file.path(FIGURE_PATH, "fave_solutions_simple.svg"), width = 13, height = 6.5); print(faves_plot); dev.off()
 ```
 
+Save the data to file for tweaking the final figure. 
+
+```{r}
+write_df_to_file(fav_to_plot, "data_for_plots/exp_fave_solns.tsv")
+```
+
 # Incorporating demographics
 
 ## Plots

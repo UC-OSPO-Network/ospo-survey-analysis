@@ -16,7 +16,9 @@ COLORS <- c(
   "#CC6677",
   "#882255",
   "#AA4499",
-  "#BBBBBB"
+  "#BBBBBB",
+  "#9970AB",
+  "#5AAE61"
 )
 ####################################################
 # I keep all my data in one folder, and all my figures
@@ -164,8 +166,8 @@ basic_bar_chart <- function(
   axis_title_size_y = 24,
   axis_text_size_x = 22,
   axis_text_size_y = 22,
-  axis_text_angle_x = 60,
   title_size = 24,
+  axis_text_angle_x = 60,
   color_index = 1,
   horizontal = FALSE,
   show_ticks_x = FALSE,
@@ -173,8 +175,11 @@ basic_bar_chart <- function(
   show_bar_labels = FALSE,
   label_position = c("inside", "above"),
   label_color = "white",
+  label_size = 8,
   show_grid = TRUE,
   percent = FALSE,
+  plot_title_margin_b = 15,
+  x_axis_title_margin_t = 15,
   margin_vals = c(0.3, 0.3, 0.3, 0.3)
 ) {
   label_position <- match.arg(label_position)
@@ -183,7 +188,7 @@ basic_bar_chart <- function(
   axis_title_x <- if (show_axis_title_x) {
     element_text(
       size = axis_title_size_x,
-      margin = margin(t = 15)
+      margin = margin(t = x_axis_title_margin_t)
     )
   } else {
     element_blank()
@@ -228,7 +233,7 @@ basic_bar_chart <- function(
         hjust = 0,
         face = "bold",
         size = title_size,
-        margin = margin(b = 15)
+        margin = margin(b = plot_title_margin_b)
       ),
       plot.margin = unit(margin_vals, "cm")
     )
@@ -254,7 +259,7 @@ basic_bar_chart <- function(
             }
           ),
           color = label_color,
-          size = 8,
+          size = label_size,
           hjust = if (label_position == "inside") 1.2 else -0.1, # shift left of bar end
           vjust = 0.5
         )
@@ -272,7 +277,7 @@ basic_bar_chart <- function(
             }
           ),
           color = label_color,
-          size = 8,
+          size = label_size,
           vjust = if (label_position == "inside") 1.2 else -0.3, # above bar = negative vjust
           hjust = 0.5
         )
@@ -297,11 +302,17 @@ stacked_bar_chart <- function(
   cpalette = COLORS,
   horizontal = FALSE,
   legend_left_margin = 0,
+  legend_text_size = 24,
+  margin_vals = c(0.8, 0.8, 0.8, 0.8),
+  plot_title_size = 24,
   proportional = FALSE,
   show_axis_title_y = TRUE,
   show_x_axis_text = TRUE,
   show_grid = TRUE,
   show_legend = TRUE,
+  x_axis_text_size = 24,
+  y_axis_text_size = 24,
+  y_axis_title_size = 24,
   ylabel = NULL
 ) {
   # Add padding to left side of legend
@@ -325,8 +336,8 @@ stacked_bar_chart <- function(
   # Hide y-axis title
   axis_title_y <- if (show_axis_title_y) {
     element_text(
-      size = 24,
-      margin = margin(r = 15)
+      size = y_axis_title_size,
+      margin = margin(r = 10)
     )
   } else {
     element_blank()
@@ -338,7 +349,7 @@ stacked_bar_chart <- function(
       angle = 60,
       vjust = 0.9,
       hjust = 0.98,
-      size = 24
+      size = x_axis_text_size
     )
   } else {
     element_blank()
@@ -357,21 +368,29 @@ stacked_bar_chart <- function(
       axis.title.x = element_blank(),
       axis.title.y = axis_title_y,
       axis.text.x = x_text,
-      axis.text.y = element_text(size = 24),
+      axis.text.y = element_text(size = y_axis_text_size),
       axis.ticks.x = element_blank(),
       axis.ticks.y = element_blank(),
+      legend.key.size = unit(rel(0.3), "lines"),
       legend.position = legend_pos,
       legend.margin = legend_margin,
       legend.title = element_blank(),
-      legend.text = element_text(size = 24),
+      legend.text = element_text(
+        size = legend_text_size,
+        margin = margin(l = 1)
+      ),
       panel.background = element_blank(),
       panel.grid = if (show_grid) {
         element_line(linetype = "solid", color = "gray90")
       } else {
         element_blank()
       },
-      plot.title = element_text(hjust = 0.5, size = 24),
-      plot.margin = unit(c(0.8, 0.8, 0.8, 0.8), "cm")
+      plot.title = element_text(
+        hjust = 0,
+        face = "bold",
+        size = plot_title_size
+      ),
+      plot.margin = unit(margin_vals, "cm")
     )
 
   # Flip coordinates if horizontal

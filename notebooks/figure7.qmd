@@ -19,7 +19,7 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 ```{r}
 line_plot <- function(df, x_var, y_var, title) {
   p <- ggplot(df, aes(x = .data[[x_var]], y = .data[[y_var]])) +
-    geom_point(size = 4) + # Adjust dot size
+    geom_point(size = 1) + # Adjust dot size
     scale_y_continuous(labels=scales::percent) +
     labs(
       title = title
@@ -27,18 +27,18 @@ line_plot <- function(df, x_var, y_var, title) {
     theme(
       axis.title.x = element_blank(),
       axis.title.y = element_blank(),
-      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 24),
-      axis.text.y = element_text(size = 24),
+      axis.text.x = element_text(angle = 60, vjust = 0.6, size = 6),
+      axis.text.y = element_text(size = 6),
       axis.ticks.x = element_blank(),
       axis.ticks.y = element_blank(),
       legend.title = element_blank(),
       plot.title = element_text(
         hjust = 0,
         face = "bold",
-        size = 24,
-        margin = margin(b = 15)
+        size = 7,
+        margin = margin(b = 5)
       ),
-      plot.margin = unit(c(1, 1, 1, 3), "cm"),
+      plot.margin = unit(c(0.3, 0.3, 0.3, 0.9), "cm"),
       panel.grid = element_line(linetype = "solid", color = "gray90"),
       panel.background = element_blank()
     )
@@ -106,10 +106,16 @@ basic_plot <- basic_bar_chart(basic_data,
   show_bar_labels = TRUE,
   show_ticks_y = FALSE,
   color_index = 3,
+  axis_title_size_x = 6,
+  axis_title_size_y = 6,
+  axis_text_size_x = 6,
+  axis_text_size_y = 6,
+  title_size = 7,
+  label_size = 2,
   show_axis_title_x = TRUE,
+  x_axis_title_margin_t = 5,
   show_axis_title_y = FALSE,
-  show_grid = TRUE,
-  margin_vals = c(1, 1, 1, 1)
+  show_grid = TRUE
 )
 
 it_acad_job_plot <- basic_bar_chart(it_acad_data,
@@ -118,11 +124,17 @@ it_acad_job_plot <- basic_bar_chart(it_acad_data,
   title = "Percent of Respondents who said\n'Developing open source products\nis part of my job'",
   show_bar_labels = FALSE,
   show_ticks_y = FALSE,
+  axis_title_size_x = 6,
+  axis_title_size_y = 6,
+  axis_text_size_x = 6,
+  axis_text_size_y = 6,
+  title_size = 7,
+  label_size = 2,
   show_axis_title_y = FALSE,
   show_axis_title_x = FALSE,
   show_grid = TRUE,
   percent = TRUE,
-  margin_vals = c(3, 1, 1, 1)
+  margin_vals = c(0.6, 0.3, 0.3, 0.3)
 )
 
 skills_plot <- line_plot(skills_data,
@@ -136,12 +148,18 @@ title = "Percent of Participants Motivated by\nDesire to Improve Their Skills"
 
 ```{r}
 # From the patchwork package
-top_row <- basic_plot + plot_spacer() + plot_layout(widths = c(1.5, 0.5))
+top_row <- basic_plot + plot_spacer() + plot_layout(widths = c(1.4, 0.6))
 bottom_row <- skills_plot + it_acad_job_plot + plot_layout(widths = c(1, 1))
 
-fig <- top_row / bottom_row
-```
+p_combined <- top_row / bottom_row
 
-```{r}
-svglite::svglite(file.path(FIGURE_PATH, "motivations.svg"), width = 16, height = 16); print(fig); dev.off()
+ggsave(
+  filename = file.path(FIGURE_PATH, "fig7.tif"),
+  plot = p_combined + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 7)),
+  device = "tiff",
+  width = 5.2, height = 5, units = "in",
+  dpi = 310,                
+  compression = "none",    
+  bg = "white"
+)
 ```

@@ -663,6 +663,12 @@ p_final
 save_plot("solns_points2.tiff", 16, 10, p=p_final)
 ```
 
+Save the data to file for tweaking the final figure. 
+
+```{r}
+write_df_to_file(data.frame(soln = solns_ordered), "data_for_plots/solns_ordered.tsv")
+write_df_to_file(emm_clean, "data_for_plots/emms_solns.tsv")
+```
 
 # Sanity checking: bar plots
 

@@ -533,3 +533,13 @@ p_combined <- stack + stack_prop & theme(plot.margin = unit(c(1, 1, 1, 1), "cm")
 svglite::svglite(file.path(FIGURE_PATH, "figure4.svg"), width = 16, height = 8); print(p_combined); dev.off()
 ```
 
+
+Also saving the data and making the final figure for submission in a separate script.
+
+```{r}
+# see utils.R
+write_df_to_file(
+  job_maint_to_plot,
+  file.path("data_for_plots/maintainers_bar.tsv")
+)
+```

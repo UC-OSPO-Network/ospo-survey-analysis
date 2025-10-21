@@ -1,0 +1,116 @@
+---
+title: "Figure 4"
+---
+
+# Overview
+
+This script takes a data frame produced by roles.qmd and outputs a figure that adheres to PLOS submission guidelines.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+
+# Load data
+
+```{r}
+# This poorly named function from utils.R
+# is basically just read.csv with my data path in there
+maint_df <- load_qualtrics_data(file.path("data_for_plots/maintainers_bar.tsv"))
+```
+
+```{r}
+my_colors <-  c("#88CCEE", "#332288")  
+```
+
+# Order factor levels
+
+```{r}
+# Reorder factor levels by the highest proportion of maintainers
+ordered_jobs <- maint_df %>%
+  group_by(job_category) %>%
+  summarise(
+    maintainer = n[Maintainer=="maintainer"],
+    not_maintainer = n[Maintainer=="not_maintainer"],
+    .groups = "drop"
+  ) %>%
+  mutate(ratio = maintainer / not_maintainer) %>%
+  arrange(desc(ratio)) %>%
+  pull(job_category)
+
+maint_df$job_category <- factor(maint_df$job_category, levels = ordered_jobs)
+
+maint_df$Maintainer <- factor(maint_df$Maintainer, levels = c("not_maintainer", "maintainer"))
+
+# Make the labels prettier for legend
+legend_labs <- stringr::str_to_sentence(gsub("_", " ", levels(maint_df$Maintainer)))
+```
+
+
+# Plot
+
+```{r}
+stack <- stacked_bar_chart(
+  df = maint_df,
+  x_var = "job_category",
+  y_var = "n",
+  fill = "Maintainer",
+  title = "Number of Maintainers\nby Job Category",
+  show_legend = FALSE,
+  #legend_text_size = 6,
+  margin_vals = c(0.1, 0.1, 0.1, 0.1),
+  plot_title_size = 7,
+  y_axis_text_size = 6,
+  y_axis_title_size = 6,
+  x_axis_text_size = 6
+  )
+
+stack <- stack +
+  scale_fill_manual(labels = legend_labs, values = my_colors)
+
+stack_prop <- stacked_bar_chart(
+  df = maint_df,
+  x_var = "job_category",
+  y_var = "n",
+  ylabel = "Percent of Responses",
+  #show_axis_title_y = FALSE,
+  fill = "Maintainer",
+  title = "Percent of Maintainers\nby Job Category",
+  proportional = TRUE,
+  legend_text_size = 6,
+  margin_vals = c(0.1, 0.1, 0.1, 0.1),
+  plot_title_size = 7,
+  y_axis_text_size = 6,
+  y_axis_title_size = 6,
+  x_axis_text_size = 6
+)
+
+stack_prop <- stack_prop +
+  scale_y_continuous(labels = scales::percent)
+
+stack_prop <- stack_prop +
+  scale_fill_manual(labels = legend_labs, values = my_colors)
+```
+
+
+```{r}
+p_combined <- stack + plot_spacer() + stack_prop + plot_layout(widths = c(1, 0.2, 1))
+# Handy code to see the plot border, for troubleshooting
+#& theme(plot.background = element_rect(color = "black", linewidth = 1))
+
+ggsave(
+  filename = file.path(FIGURE_PATH, "fig4.tif"),
+  plot = p_combined + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 7)),
+  device = "tiff",
+  width = 5.2, height = 2.6, units = "in",
+  dpi = 425,                
+  compression = "none",    
+  bg = "white"
+)
+```
