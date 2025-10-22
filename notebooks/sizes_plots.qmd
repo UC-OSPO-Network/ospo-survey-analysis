@@ -529,10 +529,10 @@ large_line <- ggplot(
     ylim(0, 50) +
 
     scale_x_discrete(expand = c(0.025, 0.025)) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 1)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 1), limits = c(0, 60)) +
     scale_color_manual(values = COLORS) +
 
-    ylab("Percent of Respondents\nin Job Category") +
+    ylab("Percent of Respondents in Job Category") +
     xlab("Project Size") +
     ggtitle("Frequency of Contributions\nto Large Projects") +
     
@@ -540,8 +540,9 @@ large_line <- ggplot(
     theme(
           axis.title.y = element_text(
             size = 22,
-            #face = "bold"
+            margin = margin(r = 20)
           ),
+          axis.text.y = element_text(size = 20),
           axis.title.x = element_blank(),
           axis.text.x = element_text(
             angle = -45,
@@ -556,7 +557,7 @@ large_line <- ggplot(
           panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
           panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
           plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-          plot.title = element_text(hjust = 0.5, size = 24),
+          plot.title = element_text(hjust = 0, size = 24, face = "bold"),
         )
 
 large_line
@@ -593,10 +594,10 @@ med_line <- ggplot(
     ylim(0, 50) +
 
     scale_x_discrete(expand = c(0.025, 0.025)) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 1)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 1), limits = c(0, 60)) +
     scale_color_manual(values = COLORS) +
 
-    ylab("Percent of Respondents\nin Job Category") +
+    ylab("Percent of Respondents in Job Category") +
     xlab("Project Size") +
     ggtitle("Frequency of Contributions\nto Medium Projects") +
     
@@ -604,8 +605,9 @@ med_line <- ggplot(
     theme(
           axis.title.y = element_text(
             size = 22,
-            #face = "bold"
+            margin = margin(r = 20)
           ),
+          axis.text.y = element_text(size = 20),
           axis.title.x = element_blank(),
           axis.text.x = element_text(
             angle = -45,
@@ -620,7 +622,7 @@ med_line <- ggplot(
           panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
           panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
           plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-          plot.title = element_text(hjust = 0.5, size = 24),
+          plot.title = element_text(hjust = 0, size = 24, face = "bold"),
         )
 
 med_line
@@ -655,10 +657,10 @@ small_line <- ggplot(
     ylim(0, 50) +
 
     scale_x_discrete(expand = c(0.025, 0.025)) +
-    scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 1)) +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1, scale = 1), limits = c(0, 60)) +
     scale_color_manual(values = COLORS) +
 
-    ylab("Percent of Respondents\nin Job Category") +
+    ylab("Percent of Respondents in Job Category") +
     xlab("Project Size") +
     ggtitle("Frequency of Contributions\nto Small Projects") +
     
@@ -666,8 +668,9 @@ small_line <- ggplot(
     theme(
           axis.title.y = element_text(
             size = 22,
-            #face = "bold"
+            margin = margin(r = 20)
           ),
+          axis.text.y = element_text(size = 20),
           axis.title.x = element_blank(),
           axis.text.x = element_text(
             angle = -45,
@@ -682,7 +685,7 @@ small_line <- ggplot(
           panel.grid.major = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
           panel.grid.minor = element_line(linewidth = 0.25, linetype = "solid", color = "gray90"),
           plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"),
-          plot.title = element_text(hjust = 0.5, size = 24),
+          plot.title = element_text(hjust = 0, size = 24, face = "bold"),
         )
 
 small_line
@@ -694,6 +697,25 @@ Save the plot
 ```{r}
 save_plot("proj_sizes_small_line.tiff", 10, 6, p=small_line)
 ```
+
+
+```{r}
+p_combined <- patchwork::wrap_plots(large_line, plot_spacer(), small_line) +
+  plot_layout(widths = c(1, 0.05, 1))
+
+p_combined <- p_combined +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(size = 26))
+
+svglite::svglite(
+  file.path(FIGURE_PATH, "figureS3.svg"),
+  width = 26,
+  height = 10
+)
+print(p_combined)
+dev.off()
+```
+
 
 I'd like to know whether the proportion of academics who contribute to large projects with some frequency is significantly lower than the proportion of non-research staff who contribute to large projects with some frequency.
 

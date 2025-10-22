@@ -126,6 +126,30 @@ stack_prop
 save_plot("future_contribs_stack_prop.tiff", 12, 9, p=stack_prop)
 ```
 
+```{r}
+# I have no idea why this is necessary just for these plots...
+# but it works
+stack <- stack + theme(legend.key.size = unit(rel(1.5), "lines"))
+stack_prop <- stack_prop + theme(legend.key.size = unit(rel(1.5), "lines"))
+
+p_combined <- patchwork::wrap_plots(stack, plot_spacer(), stack_prop) +
+  plot_layout(widths = c(1, 0.05, 1)) +
+  theme(plot.margin = margin(t = 1, r = 1, b = 1, l = 1, unit = "cm"))
+
+p_combined <- p_combined +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(size = 26))
+
+# SVG is higher quality
+svglite::svglite(
+  file.path(FIGURE_PATH, "figureS1.svg"),
+  width = 26,
+  height = 10
+)
+print(p_combined)
+dev.off()
+```
+
 ## Experienced vs. aspiring by job: stats
 
 I think this might be easier to get a handle on if we combine some of these groups.

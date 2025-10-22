@@ -358,12 +358,22 @@ First, calculate the result based on Q11, the "choose one" question, where parti
 
 ```{r}
 job_fave <- campus_job_fave %>% select(-campus)
+
+# Combine students into one group for visual clarity
+job_fave <- job_fave %>%
+  mutate(
+    job_category = recode(
+      job_category,
+      "Grad Student" = "Students",
+      "Undergraduate" = "Students"
+    )
+  )
+
 #Reorder factor levels for plotting
 job_fave$job_category <- factor(job_fave$job_category, levels = c(
   "Faculty",
   "Postdocs and\nStaff Researchers",
-  "Grad Student",
-  "Undergraduate",
+  "Students",
   "Non-research Staff"
 ))
 
@@ -401,19 +411,38 @@ job_fave_top <- job_fave_top %>%
   mutate(favorite_solution = fct_inorder(favorite_solution))
 ```
 
+```{r}
+# I'm just including the names here for my own reference,
+# but they're not actually used in the code.
+solutions_palette <- list(
+  # modified from https://sronpersonalpages.nl/~pault/
+  "Sustainability grants" = "#332288",
+  "Computing environments" = "#77aadd",
+  "Documentation help" = "#44bb99",
+  "A learning community" = "#bbcc33",
+  "Help finding funding" = "#eedd88",
+  "Mentoring programs" = "#ee8866",
+  "Education" = "#ffaabb",
+  "Industry partnerships" = "#e5e5e5",
+  "Legal support" = "#777777",
+  "Containerization" = "#9B62A7",
+  "Event planning" = "#46353A"
+)
+```
+
 ```{r, fig.width=9, fig.height=6}
-top_plot <- grouped_bar_chart(
+q11_plot <- grouped_bar_chart(
   df = job_fave_top,
   x_var = "job_category",
   fill_var = "favorite_solution",
-  title = "Top 5 Solutions by Job Category ('choose one')",
-  color_palette = rev(c(COLORS, "#000000")) #from utils.R
+  title = "Top 5 Solutions by Job Category\n(Q11: 'choose one')",
+  color_palette = solutions_palette
 )
-top_plot
+q11_plot
 ```
 
 ```{r}
-save_plot("top_solutions_by_job.tiff", 12, 10, p=top_plot)
+save_plot("top_solutions_by_job.tiff", 12, 10, p=q11_plot)
 ```
 
 ### Likert points
@@ -556,21 +585,21 @@ top_by_job_points <- top_by_job_points %>%
   )
 ```
 
-Let's hard-code a color palette that is tailored to these data. This will be useful in the next section, when we plot almost the same set of challenges, and we'll want the challenges to correspond to the same colors in the legend.
 ```{r}
-# I'm just including the names here for my own reference,
-# but they're not actually used in the code.
-# chall_colors <- list(
-#   # modified from https://sronpersonalpages.nl/~pault/
-#   "Documentation time" = "#332288",
-#   "Coding time" = "#88CCEE",
-#   "Education time" = "#44AA99",
-#   "Educational resources" = "#117733",
-#   "Securing funding" = "#999933",
-#   "Finding funding" = "#DDCC77",
-#   "Managing issues" = "#CC6677",
-#   "Attracting users" = "#882255"
-# )
+# For the sake of time, I am just hard-coding the colors
+# in the proper order to match the other plots
+solutions_palette2 <- list(
+  # modified from https://sronpersonalpages.nl/~pault/
+  "Sustainability grants" = "#332288",
+  "Help finding funding" = "#eedd88",
+  "Computing environments" = "#77aadd",
+  "Industry partnerships" = "#e5e5e5",
+  "Publicity" = "#db060b",
+  "Documentation help" = "#44bb99",
+  "Legal support" = "#777777",
+  "A learning community" = "#bbcc33",
+  "Mentoring programs" = "#ee8866"
+)
 ```
 
 ```{r, fig.width=9, fig.height=6}
@@ -583,12 +612,12 @@ top_points_plot <- ggplot(
   )
 ) +
   geom_col(position = position_dodge()) +
-  scale_fill_manual(values = COLORS) +
+  scale_fill_manual(values = solutions_palette2) +
   labs(
     x = "Job Category",
     y = "Mean Observed Rating\nFrom Coded Categories",
     fill = "Solution",
-    title = "Top 5 Solutions by Job Category (Points)"
+    title = "Top 5 Solutions by Job Category\n(Points)"
   ) +
   theme(
     axis.title.x = element_blank(),
@@ -600,7 +629,7 @@ top_points_plot <- ggplot(
     legend.text = element_text(size = 18),
     panel.background = element_blank(),
     panel.grid = element_line(linetype = "solid", color = "gray90"),
-    plot.title = element_text(hjust = 0.5, size = 24),
+    plot.title = element_text(hjust = 0, size = 24, face = "bold"),
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
   )
 top_points_plot
@@ -661,7 +690,6 @@ filtered_props <- filtered_props %>%
   )
 ```
 
-
 ```{r, fig.width=9, fig.height=6}
 top_perc_plot <- ggplot(
   filtered_props,
@@ -673,12 +701,12 @@ top_perc_plot <- ggplot(
 ) +
   geom_col(position = position_dodge()) +
   scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
-  scale_fill_manual(values = COLORS) +
+  scale_fill_manual(values = solutions_palette2) +
   labs(
     x = "Job Category",
-    y = "Proportion saying\n'Useful' or 'Very useful'",
+    y = "Proportion Saying\n'Useful' or 'Very useful'",
     fill = "Challenge",
-    title = "Top 5 Solutions by Job Category (Percent)"
+    title = "Top 5 Solutions by Job Category\n(Percent)"
   ) +
   theme(
     axis.title.x = element_blank(),
@@ -690,7 +718,7 @@ top_perc_plot <- ggplot(
     legend.text = element_text(size = 18),
     panel.background = element_blank(),
     panel.grid = element_line(linetype = "solid", color = "gray90"),
-    plot.title = element_text(hjust = 0.5, size = 24),
+    plot.title = element_text(hjust = 0, size = 24, face = "bold"),
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
   )
 top_perc_plot
@@ -700,6 +728,23 @@ top_perc_plot
 save_plot("top5_solns_by_job_percent.tiff", 12, 10, p=top_perc_plot)
 ```
 
+# Combined plot
+
+```{r}
+p_combined <- patchwork::wrap_plots(
+top_points_plot,
+top_perc_plot,
+q11_plot
+) + plot_layout(ncol = 2)
+
+p_combined <- p_combined +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(size = 26))
+```
+
+```{r}
+svglite::svglite(file.path(FIGURE_PATH, "figureS6.svg"), width = 20, height = 14); print(p_combined); dev.off()
+```
 
 
 # A Learning Community

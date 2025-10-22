@@ -310,7 +310,7 @@ vc_hosting_campus_plot <- ggplot(
     panel.background = element_blank(),
     panel.grid = element_line(linetype = "solid", color = "gray90"),
     plot.title = element_text(hjust = 0, size = 24, face = "bold"),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+    plot.margin = unit(c(0.8, 0.8, 0.8, 0.8), "cm")
   )
 
 vc_hosting_campus_plot
@@ -378,6 +378,16 @@ head(hosting_field_data)
 
 
 ```{r, fig.width=10, fig.height=7}
+# Use a different color palette just to
+# make it visually different from the other plots
+field_colors = c(
+    '#1a7937', #dark green
+    '#acd49f', #light green
+    '#BBBBBB', #gray
+    '#c3a4d0', #light purple
+    '#752a82' #dark purple
+  )
+
 vc_hosting_field_plot <- ggplot(
   hosting_field_data,
   aes(
@@ -388,12 +398,12 @@ vc_hosting_field_plot <- ggplot(
 ) +
   geom_bar(stat = "identity", position = "dodge") +
   ggtitle("Usage of hosting services by field") +
-  labs(y = "Percent of respondents in field") +
-  scale_fill_manual(values = COLORS) +
+  labs(y = "Percent of respondents\nin field") +
+  scale_fill_manual(values = field_colors) +
   scale_y_continuous(labels = scales::percent) +
   theme(
     axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 24),
+    axis.title.y = element_text(size = 24, margin = margin(l = 20, r = 10)),
     axis.text.x = element_text(angle = 60, vjust = 0.6, size = 18),
     axis.text.y = element_text(size = 18),
     axis.ticks.x = element_blank(),
@@ -402,7 +412,7 @@ vc_hosting_field_plot <- ggplot(
     panel.background = element_blank(),
     panel.grid = element_line(linetype = "solid", color = "gray90"),
     plot.title = element_text(hjust = 0, size = 24, face = "bold"),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+    plot.margin = unit(c(0.8, 0.8, 0.8, 0.8), "cm")
   )
 
 vc_hosting_field_plot
@@ -674,7 +684,7 @@ data_repo_campus_plot <- ggplot(
     panel.background = element_blank(),
     panel.grid = element_line(linetype = "solid", color = "gray90"),
     plot.title = element_text(hjust = 0, size = 24, face = "bold"),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
+    plot.margin = unit(c(0.8, 0.8, 0.8, 0.8), "cm")
   )
 
 data_repo_campus_plot
@@ -691,15 +701,19 @@ That's somewhat interesting. There are some differences between campuses.
 
 ```{r}
 # From the patchwork package
-platforms_supp_fig <-
+p_combined <-
   vc_hosting_field_plot +
   vc_hosting_campus_plot +
   data_repo_campus_plot +
   plot_layout(ncol = 2)
+
+p_combined <- p_combined +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(size = 26))
 ```
 
 ```{r}
-svglite::svglite(file.path(FIGURE_PATH, "platforms_supp.svg"), width = 20, height = 12); print(platforms_supp_fig); dev.off()
+svglite::svglite(file.path(FIGURE_PATH, "platforms_supp.svg"), width = 20, height = 12); print(p_combined); dev.off()
 ```
 
 ```{r}

@@ -110,7 +110,7 @@ p_emm <- ggplot(emm,
   labs(
     title = "Estimated Mean Rating by Job Category",
     x = NULL,
-    y = "Estimated mean rating"
+    y = "Estimated Mean Rating"
   ) +
   coord_flip() +
   theme(

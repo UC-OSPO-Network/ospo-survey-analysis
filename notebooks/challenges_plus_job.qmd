@@ -226,7 +226,7 @@ top5_by_points_plot <- ggplot(
     legend.text = element_text(size = 18),
     panel.background = element_blank(),
     panel.grid = element_line(linetype = "solid", color = "gray90"),
-    plot.title = element_text(hjust = 0.5, size = 24),
+    plot.title = element_text(hjust = 0, size = 24, face = "bold"),
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
   )
 top5_by_points_plot
@@ -326,7 +326,7 @@ top5_by_perc_plot <- ggplot(
   scale_fill_manual(values = chall_colors2) +
   labs(
     x = "Job Category",
-    y = "Proportion saying\n'Frequently' or 'Always'",
+    y = "Percent Saying\n'Frequently' or 'Always'",
     fill = "Challenge",
     title = "Top 5 Challenges by Job Category (Percent)"
   ) +
@@ -340,7 +340,7 @@ top5_by_perc_plot <- ggplot(
     legend.text = element_text(size = 18),
     panel.background = element_blank(),
     panel.grid = element_line(linetype = "solid", color = "gray90"),
-    plot.title = element_text(hjust = 0.5, size = 24),
+    plot.title = element_text(hjust = 0, size = 24, face = "bold"),
     plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
   )
 top5_by_perc_plot
@@ -349,6 +349,31 @@ top5_by_perc_plot
 ```{r}
 save_plot("top5_challenges_by_job_percent.tiff", 12, 10, p=top5_by_perc_plot)
 ```
+
+```{r}
+p_combined <- patchwork::wrap_plots(
+  top5_by_points_plot,
+  plot_spacer(),
+  top5_by_perc_plot
+) +
+  plot_layout(widths = c(1, 0.05, 1)) +
+  theme(plot.margin = margin(t = 1, r = 1, b = 1, l = 1, unit = "cm"))
+p_combined <- p_combined +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(size = 26))
+
+# SVG is higher quality
+svglite::svglite(
+  file.path(FIGURE_PATH, "figureS7.svg"),
+  width = 26,
+  height = 10
+)
+print(p_combined)
+dev.off()
+```
+
+
+
 
 # Consider clusters
 
@@ -624,7 +649,7 @@ kw_results <- sapply(split(cluster2data_numcoded, cluster2data_numcoded$challeng
   kruskal.test(challenge_score ~ job_category, data = df)$p.value
 })
 
-p_adj_kw <- p.adjust(kw_results, "holm")
+p_adj_kw <- p.adjust(kw_results, "BH")
 
 p_adj_kw < 0.05
 sum(p_adj_kw < 0.05)
@@ -637,7 +662,7 @@ Dunn test as a post-hoc test to see which groups are different from each other.
 ```{r}
 pairwise_results <- lapply(unique(cluster2data_numcoded$challenge), function(chall) {
   df <- subset(cluster2data_numcoded, challenge == chall)
-  out <- FSA::dunnTest(challenge_score ~ job_category, data = df, method = "holm")
+  out <- FSA::dunnTest(challenge_score ~ job_category, data = df, method = "bh")
   cbind(challenge = chall, out$res)
 })
 pairwise_results <- do.call(rbind, pairwise_results)

@@ -4,8 +4,6 @@ title: "Final Thoughts"
 
 # Overview
 
-IMPORTANT NOTE: THIS SCRIPT IS NOT REPRODUCIBLE. QUALTRICS SCREWED UP THE EXPORT ON COMMENTS THAT CONTAIN A NEWLINE CHARACTER. SEE, E.G., ROW 272 IN RAW DATA/ROW 126 IN MY QUAL_RESPONSES FILE.
-
 Plotting results of coding analysis of Q12: "Are there any other challenges you’ve encountered in open source, or types of support that you would find helpful?"
 
 ## Import packages and utilities
@@ -30,9 +28,9 @@ results <- tribble(
   "Lack of time or 'extra' work",                "Resources",      7,
   "Security compliance",                         "Infrastructure", 2,
   "Licensing",                                   "Infrastructure", 3,
-  "Computing environments",                      "Infrastructure", 3,
+  "Computing environments",                      "Infrastructure", 4,
   "University leadership, norms, and priorities","Culture",       20,
-  "Code review and replication",                 "Culture",        3,
+  "Code review and replication",                 "Culture",        4,
   "OS education and careers",                    "Culture",        8,
   "Value of OS tools",                           "Culture",        7
 )
@@ -54,7 +52,7 @@ results$category <- factor(
 ```
 
 ```{r, fig.width=9, fig.height=8}
-pal <- c("#1964b0", "#4db264", "#71190d")
+pal <- c("#1964b0", "#117733", "#71190d")
 
 ggp <- ggplot(
   results,
@@ -91,6 +89,47 @@ Save the plot
 save_plot("treemap.tiff", 12, 9, p=ggp)
 ```
 
+Let's do that again, but with smaller font sizes according to PLOS submission guidelines.
+```{r}
+ggp <- ggplot(
+  results,
+  aes(
+    area = count, # sizes
+    fill = category, # colors
+    label = theme,
+    subgroup = category
+  )
+) +
+  treemapify::geom_treemap() +
+  treemapify::geom_treemap_text(
+    reflow = TRUE,
+    place = "centre",
+    grow = FALSE, # cap label font size at 'size'
+    size = 10,
+    colour = "white"
+  ) +
+  labs(title = "Comments on Challenges and Solutions") +
+  scale_fill_manual(values = pal, guide = guide_legend(title = "Category")) +
+  theme(
+    legend.text = element_text(size = 10),
+    legend.title = element_blank(),
+    panel.background = element_blank(),
+    plot.margin = margin(1, 1, 1, 1, unit = "cm"),
+    plot.title = element_text(size = 10, hjust = 0, face = "bold")
+  )
+```
+
+```{r}
+ggsave(
+  filename = file.path(FIGURE_PATH, "fig10.tif"),
+  plot = ggp,
+  device = "tiff",
+  width = 7.5, height = 4, units = "in",
+  dpi = 300,                
+  compression = "none",    
+  bg = "white"
+)
+```
 
 ```{r}
 sessionInfo()

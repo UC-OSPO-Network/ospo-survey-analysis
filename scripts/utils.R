@@ -434,7 +434,7 @@ grouped_bar_chart <- function(
       } else {
         element_blank()
       },
-      plot.title = element_text(hjust = 0.5, size = 24),
+      plot.title = element_text(hjust = 0, size = 24, face = "bold"),
       plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm")
     )
 }
