@@ -11,11 +11,11 @@ but this repository is no longer under active development. For the final
 "snapshot" of this repository at time of publication, see DRYAD LINK (COMING
 SOON).
 
-## 📄 Citation
+## Citation
 
 Please cite the resulting paper if you use this code or data:
 
-COMING SOON!
+> COMING SOON!
 
 ## Background
 
@@ -27,7 +27,7 @@ This repository contains the full analysis workflow used to clean, explore, and
 visualize the survey data, which sheds light on how and why academics contribute
 to open source and the barriers they face.
 
-## 📊 Data and Survey Instrument
+## Data and Survey Instrument
 
 - **Survey Instrument:** The full survey instrument is available in the root of
   this repository as **`OSPO_survey_instrument.pdf`**. If you require the
@@ -86,6 +86,8 @@ The primary analysis is contained in the Quarto notebooks in the `/notebooks`
 directory. You can run the code chunks interactively or render+execute the
 entire notebook with e.g. `quarto render my_notebook.qmd`.
 
+#### Execution order
+
 The first notebooks that were run are data_cleanup_part1.qmd and
 data_cleanup_part2.qmd. You won't be able to run these since they require the
 raw data from Qualtrics. The data in Dryad are outputs from
@@ -93,10 +95,10 @@ data_cleanup_part2.qmd.
 
 You can run most of the analysis notebooks in any order. Where one notebook
 depends on the outputs of another, I have tried to include that information in
-the introduction at the top of the notebook. The Quarto notebooks in /notebooks
-are intended as an "analysis journal." They reflect the exploratory,
-"stream-of-consciousness" process of data analysis, not a final, concise summary
-of key results. The rendered PDF versions are available in /reports/notebooks.
+the introduction at the top of the notebook. The Quarto notebooks reflect the
+exploratory, "stream-of-consciousness" process of data analysis, not a final,
+concise summary of key results. The rendered PDF versions are available in
+/reports/notebooks.
 
 The figure scripts are just for producing figures. They do not contain any
 analysis. They draw on the final parsed data in a folder called
@@ -105,24 +107,24 @@ analysis. They draw on the final parsed data in a folder called
 ## Repository structure
 
 ```
-├── data/ # Recommended: put Dryad data here and set this as your DATA_PATH \
-├── notebooks/ # Core analysis scripts (.qmd) \
-│ └── defunct/ # Old junk \
-├── reports/ \
-│ └── notebooks/ # Rendered PDF and HTML reports \
-├── renv/ # R environment files \
-├── scripts/ \
-│ ├── utils.R # Utility functions used in notebooks \
-│ ├── packages.R # A list of all library() calls for renv to pick up \
-│ ├── Other one-off data cleaning scripts \
-│ └── defunct/ # Old junk \
-├── .Rprofile \
-├── .gitignore \
-├── LICENSE \
-├── OSPO_survey_instrument.pdf # The survey instrument \
-├── README.md # This file \
-├── \_quarto.yml # Quarto project configuration \
-├── lessons_learned.md # Project retrospective \
-├── ospo-survey-analysis.Rproj # RStudio Project file \
-└── renv.lock # R environment lock file \
+├── data/ # Recommended: put Dryad data here and set this as your DATA_PATH
+├── notebooks/ # Core analysis scripts (.qmd)
+│ └── defunct/ # Old junk
+├── reports/
+│ └── notebooks/ # Rendered PDF and HTML reports
+├── renv/ # R environment files
+├── scripts/
+│ ├── utils.R # Utility functions used in notebooks
+│ ├── packages.R # A list of all library() calls for renv to pick up
+│ ├── Other one-off data cleaning scripts
+│ └── defunct/ # Old junk
+├── .Rprofile
+├── .gitignore
+├── LICENSE
+├── OSPO_survey_instrument.pdf # The survey instrument
+├── README.md # This file
+├── _quarto.yml # Quarto project configuration
+├── lessons_learned.md # Project retrospective
+├── ospo-survey-analysis.Rproj # RStudio Project file
+└── renv.lock # R environment lock file
 ```
