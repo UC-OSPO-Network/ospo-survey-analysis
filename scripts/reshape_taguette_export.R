@@ -1,8 +1,8 @@
-# Here I am wrangling the export of the coded comments from Q12:
-# "Are there any other challenges you’ve encountered in open source, or types of support that you would find helpful?".
+# Here I am wrangling the export of the coded comments from Q12 or Q6.
+# Input and output file names are hard-coded.
 # I'm just quickly creating a new spreadsheet that will serve as a supplementary data table.
 
-#Taguette lets me export the data as an .xlsx file.
+# Taguette lets me export the data as an .xlsx file.
 # I then used MS Excel to convert that to a .tsv so I could read it into R.
 # Now I will rearrange it into a format that I like better.
 
@@ -18,7 +18,7 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 # This is just a wrapper for read.csv (see utils.R)
 # For privacy reasons, I am not publishing the Taguette export,
 # which shows which participants left which comments
-data <- load_qualtrics_data("all_tags.tsv")
+data <- load_qualtrics_data("all_tags_q6.tsv")
 
 data_wide <- data %>%
   mutate(mark = "X") %>%

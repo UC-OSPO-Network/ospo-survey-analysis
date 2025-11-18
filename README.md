@@ -43,21 +43,30 @@ to open source and the barriers they face.
 To run the analysis, please download the data from Dryad and place it wherever
 you like (the `data/` directory would be a reasonable location).
 
+Note that the following data files are not in Dryad: intermediate files that can
+be regenerated from this code, files containing personally identifiable
+information, or files containing the same information that is already in the
+supplmentary materials of the paper.
+
 You will need to hard-code two paths for these scripts to work: DATA_PATH and
 FIGURE_PATH. The scripts will look for "raw" data in the DATA_PATH location, and
 will deposit final data in this location. They will deposit figures in the
 FIGURE_PATH location. The way it's set up now, the paths should be in your
 .Renviron file. \
-For example: \
-DATA_PATH = "/Users/virginiascarlett/foo/bar/data/data" \
+For example:
+
+```
+DATA_PATH = "/Users/virginiascarlett/foo/bar/data/"
 FIGURE_PATH = "/Users/virginiascarlett/foo/bar/figures"
+```
 
 If using the .Renviron file is not convenient for you, you can just hard code
 the paths at the top of my utils.R script.
 
 ### Dependencies
 
-This project uses **`renv`** to manage R package dependencies.
+This project uses **`renv`** to manage R package dependencies. To reproduce this
+environment:
 
 1.  Clone this repository to your local machine.
 2.  Open the **`ospo-survey-analysis.Rproj`** file in RStudio or Positron.
@@ -67,7 +76,7 @@ This project uses **`renv`** to manage R package dependencies.
     renv::restore()
     ```
 
-The analysis notebooks are written as **Quarto** (`.qmd`) files. To render the
+The analysis notebooks are written as Quarto (`.qmd`) files. To render the
 reports, you must install the [Quarto CLI](https://quarto.org/docs/get-started/)
 on your computer.
 
@@ -95,28 +104,25 @@ analysis. They draw on the final parsed data in a folder called
 
 ## Repository structure
 
-├── data/ \
-│ └── (Data should be placed here) \
-├── notebooks/ \
-│ ├── 01_data_cleaning.qmd \
-│ ├── 02_exploratory_analysis.qmd \
-│ └── (etc...) \
+```
+├── data/ # Recommended: put Dryad data here and set this as your DATA_PATH \
+├── notebooks/ # Core analysis scripts (.qmd) \
+│ └── defunct/ # Old junk \
 ├── reports/ \
-│ └── notebooks/ \
-│ ├── 01_data_cleaning.pdf \
-│ └── (Rendered PDF and HTML reports) \
-├── renv/ \
-│ └── (R environment lock files) \
+│ └── notebooks/ # Rendered PDF and HTML reports \
+├── renv/ # R environment files \
 ├── scripts/ \
 │ ├── utils.R # Utility functions used in notebooks \
-│ ├── packages.R # A simple list of all library() calls for renv \
-│ └── (Other one-off data cleaning scripts) \
+│ ├── packages.R # A list of all library() calls for renv to pick up \
+│ ├── Other one-off data cleaning scripts \
+│ └── defunct/ # Old junk \
 ├── .Rprofile \
 ├── .gitignore \
 ├── LICENSE \
-├── OSPO_survey_instrument.pdf # The survey as administered \
+├── OSPO_survey_instrument.pdf # The survey instrument \
 ├── README.md # This file \
 ├── \_quarto.yml # Quarto project configuration \
 ├── lessons_learned.md # Project retrospective \
 ├── ospo-survey-analysis.Rproj # RStudio Project file \
 └── renv.lock # R environment lock file \
+```

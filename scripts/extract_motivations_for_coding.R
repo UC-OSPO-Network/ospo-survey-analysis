@@ -1,5 +1,9 @@
 #!/usr/bin/env Rscript
 
+# This script is very similar to extract_final_thoughts_for_coding.R,
+# except that script is for Q12, and this script is for Q6.
+# See the comments at the start of that script for more information.
+
 project_root <- here::here() # requires that you be somewhere in the
 # project directory (not above it)
 # packages

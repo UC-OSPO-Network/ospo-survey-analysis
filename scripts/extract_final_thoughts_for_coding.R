@@ -1,6 +1,16 @@
 #!/usr/bin/env Rscript
 
-# Note that this script is fragile! "Dud" rows are hard-coded on line 21
+# This script will not be useful to anyone reproducing this analysis.
+# It ingests a data file that I did not make public, because it allows
+# the reader to associate a participant's qualitative responses with all
+# their other responses.
+
+# The purpose of this script is to parse the qualitative responses
+# from Q12 into many little files, so that I can upload those files to Taguette.
+
+# Note that this script is fragile! "Dud" rows are hard-coded on line 21.
+# These are people who wrote things like "N/A" or "<blank>" that we don't
+# want in the final "cleaned" data file.
 
 project_root <- here::here() # requires that you be somewhere in the
 # project directory (not above it)
@@ -18,7 +28,7 @@ responses <- data.frame(
 
 final_clean <- exclude_empty_rows(responses, strict = TRUE)
 
-duds <- c(331, 188, 303) # people who wrote things like "N/A" or "<blank>"
+duds <- c(331, 188, 303)
 
 # Sanity check
 final_clean %>% filter(participantID %in% duds)
