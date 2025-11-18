@@ -8,7 +8,7 @@ suppressMessages(source(file.path(project_root, "scripts/packages.R")))
 suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 
 destination_dir <- file.path(
-  Sys.getenv("DATA_PATH"),
+  DATA_PATH,
   "motivations_responses"
 )
 
@@ -26,7 +26,7 @@ final_clean <- final_clean %>% filter(!(participantID %in% duds))
 
 write.table(
   final_clean,
-  file.path(Sys.getenv("DATA_PATH"), "motivations.tsv"),
+  file.path(DATA_PATH, "motivations.tsv"),
   quote = FALSE,
   row.names = FALSE,
   sep = "\t"

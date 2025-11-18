@@ -8,10 +8,15 @@ Hindsight is 20/20…
 
 - Making nearly all questions mandatory was a good choice–it makes the
   statistics much easier.
+- I think we could have made the survey longer. Some of the pre-testers made
+  comments to this effect. We could incorporate some of the questions from
+  [this study](https://doi.org/10.7717/peerj-cs.963).
 - Make sure that the user experience is good for non-contributors, aspiring
   contributors, and non-UC. We got more of these folks than I expected, so I
   wasn’t really paying close attention to the UX for those groups.
 - Do we want to ask questions about policy and culture?
+- Do we want to ask about how they use the different platforms, e.g. do they use
+  personal websites for professional projects?
 - We never asked an obvious question: how often do you contribute to open
   source? If we asked that question, maybe we could then ask Q5 about project
   sizes in a simpler way, e.g. ask for absolute rather than relative

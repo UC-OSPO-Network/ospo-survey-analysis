@@ -51,7 +51,7 @@ line_plot <- function(df, x_var, y_var, title) {
 ```{r}
 basic_data <- read.csv(
     file.path(
-      Sys.getenv("DATA_PATH"),
+      DATA_PATH,
       "data_for_plots",
       "motivations_basic_bar.tsv"
     ),
@@ -61,7 +61,7 @@ basic_data <- read.csv(
 
 it_acad_data <- read.csv(
     file.path(
-      Sys.getenv("DATA_PATH"),
+      DATA_PATH,
       "data_for_plots",
       "motivations_it_acad.tsv"
     ),
@@ -71,7 +71,7 @@ it_acad_data <- read.csv(
 
 skills_data <- read.csv(
     file.path(
-      Sys.getenv("DATA_PATH"),
+      DATA_PATH,
       "data_for_plots",
       "motivations_skills.tsv"
     ),

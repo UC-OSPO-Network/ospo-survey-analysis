@@ -72,7 +72,7 @@ for (camp in campuses) {
   write.table(
     t,
     file.path(
-      Sys.getenv("DATA_PATH"),
+      DATA_PATH,
       sprintf("orb_usernames/orb_contacts_%s.tsv", camp)
     ),
     quote = FALSE,
@@ -84,7 +84,7 @@ for (camp in campuses) {
 
 write.table(
   usr_cleaned,
-  file.path(Sys.getenv("DATA_PATH"), "usernames_all.csv"),
+  file.path(DATA_PATH, "usernames_all.csv"),
   quote = FALSE,
   row.names = FALSE,
   sep = ","

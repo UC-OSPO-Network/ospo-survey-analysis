@@ -22,7 +22,7 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 read_donut_data_from_file <- function(filename) {
   df <- read.csv(
     file.path(
-      Sys.getenv("DATA_PATH"),
+      DATA_PATH,
       "data_for_plots",
       filename
     ),
