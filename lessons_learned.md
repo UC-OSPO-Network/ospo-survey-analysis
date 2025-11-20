@@ -11,6 +11,10 @@ Hindsight is 20/20…
 - I think we could have made the survey longer. Some of the pre-testers made
   comments to this effect. We could incorporate some of the questions from
   [this study](https://doi.org/10.7717/peerj-cs.963).
+- If we had known that this would be such a popular solution, I think we would
+  have asked more questions about what people need from their computing
+  infrastructure. More GPUs? More storage? JupyterHub? More documentation for
+  their on-campus cluster?
 - Make sure that the user experience is good for non-contributors, aspiring
   contributors, and non-UC. We got more of these folks than I expected, so I
   wasn’t really paying close attention to the UX for those groups.
@@ -37,6 +41,10 @@ Hindsight is 20/20…
 
 ## Specific Qs
 
+- On the consent form, we should make the plans for data publication clearer,
+  and we should also have two checkboxes: one for I agree for my data to be used
+  in the study, and another for I agree to let my de-identified data to be
+  published.
 - Maybe Q2 should have had an “I don’t know” option
 - For Q2, perhaps we should have directly asked researchers whether they feel
   contributing to open source is part of their job. As it is, just because
