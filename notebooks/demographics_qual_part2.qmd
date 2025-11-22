@@ -4,11 +4,11 @@ title: "Demographics: qualitative responses"
 
 At this point, I've manually reviewed the classifications of people's write-in responses to Q18 in Microsoft Excel. There were definitely some decisions that I think even state-of-the-art AI would have struggled with. You could call this notebook "post-review curation".
 
-I saved my work in an excel spreadsheet. The most important column is the "decision" column, so I just copied that one column to a code-friendly text editor and saved it as a tsv. Here's a key to my mark-up in that column:
+I saved my work in an excel spreadsheet. The most important column was the "decision" column, so I just copied that one column to a code-friendly text editor and saved it as a tsv. Here's a key to my mark-up in that column:
 k = keep as-is
 d = drop
 If I put a number in the decision column, that means replace the existing row with that row of the taxonomy.
-Also, the taxonomy didn't have "AI" or "Machine Learning" by themselves. So I tagged people who wrote in "AI" or "ML" as 1017, "Artificial Intelligence and Robotics", even though none of these people mentioned robotics. I'll correct that right before I plot the data.
+Also, the taxonomy didn't have "AI" or "Machine Learning" by themselves. So I tagged people who wrote in "AI" or "ML" as 1017, "Artificial Intelligence and Robotics", even though none of these people mentioned robotics. I'll correct that later in this script.
 
 We'll want to use this column to make substitutions in the data frame produced by demographics_qual_part1.qmd.
 
@@ -33,9 +33,14 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 
 # Load data
 ```{r}
-tax <- as.data.frame(
-    readLines("data/digital_commons_disciplines.txt"),
-    stringsAsFactors = FALSE)
+# do not read with my load_qualtrics_data function bc it has header = TRUE
+tax <- read.csv(
+  file = file.path(DATA_PATH, "curation_of_disciplines/digital_commons_disciplines.txt"),
+  header = FALSE,
+  sep = "\t",
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+) 
 
 # Data cleaning
 tax <- tax %>%
@@ -49,14 +54,15 @@ tax <- tax %>%
 ```
 
 ```{r}
-auto_results <- read.csv(
-  "data/qual_fields_guesses.tsv",
-  sep = "\t",
-  stringsAsFactors = FALSE
-)
+auto_results <- load_qualtrics_data("curation_of_disciplines/qual_fields_guesses.tsv") 
 
-decisions <- as.data.frame(
-  readLines("data/classification_decisions.tsv"),
+# a manually generated one-column table
+# do not read with my load_qualtrics_data function bc it has header = TRUE
+decisions <- read.csv(
+  file = file.path(DATA_PATH, "curation_of_disciplines/classification_decisions.tsv"),
+  header = FALSE,
+  sep = "\t",
+  check.names = FALSE,
   stringsAsFactors = FALSE
 )
 
@@ -153,16 +159,19 @@ curated <- curated %>% arrange(participantID)
 subset(curated, participantID == 16)
 ```
 
-Ok! Now we finally have the qualitative responses smooshed and zhoozhed into our taxonomy. Let's save this to a file.
+Ok! Now we finally have the qualitative responses smooshed and zhoozhed into our taxonomy.
+
+Change "Artificial Intelligence and Robotics" to "AI and Machine Learning". We gave pure "Robotics" to those answers that mentioned it. Nobody actually entered AI AND robotics, so all occurences of this are just AI.
+```{r}
+curated$Level3[
+  curated$Level3 == "Artificial Intelligence and Robotics"
+] <- "AI and Machine Learning"
+```
+
+Let's save this to a file.
 
 ```{r}
-write.table(
-  curated,
-  file.path(DATA_PATH, "qual_disciplines_final.tsv"),
-  row.names = FALSE,
-  quote = FALSE,
-  sep = "\t"
-)
+write_df_to_file(curated, "curation_of_disciplines/qual_disciplines_final.tsv")
 ```
 
 # Analysis
@@ -226,14 +235,6 @@ level3_counts <- level3_counts %>%
 ```
 
 
-And let's change that Artificial Intelligence label I mentioned at the top of this document. 
-
-```{r}
-level3_counts$Level3[
-  level3_counts$Level3 == "Artificial Intelligence and Robotics"
-] <- "AI and Machine Learning"
-```
-
 Let's rearrange the columns a bit for readability, and put these all back into one data frame.
 
 ```{r}
@@ -252,16 +253,10 @@ names(level3_counts)[1] <- "Taxonomy Level"
 final_data <- rbind(level1_counts, level2_counts, level3_counts)
 ```
 
-I'm just going to leave them as a table for now. I'll save them with my figures. Remember from utils.R that I've saved the path to my figures, which are on my local computer, in my .Renviron file.
+I'm just going to leave them as a table for now. 
 
 ```{r}
-write.table(
-  final_data,
-  file.path(FIGURE_PATH, "qual_disciplines.tsv"),
-  row.names = FALSE,
-  quote = FALSE,
-  sep = "\t"
-)
+write_df_to_file(final_data, "curation_of_disciplines/qual_disciplines_summary.tsv")
 ```
 
 ```{r}

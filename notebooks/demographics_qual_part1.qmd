@@ -11,11 +11,13 @@ One response is preferred, but if multiple are needed, please separate with comm
 I plan to "classify" these free responses into standardized categories. The taxonomy of academic disciplines that I'll be using is here:\
 https://digitalcommons.elsevier.com/en_US/dc-disciplines-taxonomy
 
-I downloaded the PDF and did a very tiny amount of curation to make this list of academic fields and subfields machine-readable. (I left a txt file with my curation notes in the data/ folder.)
+I downloaded the PDF and did a very tiny amount of curation to make this list of academic fields and subfields machine-readable. (I left a txt file with my curation notes in the curation_of_disciplines/ folder in the Dryad data deposit.)
+
+This script expects that your data folder contains a folder called curation_of_disciplines that in turn contains the lightly curated taxonomy of disciplines (digital_commons_disciplines.txt).
 
 I'll use a fuzzy string matching algorithm to classify the responses--essentially, looking for which item in the taxonomy most closely matches the user's entry. Hopefully, there will be very few entries that aren't a good match for anything in the taxonomy, and I can deal with these stragglers manually.
 
-Note that while I am preforming classification, there's no machine learning here.
+Note that while I am preforming classification, there's no "real" machine learning here.
 
 Note from the future: this code ended up being pretty ugly, with a lot of nested loops. Maybe I could have written less code if I'd used the `fuzzyjoin` package. Oh well. I went for a rudimentary solution, and it worked well enough.
 
@@ -205,9 +207,15 @@ get_winner_df <- function(cands_df, tax_df) {
 other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
 status <- load_qualtrics_data("clean_data/contributor_status_Q3.tsv")
 qual <- load_qualtrics_data("qual_responses.tsv")
-tax <- as.data.frame(
-    readLines("data/digital_commons_disciplines.txt"),
-    stringsAsFactors = FALSE)
+
+# do not read with my load_qualtrics_data function bc it has header = TRUE
+tax <- read.csv(
+  file = file.path(DATA_PATH, "curation_of_disciplines/digital_commons_disciplines.txt"),
+  header = FALSE,
+  sep = "\t",
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+) 
 
 data <- cbind(status, other_quant)
 nrow(data)
@@ -228,7 +236,7 @@ length(qual_fields)
 academics
 ```
 
-This question was not mandatory, but 170/188 academics answered it.
+This question was not mandatory, but 174/188 academics answered it.
 
 ```{r}
 head(qual_fields)
@@ -325,13 +333,7 @@ head(final_results, n=50)
 Okay, well I got results, but there's a pretty high rate of crappy matches. And then there's some that only a sophisticated algorithm would catch, and a couple that I'M not even sure how to classify. I think experimenting with better algorithms, or "real ML" classifiers, would probably take longer than just manually sifting through these. My code is ugly, and I hate that my procedure is not reproducible, but it's fast. So I'm just going to manually review these classifications in Microsoft Excel.
 
 ```{r}
-write.table(
-  final_results,
-  "data/qual_fields_guesses.tsv",
-  sep = "\t",
-  quote = FALSE,
-  row.names = FALSE
-)
+write_df_to_file(final_results, "curation_of_disciplines/qual_fields_guesses.tsv")
 ```
 
 ```{r}
