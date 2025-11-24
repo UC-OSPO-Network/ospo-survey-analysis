@@ -8,12 +8,12 @@ This repository contains the complete analysis workflows for the paper "A
 System-wide Snapshot: A Multi-Campus Survey of Open Source Contributors at the
 University of California". We may make little tweaks if changes are requested,
 but this repository is no longer under active development. For the final
-"snapshot" of this repository at time of publication, see DRYAD LINK (COMING
+"snapshot" of this repository at time of submission, see ZENODO LINK (COMING
 SOON).
 
 ## Citation
 
-Please cite the resulting paper if you use this code or data:
+Please cite this paper if you use this code or data:
 
 > COMING SOON!
 
@@ -30,10 +30,11 @@ to open source and the barriers they face.
 ## Data and Survey Instrument
 
 - **Survey Instrument:** The full survey instrument is available in the root of
-  this repository as **`OSPO_survey_instrument.pdf`**. If you require the
-  original Qualtrics file, please contact `virginiascarlett@ucsb.edu`.
+  this repository as **`OSPO_survey_instrument.pdf`**. The survey instrument is
+  also available as a Qualtrics file (.qsf) and MS Word (.docx) file in the
+  dataset in Dryad.
 - **Data:** The de-identified survey data used for this analysis is not stored
-  in this repository. It is permanently archived at:
+  in this repository. It is permanently archived in Dryad at:
   > COMING SOON
 
 ## Reproducing the Analysis
@@ -42,11 +43,6 @@ to open source and the barriers they face.
 
 To run the analysis, please download the data from Dryad and place it wherever
 you like (the `data/` directory would be a reasonable location).
-
-Note that the following data files are not in Dryad: intermediate files that can
-be regenerated from this code, files containing personally identifiable
-information, or files containing the same information that is already in the
-supplmentary materials of the paper.
 
 You will need to hard-code two paths for these scripts to work: DATA_PATH and
 FIGURE_PATH. The scripts will look for "raw" data in the DATA_PATH location, and
@@ -61,7 +57,8 @@ FIGURE_PATH = "/Users/virginiascarlett/foo/bar/figures"
 ```
 
 If using the .Renviron file is not convenient for you, you can just hard code
-the paths at the top of my utils.R script.
+the paths at the top of my utils.R script. All the notebooks fetch the path
+through utils.R.
 
 ### Dependencies
 
