@@ -2,7 +2,7 @@
 title: "Data cleanup, part 1"
 ---
 
-In this script, I take the raw survey data downloaded from Qualtrics, and break it up into smaller tables that will be easier to work with. This script writes three data files. One of them, deidentified_no_qual.tsv, will need further cleanup (see data_cleanup_part2.qmd).
+In this script, I take the raw survey data downloaded from Qualtrics, and break it up into smaller tables that will be easier to work with. This script writes three data files. One of them, all_quant.tsv, will need further cleanup (see data_cleanup_part2.qmd).
 
 This script assumes that when the raw data were downloaded from Qualtrics, tsv format was selected, as was 'More Options' > 'Split multi-value fields into columns'.
 
@@ -16,7 +16,7 @@ Input:\
 Output: \
 &nbsp;&nbsp;&nbsp;&nbsp;pii.tsv (contains emails, GitHub usernames, and contact preferences)\
 &nbsp;&nbsp;&nbsp;&nbsp;qual_responses.tsv (contains responses to free text boxes)\
-&nbsp;&nbsp;&nbsp;&nbsp;deidentified_no_qual.tsv (contains responses to matrix and multiple-choice Qs)\
+&nbsp;&nbsp;&nbsp;&nbsp;all_quant.tsv (contains responses to matrix and multiple-choice Qs)\
 
 # Load packages
 ```{r}
@@ -95,7 +95,7 @@ write_df_to_file(qual_clean, "qual_responses.tsv")
 data <- data %>% select(-ends_with("_TEXT"), -all_of(qual_cols))
 ```
 
-# Save deidentified quantitative data
+# Save quantitative data
 ```{r}
-write_df_to_file(data, "deidentified_no_qual.tsv")
+write_df_to_file(data, "all_quant.tsv")
 ```

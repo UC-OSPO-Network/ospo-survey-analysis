@@ -38,13 +38,13 @@ make_df_binary <- function(df, cols = NULL) {
 
 
 pii_data <- load_qualtrics_data("pii.tsv")
-deid_data <- load_qualtrics_data("deidentified_no_qual.tsv")
+quant_data <- load_qualtrics_data("all_quant.tsv")
 
 
 pii_data <- pii_data %>%
   select(starts_with("stay_in_touch"))
 
-data <- cbind(pii_data, deid_data$campus)
+data <- cbind(pii_data, quant_data$campus)
 names(data)[ncol(data)] <- "campus"
 
 data <- data %>% filter(stay_in_touch_email != "")

@@ -5,7 +5,7 @@ title: "Data cleanup, part 2"
 In this script, I create some cleaner data frames for the more complex questions in our quantitative data set, to minimize the data wrangling at the top of each analysis script.
 
 Input:\
-&nbsp;&nbsp;&nbsp;&nbsp;deidentified_no_qual.tsv (produced by data_cleanup.R)\
+&nbsp;&nbsp;&nbsp;&nbsp;all_quant.tsv (produced by data_cleanup.R)\
 &nbsp;&nbsp;&nbsp;&nbsp;pii.tsv (produced by data_cleanup.R)\
 
 Output: \
@@ -244,7 +244,7 @@ shorten_long_response <- function(df, keyword, replacement) {
 
 # Load data
 ```{r}
-data <- load_qualtrics_data("deidentified_no_qual.tsv")
+data <- load_qualtrics_data("all_quant.tsv")
 pii <- load_qualtrics_data("pii.tsv")
 ```
 
