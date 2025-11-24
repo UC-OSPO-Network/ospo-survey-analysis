@@ -1,0 +1,4 @@
+Adding a file here so the data/ folder can be checked into git version control.
+
+If you want to reproduce my analysis, I recommend downloading the data from
+Dryad and placing it here.
