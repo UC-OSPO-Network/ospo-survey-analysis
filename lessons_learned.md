@@ -38,6 +38,10 @@ Hindsight is 20/20…
   commonly use/contribute to, and ask people if they’ve ever used and/or
   contributed to that tool. (jQuery, Drupal, etc.) Ask Patrick Masson of Apereo
   about this—he has some preliminary data.
+- Another question I might like to ask in future surveys: at what stage of
+  project maturity do UC researchers generally open source their project? What
+  percent of projects are open from their inception? (We would need a definition
+  of open)
 
 ## Specific Qs
 
