@@ -1,0 +1,123 @@
+---
+title: "Figure 3"
+---
+
+# Overview
+This script ingests a table produced by importance_plots.qmd and produces figure 3 for the paper.
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+# Load data
+
+```{r}
+# This poorly named function from utils.R
+# is basically just read.csv with my data path in there
+more_than_mod <- load_qualtrics_data(file.path("data_for_plots/importance.tsv"))
+```
+
+Reorder factor levels
+```{r}
+more_than_mod$job_category <- gsub(
+  "Non-research Staff",
+  "Non-research\nstaff",
+  more_than_mod$job_category
+)
+
+more_than_mod$job_category <- factor(
+  more_than_mod$job_category,
+  levels = c(
+    "Teachers",
+    "Researchers",
+    "Non-research\nstaff",
+    "Students"
+  )
+)
+
+more_than_mod$importance_area <- factor(
+  more_than_mod$importance_area,
+  levels = c(
+    "Learning",
+    "Professional Development",
+    "Teaching",
+    "Research",
+    "Job"
+  )
+)
+```
+
+```{r fig.width=16, fig.height=8}
+p <- ggplot(
+  more_than_mod,
+  aes(
+    x = job_category,
+    y = pct,
+    fill = importance_area
+  )
+) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  geom_hline(yintercept = 80, linetype = "dashed", color = "black") +
+  ggtitle("Perceived Importance of Open Source\nfor Different Kinds of Work") +
+  labs(
+    y = "Percent of Respondents Who Said OS\nIs above Moderate Importance"
+  ) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  coord_cartesian(ylim = c(50, 100)) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 6),
+    axis.text.x = element_text(
+      angle = 60,
+      vjust = 1,
+      hjust = 1,
+      size = 6,
+      margin = margin(t = 12)
+    ),
+    axis.text.y = element_text(
+      size = 6,
+      margin = margin(l = 8)
+    ),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.title = element_blank(),
+    legend.text = element_text(size = 6),
+    legend.key.size = unit(0.75,"line"),
+    panel.background = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 7),
+    plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"),
+    panel.grid = element_line(linetype = "solid", color = "gray90")
+  ) +
+  #https://sronpersonalpages.nl/~pault/
+  scale_fill_manual(
+    values = c(
+      '#4477AA',
+      '#EE6677',
+      '#228833',
+      '#CCBB44',
+      '#66CCEE'
+    )
+  )
+
+p
+
+```
+
+
+```{r}
+ggsave(
+  filename = file.path(FIGURE_PATH, "test.tif"),
+  plot = p,
+  device = "tiff",
+  width = 4.5, height = 2.63, units = "in",
+  dpi = 450,                
+  compression = "none",    
+  bg = "white"
+)
+```

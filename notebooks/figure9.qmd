@@ -48,6 +48,7 @@ p_exp <- basic_bar_chart(
   title = "Experienced Contributors'\nFavorite Solutions",
   show_axis_title_x = TRUE,
   show_axis_title_y = FALSE,
+  show_ticks_y = FALSE,
   ylabel = "Number of Respondents",
   show_bar_labels = TRUE,
   color_index = 11,
@@ -114,14 +115,18 @@ p_emm <- ggplot(emm,
   ) +
   coord_flip() +
   theme(
-    plot.title = element_text(size = 7, hjust = 0, face = "bold"),
+    plot.title = element_text(
+      size = 7,
+      hjust = 0,
+      face = "bold"
+      ),
     axis.text.x = element_text(size = 6),
     axis.text.y = element_text(size = 6),
     axis.title.x = element_text(size = 7),
     panel.background = element_blank(),
     #panel.grid.major.x = element_line(linetype = "solid", color = "gray90"),
     #panel.grid.major.y = element_line(linetype = "dashed", color = "gray95"),
-    plot.margin = unit(c(0.3, 0.3, 0.3, 0.3), "cm"),
+    plot.margin = unit(c(0, 0.3, 0.3, 0.3), "cm"),
     legend.title = element_blank(),
     legend.text=element_text(size=6)
   )

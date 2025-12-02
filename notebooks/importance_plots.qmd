@@ -521,6 +521,14 @@ more_than_mod
 
 FINALLY, let's plot it! 
 
+Save the data to a file for fine-tuning of plot.
+```{r}
+write_df_to_file(
+  more_than_mod,
+  file.path("data_for_plots/importance.tsv")
+)
+```
+
 Reorder factor levels
 ```{r}
 more_than_mod$job_category <- gsub(
