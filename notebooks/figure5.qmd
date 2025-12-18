@@ -26,7 +26,10 @@ staff_counts <- load_qualtrics_data(file.path("data_for_plots/project_sizes_staf
 ```
 
 ```{r}
-my_colors <- c("#D6604D", "#FDDBC7", "#D1E5F0", "#4393C3")
+#my_colors <- c("#D6604D", "#FDDBC7", "#D1E5F0", "#4393C3")
+#acad_colors <- c("#71190d", "#db060b", "#ee8026", "#f7ca46")
+acad_colors <- c("#1a7937", "#5bae60", "#acd49f", "#d9f0d4")
+staff_colors <- c("#1964b0", "#427dbf", "#77aadd", "#c3e5f0")
 ```
 
 # Reorder factor levels
@@ -74,17 +77,17 @@ p_acad <- stacked_bar_chart(
   x_var = "size",
   y_var = "n",
   fill = "frequency",
-  title = "Frequency of Contribution by\nProject Size: Academics",
-  ylabel = "Percent of Responses",
+  title = "Frequency of contribution by\nproject size: academics",
+  ylabel = "Percent of responses",
   proportional = TRUE,
-  show_legend = FALSE,
+  #show_legend = FALSE,
   legend_text_size = 6,
   margin_vals = c(0.1, 0.1, 0.1, 0.1),
   plot_title_size = 7,
   y_axis_text_size = 6,
   y_axis_title_size = 6,
   x_axis_text_size = 6,
-  cpalette = my_colors
+  cpalette = acad_colors
 )
 
 p_acad <- p_acad +
@@ -96,17 +99,17 @@ p_staff <- stacked_bar_chart(
   x_var = "size",
   y_var = "n",
   fill = "frequency",
-  title = "Frequency of Contribution by\nProject Size: Non-research Staff",
-  ylabel = "Percent of Responses",
+  title = "Frequency of contribution by\nproject size: non-research staff",
+  ylabel = "Percent of responses",
   proportional = TRUE,
-  show_axis_title_y = FALSE,
+  #show_axis_title_y = FALSE,
   legend_text_size = 6,
   margin_vals = c(0.1, 0.1, 0.1, 0.1),
   plot_title_size = 7,
   y_axis_text_size = 6,
   y_axis_title_size = 6,
   x_axis_text_size = 6,
-  cpalette = my_colors
+  cpalette = staff_colors
 )
 
 p_staff <- p_staff +

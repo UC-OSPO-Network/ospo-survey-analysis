@@ -159,7 +159,7 @@ basic_bar_chart <- function(
   x_var,
   y_var,
   title,
-  ylabel = "Number of Respondents",
+  ylabel = "Number of respondents",
   show_axis_title_x = FALSE,
   show_axis_title_y = TRUE,
   axis_title_size_x = 24,

@@ -26,7 +26,8 @@ maint_df <- load_qualtrics_data(file.path("data_for_plots/maintainers_bar.tsv"))
 ```
 
 ```{r}
-my_colors <-  c("#88CCEE", "#332288")  
+#my_colors <-  c("#88CCEE", "#332288")  
+my_colors <- c("#999933", "#882255")
 ```
 
 # Order factor levels
@@ -61,7 +62,7 @@ stack <- stacked_bar_chart(
   x_var = "job_category",
   y_var = "n",
   fill = "Maintainer",
-  title = "Number of Maintainers\nby Job Category",
+  title = "Number of maintainers\nby job category",
   show_legend = FALSE,
   #legend_text_size = 6,
   margin_vals = c(0.1, 0.1, 0.1, 0.1),
@@ -78,10 +79,10 @@ stack_prop <- stacked_bar_chart(
   df = maint_df,
   x_var = "job_category",
   y_var = "n",
-  ylabel = "Percent of Responses",
+  ylabel = "Percent of responses",
   #show_axis_title_y = FALSE,
   fill = "Maintainer",
-  title = "Percent of Maintainers\nby Job Category",
+  title = "Percent of maintainers\nby job category",
   proportional = TRUE,
   legend_text_size = 6,
   margin_vals = c(0.1, 0.1, 0.1, 0.1),

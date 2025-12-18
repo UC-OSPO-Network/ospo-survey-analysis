@@ -8,7 +8,7 @@ Hindsight is 20/20…
 
 - Making nearly all questions mandatory was a good choice–it makes the
   statistics much easier.
-- I think we could have made the survey longer. Some of the pre-testers made
+- I think we should have made the survey longer. Some of the pre-testers made
   comments to this effect. We could incorporate some of the questions from
   [this study](https://doi.org/10.7717/peerj-cs.963).
 - If we had known that this would be such a popular solution, I think we would
@@ -59,7 +59,9 @@ Hindsight is 20/20…
   “Learning”. We should clarify the difference between “Learning” and
   “Professional development”.
 - On Q4 about roles, other things people wrote in were Conference Organizer,
-  Fundraiser, and Ambassador/Outreach/Advocate
+  Fundraiser, and Ambassador/Outreach/Advocate. Perhaps consider renaming the
+  "Contributor" role. It's confusing that the word "contributor" means something
+  different throughout the rest of the survey.
 - For Q6 about motivations, we got the following additional themes from the
   comments: “to take power back from profit-driven corporations”, “it’s aligned
   with academic values”, it’s good for my career”, “it saves money”, and “to

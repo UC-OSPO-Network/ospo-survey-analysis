@@ -57,7 +57,7 @@ p_vc <- basic_bar_chart(
   x_var = "platform",
   y_var = "prop",
   title = "Usage of version control\nhosting platforms",
-  ylabel = "Percent of Respondents",
+  ylabel = "Percent of respondents",
   axis_title_size_x = 6,
   axis_title_size_y = 6,
   axis_text_size_x = 6,
@@ -88,7 +88,7 @@ p_data <- basic_bar_chart(
   x_var = "platform",
   y_var = "prop",
   title = "Usage of data repositories",
-  ylabel = "Percent of Academic Respondents",
+  ylabel = "Percent of academic respondents",
   axis_title_size_x = 6,
   axis_title_size_y = 6,
   axis_text_size_x = 6,
@@ -124,7 +124,7 @@ p_combined <- patchwork::wrap_plots(
   plot_layout(widths = c(1, 0.01, 1))
 
 ggsave(
-  filename = file.path(FIGURE_PATH, "fig6.tif"),
+  filename = file.path(FIGURE_PATH, "Fig6.tif"),
   plot = p_combined + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 7)),
   device = "tiff",
   width = 5.2, height = 2.5, units = "in",

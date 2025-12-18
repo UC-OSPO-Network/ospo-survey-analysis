@@ -58,6 +58,8 @@ basic_data <- read.csv(
     stringsAsFactors = TRUE,
     sep = "\t"
   )
+basic_data$Motivation <- gsub("Improve Tools", "Improve tools", basic_data$Motivation)
+
 
 it_acad_data <- read.csv(
     file.path(
@@ -101,7 +103,7 @@ levels = c(
 basic_plot <- basic_bar_chart(basic_data,
   x_var = "Motivation",
   y_var = "Count",
-  title = "Reasons for Contributing to Open Source",
+  title = "Reasons for contributing to open source",
   horizontal = TRUE,
   show_bar_labels = TRUE,
   show_ticks_y = FALSE,
@@ -118,29 +120,43 @@ basic_plot <- basic_bar_chart(basic_data,
   show_grid = TRUE
 )
 
-it_acad_job_plot <- basic_bar_chart(it_acad_data,
-  x_var = "role",
-  y_var = "proportion_yes",
-  title = "Percent of Respondents who said\n'Developing open source products\nis part of my job'",
-  show_bar_labels = FALSE,
-  show_ticks_y = FALSE,
-  axis_title_size_x = 6,
-  axis_title_size_y = 6,
-  axis_text_size_x = 6,
-  axis_text_size_y = 6,
-  title_size = 7,
-  label_size = 2,
-  show_axis_title_y = FALSE,
-  show_axis_title_x = FALSE,
-  show_grid = TRUE,
-  percent = TRUE,
-  margin_vals = c(0.6, 0.3, 0.3, 0.3)
-)
+it_acad_job_plot <- ggplot(it_acad_data, aes(x = role, y = proportion_yes, fill = role)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("#1a7937", "#eecc66"))+
+  scale_y_continuous(labels = scales::percent)+
+  ggtitle("Percent of respondents who said\n'Developing open source products\nis part of my job'")+
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  axis.text.x = element_text(
+        angle = 60,
+        vjust = 0.6,
+        size = 6
+      ),
+  axis.text.y = element_text(size = 6),
+  axis.ticks.x = element_blank(),
+  axis.ticks.y = element_blank(),
+  panel.grid = element_line(linetype = "solid", color = "gray90"),
+  panel.background = element_blank(),
+  legend.key.size = unit(rel(0.5), "lines"),
+  legend.text = element_text(
+    size = 6,
+    margin = margin(l = 1)
+  ),
+  legend.title = element_blank(),
+  plot.title = element_text(
+    hjust = 0,
+    face = "bold",
+    size = 7
+    ),
+  plot.margin = unit(c(0.6, 0.3, 0.3, 0.3), "cm")
+  )
+
 
 skills_plot <- line_plot(skills_data,
 x_var = "job_category",
 y_var = "Proportion",
-title = "Percent of Participants Motivated by\nDesire to Improve Their Skills"
+title = "Percent of participants motivated\nby desire to improve their skills"
 )
 ```
 
@@ -148,8 +164,8 @@ title = "Percent of Participants Motivated by\nDesire to Improve Their Skills"
 
 ```{r}
 # From the patchwork package
-top_row <- basic_plot + plot_spacer() + plot_layout(widths = c(1.4, 0.6))
-bottom_row <- skills_plot + it_acad_job_plot + plot_layout(widths = c(1, 1))
+top_row <- basic_plot + plot_spacer() + plot_layout(widths = c(1.5, 0.5))
+bottom_row <- skills_plot + it_acad_job_plot + plot_layout(widths = c(1.1, 0.9))
 
 p_combined <- top_row / bottom_row
 

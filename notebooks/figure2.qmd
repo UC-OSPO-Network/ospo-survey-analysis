@@ -110,7 +110,7 @@ p_status <- donut_chart(status_data,
   legendpos = "left",
   plot_left_margin = 0
  ) +
-  labs(title = "Respondents' Experience Levels")
+  labs(title = "Respondents' experience levels")
 ```
 
 # Plot campus
@@ -147,7 +147,7 @@ p_campus <- donut_chart(
   ),
   plot_right_margin = 5 #40
 ) +
-  labs(title = "Campuses of Respondents")
+  labs(title = "Campus affiliations")
 ```
 
 # Plot fields of study
@@ -166,7 +166,7 @@ p_field <- donut_chart(
   legendpos = "left",
   plot_right_margin = 10 #40
 ) +
-  labs(title = "Academic Respondents' Fields of Study")
+  labs(title = "Academic respondents' fields of study")
 
   # # Paul Tol's "bright" scheme
   # cpalette = c(
@@ -192,7 +192,7 @@ p_staff <- donut_chart(staff_data,
   ),
   plot_left_margin = 10 #40
   ) +
-  labs(title = "Staff Respondents' Work Areas")
+  labs(title = "Staff respondents' work areas")
 
   # Paul Tol's "medium contrast" scheme
   # cpalette = c(
@@ -238,7 +238,7 @@ p_job <- ggplot(job_data) +
     explode = explode # Map the explode column here
   ), color = NA   # remove borders
   ) +
-  labs(title = "Respondents' Job Categories") + 
+  labs(title = "Respondents' job categories") + 
   coord_fixed() + # Ensures the plot is a circle
   theme_void() +
   coord_fixed(clip = "off") + # Allow labels to overflow beyond plot area

@@ -28,6 +28,9 @@ asp <- load_qualtrics_data(file.path("data_for_plots/asp_fave_solns.tsv"))
 # Note these solutions are deliberately in reverse order; 
 # these will be flipped later w coord_flip()
 solns_ordered <- load_qualtrics_data(file.path("data_for_plots/solns_ordered.tsv"))$soln
+
+emm$job_category <- gsub("Non-research Staff", "Non-research staff", emm$job_category)
+emm$job_category <- gsub("Postdocs and Staff Researchers", "Postdocs and staff researchers", emm$job_category)
 ```
 
 # Plot
@@ -45,11 +48,11 @@ p_exp <- basic_bar_chart(
   df = exp,
   x_var = "Var1",
   y_var = "Freq",
-  title = "Experienced Contributors'\nFavorite Solutions",
+  title = "Experienced contributors'\nfavorite solutions",
   show_axis_title_x = TRUE,
   show_axis_title_y = FALSE,
   show_ticks_y = FALSE,
-  ylabel = "Number of Respondents",
+  ylabel = "Number of respondents",
   show_bar_labels = TRUE,
   color_index = 11,
   horizontal = TRUE,
@@ -106,12 +109,13 @@ p_emm <- ggplot(emm,
                 position = pd) +
   geom_point(size = 1.5, position = pd) +
   scale_shape_manual(values = c(16, 17, 15, 18)) +
+  scale_color_manual(values = c(COLORS[2], COLORS[1], COLORS[3], COLORS[4]))+
   scale_x_discrete(limits = interleaved, breaks = solns_ordered) +
   ylim(c(1, 3)) +
   labs(
-    title = "Estimated Mean Rating by Job Category",
+    title = "Estimated mean rating by job category",
     x = NULL,
-    y = "Estimated Mean Rating"
+    y = "Estimated mean rating"
   ) +
   coord_flip() +
   theme(
@@ -141,7 +145,7 @@ asp <- asp %>%
 p_asp <- basic_bar_chart(asp,
   x_var = "Solution",
   y_var = "Count",
-  title = "What Would Help Aspiring\nContributors Get Started",
+  title = "What would help aspiring\ncontributors get started",
   horizontal = TRUE,
   show_bar_labels = TRUE,
   show_ticks_y = FALSE,
@@ -171,7 +175,7 @@ p_combined <- p_exp + p_emm + p_asp +
 
 
 ggsave(
-  filename = file.path(FIGURE_PATH, "fig9.tif"),
+  filename = file.path(FIGURE_PATH, "Fig9.tif"),
   plot = p_combined + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(size = 7)),
   device = "tiff",
   width = 7.5, height = 4, units = "in",

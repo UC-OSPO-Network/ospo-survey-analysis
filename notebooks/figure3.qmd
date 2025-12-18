@@ -21,6 +21,7 @@ suppressMessages(source(file.path(project_root, "scripts/utils.R")))
 # This poorly named function from utils.R
 # is basically just read.csv with my data path in there
 more_than_mod <- load_qualtrics_data(file.path("data_for_plots/importance.tsv"))
+more_than_mod$importance_area <- gsub("Professional Development", "Professional development", more_than_mod$importance_area)
 ```
 
 Reorder factor levels
@@ -45,7 +46,7 @@ more_than_mod$importance_area <- factor(
   more_than_mod$importance_area,
   levels = c(
     "Learning",
-    "Professional Development",
+    "Professional development",
     "Teaching",
     "Research",
     "Job"
@@ -64,9 +65,9 @@ p <- ggplot(
 ) +
   geom_col(position = position_dodge(width = 0.8), width = 0.7) +
   geom_hline(yintercept = 80, linetype = "dashed", color = "black") +
-  ggtitle("Perceived Importance of Open Source\nfor Different Kinds of Work") +
+  ggtitle("Perceived importance of open source\nfor different kinds of work") +
   labs(
-    y = "Percent of Respondents Who Said OS\nIs above Moderate Importance"
+    y = "Percent of respondents who said OS\nis above moderate importance"
   ) +
   scale_y_continuous(labels = function(x) paste0(x, "%")) +
   coord_cartesian(ylim = c(50, 100)) +
@@ -90,7 +91,7 @@ p <- ggplot(
     legend.text = element_text(size = 6),
     legend.key.size = unit(0.75,"line"),
     panel.background = element_blank(),
-    plot.title = element_text(hjust = 0.5, size = 7),
+    plot.title = element_text(hjust = 0, face = "bold", size = 7),
     plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"),
     panel.grid = element_line(linetype = "solid", color = "gray90")
   ) +
@@ -112,7 +113,7 @@ p
 
 ```{r}
 ggsave(
-  filename = file.path(FIGURE_PATH, "test.tif"),
+  filename = file.path(FIGURE_PATH, "fig3.tif"),
   plot = p,
   device = "tiff",
   width = 4.5, height = 2.63, units = "in",

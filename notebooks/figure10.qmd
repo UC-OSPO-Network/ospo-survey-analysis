@@ -71,7 +71,7 @@ ggp <- ggplot(
     size = 20,
     colour = "white"
   ) +
-  labs(title = "Comments on Challenges and Solutions") +
+  labs(title = "Comments on challenges and solutions") +
   scale_fill_manual(values = pal, guide = guide_legend(title = "Category")) +
   theme(
     legend.text = element_text(size = 20),
@@ -108,7 +108,7 @@ ggp <- ggplot(
     size = 10,
     colour = "white"
   ) +
-  labs(title = "Comments on Challenges and Solutions") +
+  labs(title = "Comments on challenges and solutions") +
   scale_fill_manual(values = pal, guide = guide_legend(title = "Category")) +
   theme(
     legend.text = element_text(size = 10),
@@ -121,7 +121,7 @@ ggp <- ggplot(
 
 ```{r}
 ggsave(
-  filename = file.path(FIGURE_PATH, "fig10.tif"),
+  filename = file.path(FIGURE_PATH, "Fig10.tif"),
   plot = ggp,
   device = "tiff",
   width = 7.5, height = 4, units = "in",
