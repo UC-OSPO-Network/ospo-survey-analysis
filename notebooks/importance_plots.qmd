@@ -79,6 +79,28 @@ demographic questions.
 importance_and_job <- exclude_empty_rows(importance_and_job, strict = TRUE)
 ```
 
+Request from a peer reviewer: how many people said Non-applicable for teaching and research?
+```{r}
+# Teachers
+total = nrow(importance_and_job)
+tea_nas = sum(importance_and_job$Teaching == "Non-applicable")
+applicable = total - tea_nas
+sprintf("total respondents: %d", total)
+sprintf("number of NA responses for teaching: %d", tea_nas)
+sprintf("number of teachers, based on applicable/NA response: %d", applicable)
+sprintf("percent of respondents who are teachers: %.2f%%", (applicable / total)*100)
+
+# Researchers
+total = nrow(importance_and_job)
+res_nas = sum(importance_and_job$Research == "Non-applicable")
+applicable = total - res_nas
+sprintf("total respondents: %d", total)
+sprintf("number of NA responses for research: %d", res_nas)
+sprintf("number of researchers, based on applicable/NA response: %d", applicable)
+sprintf("percent of respondents who are researchers: %.2f%%", (applicable / total)*100)
+```
+
+
 Across the board, how many respondents said OS was important for their learning and/or PD?
 
 ```{r}

@@ -103,6 +103,17 @@ levels(long_data$job_category)
 
 Ok, so it looks like our reference levels are computing environments and faculty. That's fine. It doesn't really matter.
 
+# Minimal model (no job) (added by peer reviewer request)
+
+```{r}
+fit0 <- ordinal::clmm(utility ~ solution +      
+              (1 | participantID),                 
+            data = long_data, link = "logit", Hess = TRUE)
+
+summary(fit0)
+```
+
+
 # Create candidate models
 I'd like to fit a cumulative-logit mixed model, a.k.a. an ordinal regression model, using the `clmm` function from the ordinal package. (I am not using `polr` from the MASS package because it does not allow random effects.) I know we want to include participantID as a random effect, but I'm not really sure how to model solution. I think it would be best to compare different models.
 
@@ -384,12 +395,15 @@ UPDATE: This was indeed a bug that will be fixed in the next version of emmeans.
 Below is Russ Lenth's suggested workaround to "manually" calculate weighted means on the mean.class scale.
 
 ```{r}
-# Just for fun -- will not report
 emm.pr <- emmeans(fit1b, ~ utility|solution, weights = "prop", mode = "prob")
-contrast(emm.pr, list(mc = 1:3)) |> confint(by=NULL) |> arrange(desc(estimate))
+emm.pr.res <- contrast(emm.pr, list(mc = 1:3)) |> confint(by=NULL) |> arrange(desc(estimate))
 ```
+
 ```{r}
-# Use this one for supplement
+write_df_to_file(emm.pr.res, "supplementary_tables/solns_global_mean_ratings_prop_weighing.tsv")
+```
+
+```{r}
 emm.eq <- emmeans(fit1b, ~ utility|solution, weights = "equal", mode = "prob")
 emm.eq.res <- contrast(emm.eq, list(mc = 1:3)) |> confint(by=NULL) |> arrange(desc(estimate))
 emm.eq.res

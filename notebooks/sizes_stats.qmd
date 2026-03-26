@@ -125,6 +125,15 @@ combined2$frequency <- factor(combined2$frequency, levels = ordered_freqs)
 combined2$job_category <- factor(combined2$job_category, levels = ordered_jobs2)
 ```
 
+# Descriptive statistics
+Before considering job categories or doing regression, let's just look at the percentages for different size and frequency levels.
+```{r}
+combined2 %>%
+  count(size, frequency) %>%
+  group_by(size) %>%
+  mutate(percentage = round(n / sum(n) * 100, 1))
+```
+
 # Model selection part 1: comparing non-mixed models
 
 To start with, I'm going to create and compare a variety of non-mixed models to see which one looks best. clm(), which is for non-mixed models, has a couple of diagnostic capabilities that clmm() (mixed models) does not. Once I've chosen a non-mixed model that looks good, I'll add in the random effects term.
@@ -144,6 +153,32 @@ freq ~ combined4 * size\
 fit1 <- ordinal::clm(frequency ~ size,                 
             data = combined2, link = "logit", Hess = TRUE)
 ```
+
+## Model 1.1: no job data + random effect (This section was added later based on a peer reviewer's comments)
+Let's spend a little more time looking at the dataset without consideration for job categories. As above, it doesn't matter which data frame we use since we're ignoring the job category column.
+```{r}
+fit1.1 <- ordinal::clmm(
+  frequency ~ size + (1 | participantID),
+  data = combined4,
+  link = "logit",
+  Hess = TRUE
+)
+summary(fit1.1)
+```
+
+Let's exponentiate the coefficients to get odds ratios, and subtract from 100 to get percentage changes between size categories.
+
+```{r}
+100-exp(fit1.1$coefficients["sizeMedium"])*100
+100-exp(fit1.1$coefficients["sizeLarge"])*100
+```
+
+And check whether we can use the proportional odds assumption, at least for the equivalent non-mixed model. 
+```{r}
+nominal_test(fit1)
+```
+
+Looks good!
 
 ## Model 2: 2 job categories, no interaction
 

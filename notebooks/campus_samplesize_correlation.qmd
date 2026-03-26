@@ -1,0 +1,249 @@
+To address a peer review comment, I am comparing the number of respondents per campus to the campus population. Data from the UC website is hard-coded into here.ß
+
+# Import packages and utilities
+```{r}
+project_root <- here::here() # requires that you be somewhere in the
+# project directory (not above it)
+# packages
+suppressMessages(source(file.path(project_root, "scripts/packages.R")))
+# functions and objects used across scripts
+suppressMessages(source(file.path(project_root, "scripts/utils.R")))
+```
+
+## Load data
+
+```{r}
+other_quant <- load_qualtrics_data("clean_data/other_quant.tsv")
+status <- load_qualtrics_data("clean_data/contributor_status_Q3.tsv")
+
+raw_data <- cbind(status, other_quant)
+nrow(raw_data)
+head(raw_data)
+```
+
+## Wrangle data
+
+Filter out people who were neither past nor future contributors. We'll use this filtered data frame moving forward.
+```{r}
+# Filter duds
+data <- raw_data %>%
+    filter(!(Past == "" | Future == "")) %>%
+    filter(!(Past == "False" & Future == "False"))
+
+nrow(data)
+```
+
+Count how many responses each campus received.
+
+```{r}
+campus_counts <- data %>%
+  count(campus, name = "respondents")
+```
+
+## Get UC data into data frames
+First, let's get the number of students per campus from this website: https://www.universityofcalifornia.edu/about-us/information-center/fall-enrollment-glance
+```{r}
+campus <- c(
+  "UC Berkeley",
+  "UC Davis",
+  "UC Irvine",
+  "UC Los Angeles",
+  "UC Merced",
+  "UC Riverside",
+  "UC San Diego",
+  "UC San Francisco",
+  "UC Santa Barbara",
+  "UC Santa Cruz",
+  "Other UC"
+)
+numStudents <- c(
+  46151,
+  39409,
+  37268,
+  47435,
+  8943,
+  27633,
+  45087,
+  2993,
+  26034,
+  20140,
+  0
+)
+student_pops <- data.frame(
+  campus,
+  numStudents
+)
+```
+Great, this comes out to 301,093, the total reported in this news article: https://www.universityofcalifornia.edu/press-room/university-california-sets-enrollment-records.
+
+Next, let's get the employees. I'll use this table. https://www.universityofcalifornia.edu/about-us/information-center/uc-employee-headcount. This will be imperfect because who knows how many students are also employees. I am discarding the "student teachers/research assistant" category, since that group may be predominantly students (a definition is not provided) who would primarily identify as students when taking our survey.
+```{r}
+numAcademicStaff <- c(
+  5134, #9765-4631
+  5951, #9264-3313
+  4887, #7533-2646
+  9425, #13164-3739
+  648, #1405-757
+  1867, #3864-1997
+  6632, #10540-3908
+  8389, #8935-546
+  1907, #4109-2202
+  1516, #999-1483
+  385 #UCOP+ANR
+)
+acad_staff_pops <- data.frame(
+  campus,
+  numAcademicStaff
+)
+```
+
+Likewise, counting up the non-academic staff, I am excluding the "student staff" category.
+```{r}
+numNonacademicStaff <- c(
+  9116, #14557-5441
+  23364, #29013-5649
+  19991, #23115-3124
+  38916, #44446-5530 ASUCLA+UCLA
+  1407, #2754-1347
+  3324, #5802-2478
+  25792, #29862-4070
+  29585, #29792-207
+  3631, #7086-3455
+  2998, #5350-2352
+  3026 #3053-27 UCOP+ANR
+)
+non_acad_staff_pops <- data.frame(
+  campus,
+  numNonacademicStaff
+)
+```
+
+## Get UC data into one data frame
+
+Now get the total population of each campus (roughly estimated).
+```{r}
+merged <- merge(
+  merge(student_pops, acad_staff_pops, by = "campus", all = TRUE),
+  non_acad_staff_pops,
+  by = "campus",
+  all = TRUE
+)
+
+merged$total <- rowSums(merged[, -1], na.rm = TRUE) #ignore campus column
+
+merged
+```
+
+```{r}
+total_pops <- merged[,-c(2,3,4)]
+```
+
+## Combine survey data with the UC workforce/enrollment data
+
+```{r}
+final_data <- merge(campus_counts, total_pops, by = "campus", all = TRUE)
+final_data
+```
+
+We had no respondents from UC Riverside. Let's change that NA to 0.
+
+```{r}
+final_data[is.na(final_data)] <- 0
+```
+
+Sort and reorder factor levels
+
+```{r}
+final_data <- final_data[order(-final_data$total), ]
+final_data$campus <- factor(final_data$campus, levels=final_data$campus)
+final_data
+```
+
+Let's create a trend line and show the R squared.
+
+```{r}
+fit <- lm(respondents ~ total, data = final_data)
+r_sq <- summary(fit)$r.squared
+
+# Format the text so it looks nice in the plot
+# Using "==" tells ggplot to format it as a proper math equation
+r_label <- sprintf("R^2 == %.3f", r_sq)
+```
+
+By default, the data are very spread out across the plot so it's hard to take in the whole dataset. I'll zoom out to make the dataset easier to see. Here I'll adjust the amount of padding I want to add to the x and y axes.
+
+```{r}
+pad_prop <- 0.15 
+
+# Calculate the maximums and add the padding proportion
+max_x <- max(final_data$total) * (1 + pad_prop)
+max_y <- max(final_data$respondents) * (1 + pad_prop)
+```
+
+```{r fig.width=9, fig.height=8}
+final_plot <- ggplot(final_data, aes(x = total, y = respondents)) +
+  geom_point(color = "#651FFF", size = 2) +
+  scale_x_continuous(labels = label_comma()) + # Add commas to x-axis
+  geom_smooth(method = "lm", se = FALSE, color = "black", linewidth = 0.5) +
+
+  annotate(
+    "text",
+    x = max_x,
+    y = max_y,
+    label = r_label,
+    parse = TRUE, # Turns "R^2 ==" into actual math formatting
+    hjust = 1, # Right-aligns the text
+    vjust = 1, # Top-aligns the text
+    size = 5
+  ) +
+
+  # Add campus labels
+  ggrepel::geom_text_repel(
+    aes(label = campus),
+    size = 2.4,
+    box.padding = 0.5,
+    point.padding = 0.5,
+    segment.color = "grey50"
+  ) +
+
+  theme(
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    axis.text.x = element_text(angle = 60, vjust = 0.6, size = 6),
+    axis.text.y = element_text(size = 6),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    legend.title = element_blank(),
+    plot.title = element_text(
+      hjust = 0,
+      face = "bold",
+      size = 11,
+      margin = margin(b = 5)
+    ),
+    plot.margin = unit(c(0.3, 0.3, 0.3, 0.9), "cm"),
+    panel.grid = element_line(linetype = "solid", color = "gray90"),
+    panel.background = element_blank()
+  ) +
+
+  labs(
+    title = "Number of respondents vs. campus population size",
+    x = "Population size (staff + students)",
+    y = "Number of survey respondents"
+  ) +
+  # Pass the calculated limits into coord_cartesian
+  coord_cartesian(xlim = c(0, max_x), ylim = c(0, max_y))
+
+  final_plot
+```
+
+```{r}
+ggsave(
+  filename = file.path(FIGURE_PATH, "response_campus_corr.tif"),
+  plot = final_plot,
+  device = "tiff",
+  width = 5.2, height = 5, units = "in",
+  dpi = 310,                
+  compression = "none",    
+  bg = "white"
+)
+```
