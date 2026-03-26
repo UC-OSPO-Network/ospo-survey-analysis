@@ -1,0 +1,40 @@
+{
+    "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
+    "type": "SoftwareSourceCode",
+    "applicationCategory": "Social Sciences",
+    "author": [
+        {
+            "id": "https://orcid.org/0000-0002-4156-2849",
+            "type": "Person",
+            "affiliation": {
+                "type": "Organization",
+                "name": "University of California Santa Barbara Library"
+            },
+            "email": "virginia.t.scarlett@gmail.com",
+            "familyName": "Scarlett",
+            "givenName": "Virginia"
+        }
+    ],
+    "codeRepository": "https://github.com/UC-OSPO-Network/ospo-survey-analysis",
+    "dateCreated": "2025-03-10",
+    "datePublished": "2026-03-18",
+    "description": "Scripts for analysis of data from the 2025 multi-campus UC open source survey, Scarlett et al. 2026.",
+    "funder": {
+        "type": "Organization",
+        "name": "Alfred P. Sloan Foundation"
+    },
+    "identifier": "https://doi.org/10.5281/zenodo.17783102",
+    "keywords": [
+        "higher education",
+        "open science",
+        "open source software",
+        "OSPO",
+        "survey research"
+    ],
+    "license": "https://spdx.org/licenses/BSD-3-Clause",
+    "name": "Analysis pipeline for 2025 UC OSPO Survey",
+    "programmingLanguage": "R",
+    "developmentStatus": "unsupported",
+    "funding": "\"Building an OSPO Network at the University of California\" G-2024-22424",
+    "referencePublication": "https://doi.org/10.31235/osf.io/p8bx6_v1"
+}

@@ -8,8 +8,8 @@ This repository contains the complete analysis workflows for the paper "A
 System-wide Snapshot: A Multi-Campus Survey of Open Source Contributors at the
 University of California". We may make little tweaks if changes are requested,
 but this repository is no longer under active development. For the final
-"snapshot" of this repository at time of submission, see ZENODO LINK (COMING
-SOON).
+"snapshot" of this repository at time of submission, see
+https://doi.org/10.5281/zenodo.17783102.
 
 ## Citation
 
@@ -35,7 +35,7 @@ to open source and the barriers they face.
   dataset in Dryad.
 - **Data:** The de-identified survey data used for this analysis is not stored
   in this repository. It is permanently archived in Dryad at:
-  > COMING SOON
+  > [https://doi.org/10.5061/dryad.2280gb662](https://doi.org/10.5061/dryad.2280gb662)
 
 ## Reproducing the Analysis
 
