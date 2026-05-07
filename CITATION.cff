@@ -1,0 +1,35 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Analysis pipeline for 2025 UC OSPO Survey
+message: >-
+  Scripts for analysis of data from the 2025 multi-campus UC
+  open source survey, Scarlett et al. 2026.
+type: software
+authors:
+  - given-names: Virginia
+    family-names: Scarlett
+    email: virginiascarlett@ucsb.edu
+    affiliation: 'University of California, Santa Barbara'
+    orcid: 'https://orcid.org/0000-0002-4156-2849'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.17783102
+    description: Snapshot of code at time of publication
+repository-code: 'https://github.com/UC-OSPO-Network/ospo-survey-analysis/'
+abstract: >-
+  The University of California (UC) OSPO Network is working
+  to develop infrastructure for open source education,
+  discovery, and sustainability at UC. To develop our
+  strategic priorities and assess the state of UC open
+  source, we conducted a survey in April 2025 of 294
+  UC-affiliated open source contributors. This repository
+  contains the full analysis workflow used to clean,
+  explore, and visualize the survey data, which sheds light
+  on how and why academics contribute to open source and the
+  barriers they face. This repository contains the complete
+  analysis workflows for the paper "A System-wide Snapshot:
+  A Multi-Campus Survey of Open Source Contributors at the
+  University of California", published in PLOS One, 2026.
+license: BSD-3-Clause
