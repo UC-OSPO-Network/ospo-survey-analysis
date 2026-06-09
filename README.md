@@ -15,7 +15,17 @@ https://doi.org/10.5281/zenodo.17783102.
 
 Please cite this paper if you use this code or data:
 
-> COMING SOON!
+> Scarlett VT, Curty RG, Gomez J, Langdon L, Janée G, et al. (2026) A
+> system-wide snapshot: A multi-campus survey of open source contributors at the
+> University of California. PLOS ONE 21(6): e0348894.
+> https://doi.org/10.1371/journal.pone.0348894
+
+Citation of the code itself is also welcome. See the CITATION.cff file, or
+consider citing like this:
+
+> Scarlett, Virginia. "Analysis pipeline for 2025 UC OSPO Survey". commit
+> [commit hash], [Release date of the commit you are using.].
+> doi:10.5281/zenodo.17783101
 
 ## Background
 
