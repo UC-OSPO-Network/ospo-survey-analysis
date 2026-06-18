@@ -11,10 +11,10 @@ Hindsight is 20/20…
 - I think we should have made the survey longer. Some of the pre-testers made
   comments to this effect. We could incorporate some of the questions from
   [this study](https://doi.org/10.7717/peerj-cs.963).
-- If we had known that this would be such a popular solution, I think we would
-  have asked more questions about what people need from their computing
-  infrastructure. More GPUs? More storage? JupyterHub? More documentation for
-  their on-campus cluster?
+- If we had known that computing infrastructure would be such a popular
+  solution, I think we would have asked more questions about what people need.
+  More GPUs? More storage? JupyterHub? More documentation for their on-campus
+  cluster?
 - Make sure that the user experience is good for non-contributors, aspiring
   contributors, and non-UC. We got more of these folks than I expected, so I
   wasn’t really paying close attention to the UX for those groups.
@@ -91,6 +91,8 @@ Hindsight is 20/20…
   - A private or institutional git server (Not sure if they were thinking about
     open, public code, but 4 people wrote this in)
   - Also no one chose Vivli, maybe remove that one
+  - Software Heritage also has a good list of forges
+    (https://archive.softwareheritage.org/, may take a moment to load)
   - Remove the “multiple answers should be comma separated”?
 - Maybe separate Q8 into separate Qs for software and hardware. If someone has
   contributed to hardware projects and they select “zenodo”, we don’t know if
@@ -117,12 +119,16 @@ Hindsight is 20/20…
   comma-separated” part.
 - Consider something like “not knowing where to contribute” as a barrier for
   aspiring contributors.
-- Instead of asking participants to write in their academic discipline, ask them
-  to choose their tier three discipline from the three tiered digital commons
-  taxonomy: https://digitalcommons.elsevier.com/en_US/dc-disciplines-taxonomy. I
-  would recommend, however, that we make the following substitution: 1017,
-  “Artificial Intelligence and Robotics”, should be replaced with “Artificial
-  Intelligence and Machine Learning”. Robotics is represented on its own
-  elsewhere. AI is not.
+- Q17: Use the broad disciplines that are already used on the UC Information
+  Center, for weighting purposes:
+  https://www.universityofcalifornia.edu/about-uc/information-center
+- Q18: Instead of asking participants to write in their academic discipline, ask
+  them to choose their tier three discipline from the three tiered digital
+  commons taxonomy:
+  https://digitalcommons.elsevier.com/en_US/dc-disciplines-taxonomy. I would
+  recommend, however, that we make the following substitution: 1017, “Artificial
+  Intelligence and Robotics”, should be replaced with “Artificial Intelligence
+  and Machine Learning”. Robotics is represented on its own elsewhere. AI is
+  not.
 - To Q19, staff work areas, add “Business Systems Analyst”. 2 people wrote this
   in.
