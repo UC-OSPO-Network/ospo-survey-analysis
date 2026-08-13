@@ -17,7 +17,7 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.17783102
     description: Snapshot of code at time of publication
-repository-code: 'https://github.com/UC-OSPO-Network/ospo-survey-analysis/'
+repository-code: 'https://doi.org/10.5281/zenodo.17783102'
 abstract: >-
   The University of California (UC) OSPO Network is working
   to develop infrastructure for open source education,
